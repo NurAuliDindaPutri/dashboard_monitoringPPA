@@ -108,7 +108,9 @@ function DonutRing({ label, actual, target, isGood }) {
 // ===========================================================================
 function DashboardAllSite() {
     // ── State filter ──────────────────────────────────────────────────────
-    const [siteId, setSiteId] = useState('');         // '' = semua site
+    // Catatan: filter Site sengaja tidak ada di halaman ini — Dashboard All Site
+    // selalu menampilkan ringkasan seluruh site. Untuk melihat data 1 site
+    // tertentu, gunakan Dashboard Per Site.
     const [month, setMonth] = useState(DEFAULT_MONTH);
     const [year, setYear] = useState(DEFAULT_YEAR);
 
@@ -141,7 +143,6 @@ function DashboardAllSite() {
     // ── Fetch data yang tergantung filter ─────────────────────────────────
     const fetchDashboardData = useCallback(() => {
         const params = {
-            ...(siteId ? { site_id: siteId } : {}),
             period_year: year,
             period_month: month,
         };
@@ -162,11 +163,11 @@ function DashboardAllSite() {
 
         // Pending Supply
         setLoadingSupply(true);
-        getPendingSupply(siteId ? { site_id: siteId } : {})
+        getPendingSupply({})
             .then((data) => setSupplyRows(data ?? []))
             .catch(() => setSupplyRows([]))
             .finally(() => setLoadingSupply(false));
-    }, [siteId, month, year]);
+    }, [month, year]);
 
     useEffect(() => {
         fetchDashboardData();
@@ -175,12 +176,12 @@ function DashboardAllSite() {
     // ── Fetch tren KPI 1 tahun penuh (endpoint sama, tanpa filter bulan) ──
     useEffect(() => {
         setLoadingTrend(true);
-        const params = { ...(siteId ? { site_id: siteId } : {}), period_year: year };
+        const params = { period_year: year };
         getKpiSummary(params)
             .then((data) => setKpiYearRows(data ?? []))
             .catch(() => setKpiYearRows([]))
             .finally(() => setLoadingTrend(false));
-    }, [siteId, year]);
+    }, [year]);
 
     // ── Derived data ──────────────────────────────────────────────────────
     const kpiSummary = aggregateKpiSummary(kpiRows);
@@ -252,16 +253,15 @@ function DashboardAllSite() {
                 </div>
             )}
 
-            {/* Filter Bar (Site, Month, Year) */}
+            {/* Filter Bar — hanya Bulan & Tahun; filter Site sengaja dihapus
+                karena halaman ini selalu menampilkan ringkasan seluruh site.
+                Untuk melihat 1 site tertentu, gunakan Dashboard Per Site. */}
             <FilterBar
-                sites={loadingSites ? [] : sites}
-                siteId={siteId}
                 month={month}
                 year={year}
-                onSiteChange={setSiteId}
                 onMonthChange={setMonth}
                 onYearChange={setYear}
-                showSiteFilter={true}
+                showSiteFilter={false}
                 showMonthFilter={true}
                 showYearFilter={true}
             />
@@ -299,10 +299,10 @@ function DashboardAllSite() {
                 <div className="d-flex align-items-center justify-content-between mb-3">
                     <div>
                         <h6 className="fw-semibold mb-0" style={{ color: 'var(--color-text-primary)' }}>
-                            Ringkasan KPI Per Site
+                            Ringkasan KPI Per Site — Status Pencapaian Target
                         </h6>
                         <small className="text-secondary">
-                            Status pencapaian Readiness, Availability VHS &amp; Lead Time Supply per site pada periode terpilih
+                            Menunjukkan apakah tiap site sudah <strong>memenuhi target</strong> Readiness, Availability VHS &amp; Lead Time Supply pada periode terpilih (bukan perbandingan besaran nilai).
                         </small>
                     </div>
                 </div>
@@ -364,7 +364,7 @@ function DashboardAllSite() {
             <div className="row g-3 mb-4">
                 <div className="col-12 col-lg-6">
                     <ChartCard
-                        title="Perbandingan KPI Antar Site (%)"
+                        title="Perbandingan KPI Antar Site (%) — Nilai Aktual"
                         type="bar"
                         data={kpiPerSiteChartData}
                         xKey="site"
@@ -376,6 +376,9 @@ function DashboardAllSite() {
                         loading={loadingKpi}
                         height={280}
                     />
+                    <small className="text-muted d-block mt-2">
+                        Membandingkan <strong>besaran nilai aktual</strong> antar site pada periode terpilih (bukan status pencapaian target — lihat bagian di atas untuk itu).
+                    </small>
                 </div>
                 <div className="col-12 col-lg-6">
                     <ChartCard
@@ -391,6 +394,9 @@ function DashboardAllSite() {
                         loading={loadingTrend}
                         height={280}
                     />
+                    <small className="text-muted d-block mt-2">
+                        Menampilkan tren KPI selama satu tahun penuh berdasarkan tahun terpilih. Filter bulan tidak memengaruhi grafik ini.
+                    </small>
                 </div>
             </div>
 

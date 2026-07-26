@@ -1,4 +1,3 @@
-
 /**
  * aggregate.js
  * Kumpulan fungsi untuk mengolah data mentah dari API menjadi
@@ -6,6 +5,35 @@
  */
 
 import { MONTHS } from './constants';
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Tentukan key & label unik untuk satu site dari sebuah baris data, dengan aman.
+ * - Jika site_id kosong tapi site_code ada, gunakan site_code sebagai fallback.
+ * - Jika site_id dan site_code sama-sama kosong, baris dianggap tidak valid (return null)
+ *   sehingga baris tsb bisa di-skip oleh pemanggil, dan tidak pernah muncul label
+ *   "Site undefined" di UI.
+ *
+ * @param {object} row Baris data yang punya field site_id / site_code
+ * @returns {{ key: string|number, label: string }|null}
+ */
+function resolveSiteIdentity(row) {
+    const rawSiteId = row?.site_id;
+    const rawSiteCode = row?.site_code;
+
+    const hasSiteId = rawSiteId !== null && rawSiteId !== undefined && rawSiteId !== '';
+    const hasSiteCode = rawSiteCode !== null && rawSiteCode !== undefined && rawSiteCode !== '';
+
+    if (!hasSiteId && !hasSiteCode) return null;
+
+    return {
+        key: hasSiteId ? rawSiteId : rawSiteCode,
+        label: hasSiteCode ? rawSiteCode : String(rawSiteId),
+    };
+}
 
 // ---------------------------------------------------------------------------
 // KPI Summary helpers
@@ -213,10 +241,13 @@ export function buildKpiPerSiteChart(kpiRows) {
 
     const map = new Map();
     for (const row of kpiRows) {
-        const key = row.site_id;
+        const identity = resolveSiteIdentity(row);
+        if (!identity) continue; // site_id & site_code sama-sama kosong -> skip
+
+        const { key, label } = identity;
         if (!map.has(key)) {
             map.set(key, {
-                site: row.site_code || `Site ${row.site_id}`,
+                site: label,
                 rows: [],
             });
         }
@@ -249,11 +280,14 @@ export function buildKpiSummaryPerSite(kpiRows) {
 
     const map = new Map();
     for (const row of kpiRows) {
-        const key = row.site_id;
+        const identity = resolveSiteIdentity(row);
+        if (!identity) continue; // site_id & site_code sama-sama kosong -> skip
+
+        const { key, label } = identity;
         if (!map.has(key)) {
             map.set(key, {
-                site_id: row.site_id,
-                site_code: row.site_code || `Site ${row.site_id}`,
+                site_id: row.site_id ?? null,
+                site_code: label,
                 site_name: row.site_name || '',
                 rows: [],
             });
@@ -374,10 +408,13 @@ export function buildUnitPerformanceBySite(perfRows) {
 
     const map = new Map();
     for (const row of perfRows) {
-        const key = row.site_id;
+        const identity = resolveSiteIdentity(row);
+        if (!identity) continue; // site_id & site_code sama-sama kosong -> skip
+
+        const { key, label } = identity;
         if (!map.has(key)) {
             map.set(key, {
-                site_code: row.site_code || `Site ${row.site_id}`,
+                site_code: label,
                 site_name: row.site_name || '',
                 rows: [],
             });
@@ -456,5 +493,3 @@ export function buildAvailabilityTrendChart(perfRows) {
             : null,
     }));
 }
-
-
