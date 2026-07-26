@@ -1,3 +1,4 @@
+
 /**
  * aggregate.js
  * Kumpulan fungsi untuk mengolah data mentah dari API menjadi
@@ -361,8 +362,85 @@ export function buildUnitPerformanceByModel(perfRows) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Bentuk data ringkasan performa unit AGREGAT per site (lintas semua model
+ * di site tsb). Dipakai Dashboard All Site untuk membandingkan performa
+ * unit antar-site tanpa merinci ke level model.
+ *
+ * @param {Array<object>} perfRows Baris dari /api/unit-performance
+ * @returns {Array<{ site_code: string, site_name: string, physical_availability: number|null, unit_availability: number|null, mtbf: number|null, mttr: number|null }>}
+ */
+export function buildUnitPerformanceBySite(perfRows) {
+    if (!perfRows || perfRows.length === 0) return [];
+
+    const map = new Map();
+    for (const row of perfRows) {
+        const key = row.site_id;
+        if (!map.has(key)) {
+            map.set(key, {
+                site_code: row.site_code || `Site ${row.site_id}`,
+                site_name: row.site_name || '',
+                rows: [],
+            });
+        }
+        map.get(key).rows.push(row);
+    }
+
+    return Array.from(map.values()).map(({ site_code, site_name, rows }) => {
+        const paAvg = safeAvg(rows.map((r) => r.physical_availability));
+        const uaAvg = safeAvg(rows.map((r) => r.unit_availability));
+        const mtbfAvg = safeAvg(rows.map((r) => r.mtbf));
+        const mttrAvg = safeAvg(rows.map((r) => r.mttr));
+
+        return {
+            site_code,
+            site_name,
+            physical_availability: paAvg !== null ? parseFloat((paAvg * 100).toFixed(1)) : null,
+            unit_availability: uaAvg !== null ? parseFloat((uaAvg * 100).toFixed(1)) : null,
+            mtbf: mtbfAvg !== null ? parseFloat(mtbfAvg.toFixed(1)) : null,
+            mttr: mttrAvg !== null ? parseFloat(mttrAvg.toFixed(1)) : null,
+        };
+    });
+}
+
+/**
+ * Agregasi data kpi-summary (lintas seluruh site atau site terpilih) menjadi
+ * tren per bulan untuk chart. Nilai actual dikonversi ke persen (0-100).
+ * Dipakai Dashboard All Site untuk "tren bulanan seluruh site".
+ *
+ * @param {Array<object>} kpiRows Baris dari /api/kpi-summary (biasanya hasil query 1 tahun penuh, tanpa filter bulan)
+ * @returns {Array<{ month: string, Readiness: number|null, Availability: number|null, 'Lead Time': number|null }>}
+ */
+export function aggregateKpiByMonth(kpiRows) {
+    if (!kpiRows || kpiRows.length === 0) return [];
+
+    const map = new Map();
+    for (const row of kpiRows) {
+        const key = `${row.period_year}-${String(row.period_month).padStart(2, '0')}`;
+        if (!map.has(key)) {
+            map.set(key, { year: row.period_year, monthNum: row.period_month, rows: [] });
+        }
+        map.get(key).rows.push(row);
+    }
+
+    return Array.from(map.values())
+        .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.monthNum - b.monthNum))
+        .map(({ monthNum, rows }) => {
+            const label = MONTHS.find((m) => m.value === Number(monthNum))?.label ?? monthNum;
+            const readyness = safeAvg(rows.map((r) => r.readyness_actual));
+            const availability = safeAvg(rows.map((r) => r.availability_actual));
+            const leadtime = safeAvg(rows.map((r) => r.leadtime_actual));
+            return {
+                month: label,
+                Readiness: readyness !== null ? parseFloat((readyness * 100).toFixed(1)) : null,
+                Availability: availability !== null ? parseFloat((availability * 100).toFixed(1)) : null,
+                'Lead Time': leadtime !== null ? parseFloat((leadtime * 100).toFixed(1)) : null,
+            };
+        });
+}
+
+/**
  * Bentuk data untuk line chart tren availability per bulan.
- * Nilai dikonversi ke persen (0–100).
+ * Nilai dikonversi ke persen (0-100).
  *
  * @param {Array<object>} perfRows
  * @returns {Array<{ month: string, 'PA (%)': number|null, 'UA (%)': number|null }>}
@@ -378,4 +456,5 @@ export function buildAvailabilityTrendChart(perfRows) {
             : null,
     }));
 }
+
 

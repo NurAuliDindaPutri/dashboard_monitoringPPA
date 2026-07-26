@@ -16,14 +16,14 @@ import DataTable from '../../components/common/DataTable';
 // ── Utils ───────────────────────────────────────────────────────────────────
 import {
     aggregateKpiSummary,
-    aggregatePerfByUnit,
     countUnits,
     countPendingSupply,
     sumPendingQty,
     buildKpiSummaryPerSite,
-    buildUnitPerformanceByModel,
+    buildKpiPerSiteChart,
+    buildUnitPerformanceBySite,
+    aggregateKpiByMonth,
 } from '../../utils/aggregate';
-import { formatNumber } from '../../utils/kpiStatus';
 
 // ── Inisialisasi filter default ─────────────────────────────────────────────
 const NOW = new Date();
@@ -111,19 +111,20 @@ function DashboardAllSite() {
     const [siteId, setSiteId] = useState('');         // '' = semua site
     const [month, setMonth] = useState(DEFAULT_MONTH);
     const [year, setYear] = useState(DEFAULT_YEAR);
-    const [selectedModelFilter, setSelectedModelFilter] = useState('ALL');
 
     // ── State data ────────────────────────────────────────────────────────
     const [sites, setSites] = useState([]);
     const [kpiRows, setKpiRows] = useState([]);
     const [perfRows, setPerfRows] = useState([]);
     const [supplyRows, setSupplyRows] = useState([]);
+    const [kpiYearRows, setKpiYearRows] = useState([]); // 1 tahun penuh, tanpa filter bulan - untuk tren
 
     // ── State loading per endpoint ────────────────────────────────────────
     const [loadingSites, setLoadingSites] = useState(true);
     const [loadingKpi, setLoadingKpi] = useState(true);
     const [loadingPerf, setLoadingPerf] = useState(true);
     const [loadingSupply, setLoadingSupply] = useState(true);
+    const [loadingTrend, setLoadingTrend] = useState(true);
 
     // ── State error ───────────────────────────────────────────────────────
     const [error, setError] = useState(null);
@@ -171,82 +172,26 @@ function DashboardAllSite() {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
+    // ── Fetch tren KPI 1 tahun penuh (endpoint sama, tanpa filter bulan) ──
+    useEffect(() => {
+        setLoadingTrend(true);
+        const params = { ...(siteId ? { site_id: siteId } : {}), period_year: year };
+        getKpiSummary(params)
+            .then((data) => setKpiYearRows(data ?? []))
+            .catch(() => setKpiYearRows([]))
+            .finally(() => setLoadingTrend(false));
+    }, [siteId, year]);
+
     // ── Derived data ──────────────────────────────────────────────────────
     const kpiSummary = aggregateKpiSummary(kpiRows);
     const siteKpiSummaryList = buildKpiSummaryPerSite(kpiRows);
-    const unitPerfByModel = buildUnitPerformanceByModel(perfRows);
+    const kpiPerSiteChartData = buildKpiPerSiteChart(kpiRows);
+    const unitPerfBySite = buildUnitPerformanceBySite(perfRows);
+    const monthlyTrendData = aggregateKpiByMonth(kpiYearRows);
 
-    const unitRows = aggregatePerfByUnit(perfRows);
     const totalUnits = countUnits(perfRows);
     const totalPending = countPendingSupply(supplyRows);
     const totalPendingQty = sumPendingQty(supplyRows);
-
-    const availableModels = ['ALL', ...unitPerfByModel.map((m) => m.model_name)];
-    const filteredModels = selectedModelFilter === 'ALL'
-        ? unitPerfByModel
-        : unitPerfByModel.filter((m) => m.model_name === selectedModelFilter);
-
-    // ── Definisi kolom tabel unit performance ─────────────────────────────
-    const unitColumns = [
-        { key: 'site_code', label: 'Site', align: 'left' },
-        { key: 'model_name', label: 'Model Unit', align: 'left' },
-        {
-            key: 'physical_availability',
-            label: 'PA (%)',
-            align: 'center',
-            render: (row) => {
-                const val = row.physical_availability;
-                if (val === null || val === undefined) return <span className="text-muted">-</span>;
-                const pct = (val * 100).toFixed(1);
-                const color = val >= 0.98 ? '#16a34a' : val >= 0.95 ? '#d97706' : '#dc2626';
-                return (
-                    <span className="badge rounded-pill" style={{ backgroundColor: `${color}1A`, color }}>
-                        {pct}%
-                    </span>
-                );
-            },
-        },
-        {
-            key: 'unit_availability',
-            label: 'UA (%)',
-            align: 'center',
-            render: (row) => {
-                const val = row.unit_availability;
-                if (val === null || val === undefined) return <span className="text-muted">-</span>;
-                const pct = (val * 100).toFixed(1);
-                const color = val >= 0.98 ? '#16a34a' : val >= 0.95 ? '#d97706' : '#dc2626';
-                return (
-                    <span className="badge rounded-pill" style={{ backgroundColor: `${color}1A`, color }}>
-                        {pct}%
-                    </span>
-                );
-            },
-        },
-        {
-            key: 'mtbf',
-            label: 'MTBF (jam)',
-            align: 'right',
-            render: (row) => formatNumber(row.mtbf),
-        },
-        {
-            key: 'mttr',
-            label: 'MTTR (jam)',
-            align: 'right',
-            render: (row) => formatNumber(row.mttr),
-        },
-        {
-            key: 'productivity',
-            label: 'Produktivitas',
-            align: 'right',
-            render: (row) => formatNumber(row.productivity),
-        },
-        {
-            key: 'fuel_consumption',
-            label: 'Fuel (L)',
-            align: 'right',
-            render: (row) => formatNumber(row.fuel_consumption, 0),
-        },
-    ];
 
     // ── Definisi kolom tabel pending supply ───────────────────────────────
     const supplyColumns = [
@@ -271,7 +216,7 @@ function DashboardAllSite() {
         { key: 'remarks', label: 'Keterangan', align: 'left' },
     ];
 
-    const isLoadingAll = loadingKpi || loadingPerf || loadingSupply;
+    const isLoadingAll = loadingKpi || loadingPerf || loadingSupply || loadingTrend;
 
     return (
         <div>
@@ -282,7 +227,7 @@ function DashboardAllSite() {
                         Dashboard All Site
                     </h4>
                     <p className="text-secondary mb-0" style={{ fontSize: '0.875rem' }}>
-                        Monitoring performa site, ringkasan KPI, dan ketersediaan unit per model.
+                        Ringkasan performa seluruh site, KPI utama, dan perbandingan antar-site.
                     </p>
                 </div>
                 {isLoadingAll && (
@@ -415,170 +360,57 @@ function DashboardAllSite() {
                 )}
             </div>
 
-            {/* ── 4. Bagian Performa Unit Berdasarkan Model Unit ─────────── */}
-            <div className="app-card p-3 mb-4">
-                <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-                    <div>
-                        <h6 className="fw-semibold mb-0" style={{ color: 'var(--color-text-primary)' }}>
-                            Performa Unit Per Model
-                        </h6>
-                        <small className="text-secondary">
-                            Metric Physical Availability, MTBF, MTTR, Unit Availability, Productivity &amp; Fuel per model unit (Site = Sumbu X)
-                        </small>
-                    </div>
-
-                    {/* Filter Tab Model Unit */}
-                    {availableModels.length > 1 && (
-                        <div className="btn-group btn-group-sm flex-wrap" role="group">
-                            {availableModels.map((m) => (
-                                <button
-                                    key={m}
-                                    type="button"
-                                    className={`btn ${selectedModelFilter === m ? 'btn-primary' : 'btn-outline-secondary'}`}
-                                    onClick={() => setSelectedModelFilter(m)}
-                                >
-                                    {m === 'ALL' ? 'Semua Model' : m}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+            {/* ── 4. Perbandingan & Tren Seluruh Site (agregat, bukan per-model) ── */}
+            <div className="row g-3 mb-4">
+                <div className="col-12 col-lg-6">
+                    <ChartCard
+                        title="Perbandingan KPI Antar Site (%)"
+                        type="bar"
+                        data={kpiPerSiteChartData}
+                        xKey="site"
+                        series={[
+                            { key: 'readyness', label: 'Readiness', color: '#1a56db' },
+                            { key: 'availability', label: 'Availability VHS', color: '#16a34a' },
+                            { key: 'leadtime', label: 'Lead Time Supply', color: '#d97706' },
+                        ]}
+                        loading={loadingKpi}
+                        height={280}
+                    />
                 </div>
+                <div className="col-12 col-lg-6">
+                    <ChartCard
+                        title="Tren Bulanan KPI Seluruh Site (%)"
+                        type="line"
+                        data={monthlyTrendData}
+                        xKey="month"
+                        series={[
+                            { key: 'Readiness', label: 'Readiness', color: '#1a56db' },
+                            { key: 'Availability', label: 'Availability VHS', color: '#16a34a' },
+                            { key: 'Lead Time', label: 'Lead Time Supply', color: '#d97706' },
+                        ]}
+                        loading={loadingTrend}
+                        height={280}
+                    />
+                </div>
+            </div>
 
-                {loadingPerf ? (
-                    <div className="placeholder-glow row g-3">
-                        <div className="col-12"><span className="placeholder w-100 rounded" style={{ height: 260 }} /></div>
-                    </div>
-                ) : filteredModels.length === 0 ? (
-                    <div className="text-center py-5 text-muted border rounded">
-                        <i className="bi bi-truck fs-1 text-muted" />
-                        <p className="mb-0 mt-2">Tidak ada data performa unit untuk periode dan filter terpilih</p>
-                    </div>
-                ) : (
-                    filteredModels.map((modelGroup) => (
-                        <div key={modelGroup.model_name} className="mb-4 p-3 border rounded" style={{ backgroundColor: 'var(--color-bg)' }}>
-                            <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
-                                <span className="fw-bold fs-6" style={{ color: 'var(--color-text-primary)' }}>
-                                    <i className="bi bi-gear-wide-connected me-2 text-primary" />
-                                    Model Unit: {modelGroup.model_name}
-                                </span>
-                                <span className="badge bg-secondary">
-                                    {modelGroup.chartData.length} Site Dipantau
-                                </span>
-                            </div>
-
-                            {/* 6 Metric Charts dalam Grid 2x3 atau Responsive Row */}
-                            <div className="row g-3">
-                                {/* 1. Physical Availability */}
-                                <div className="col-12 col-md-6 col-lg-4">
-                                    <ChartCard
-                                        title={`Physical Availability (%) — ${modelGroup.model_name}`}
-                                        type="bar"
-                                        data={modelGroup.chartData}
-                                        xKey="site_code"
-                                        series={[{ key: 'physical_availability', label: 'PA (%)', color: '#1a56db' }]}
-                                        loading={loadingPerf}
-                                        height={220}
-                                    />
-                                </div>
-
-                                {/* 2. Unit Availability */}
-                                <div className="col-12 col-md-6 col-lg-4">
-                                    <ChartCard
-                                        title={`Unit Availability (%) — ${modelGroup.model_name}`}
-                                        type="bar"
-                                        data={modelGroup.chartData}
-                                        xKey="site_code"
-                                        series={[{ key: 'unit_availability', label: 'UA (%)', color: '#16a34a' }]}
-                                        loading={loadingPerf}
-                                        height={220}
-                                    />
-                                </div>
-
-                                {/* 3. MTBF */}
-                                <div className="col-12 col-md-6 col-lg-4">
-                                    <ChartCard
-                                        title={`MTBF (jam) — ${modelGroup.model_name}`}
-                                        type="bar"
-                                        data={modelGroup.chartData}
-                                        xKey="site_code"
-                                        series={[{ key: 'mtbf', label: 'MTBF (jam)', color: '#d97706' }]}
-                                        loading={loadingPerf}
-                                        height={220}
-                                    />
-                                </div>
-
-                                {/* 4. MTTR */}
-                                <div className="col-12 col-md-6 col-lg-4">
-                                    <ChartCard
-                                        title={`MTTR (jam) — ${modelGroup.model_name}`}
-                                        type="bar"
-                                        data={modelGroup.chartData}
-                                        xKey="site_code"
-                                        series={[{ key: 'mttr', label: 'MTTR (jam)', color: '#dc2626' }]}
-                                        loading={loadingPerf}
-                                        height={220}
-                                    />
-                                </div>
-
-                                {/* 5. Productivity (Empty State jika NULL) */}
-                                <div className="col-12 col-md-6 col-lg-4">
-                                    {modelGroup.hasProductivity ? (
-                                        <ChartCard
-                                            title={`Productivity — ${modelGroup.model_name}`}
-                                            type="bar"
-                                            data={modelGroup.chartData}
-                                            xKey="site_code"
-                                            series={[{ key: 'productivity', label: 'Productivity', color: '#0284c7' }]}
-                                            loading={loadingPerf}
-                                            height={220}
-                                        />
-                                    ) : (
-                                        <div className="app-card p-3 h-100 d-flex flex-column justify-content-between">
-                                            <span className="fw-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                                                Productivity — {modelGroup.model_name}
-                                            </span>
-                                            <div className="d-flex flex-column align-items-center justify-content-center text-center my-auto py-3">
-                                                <i className="bi bi-inbox fs-2 text-muted mb-1" />
-                                                <span className="fw-semibold text-secondary small">Data belum tersedia</span>
-                                                <small className="text-muted" style={{ fontSize: '0.75rem' }}>
-                                                    Productivity bernilai NULL pada periode terpilih
-                                                </small>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* 6. Fuel Consumption (Empty State jika NULL) */}
-                                <div className="col-12 col-md-6 col-lg-4">
-                                    {modelGroup.hasFuelConsumption ? (
-                                        <ChartCard
-                                            title={`Fuel Consumption (L) — ${modelGroup.model_name}`}
-                                            type="bar"
-                                            data={modelGroup.chartData}
-                                            xKey="site_code"
-                                            series={[{ key: 'fuel_consumption', label: 'Fuel (L)', color: '#8b5cf6' }]}
-                                            loading={loadingPerf}
-                                            height={220}
-                                        />
-                                    ) : (
-                                        <div className="app-card p-3 h-100 d-flex flex-column justify-content-between">
-                                            <span className="fw-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                                                Fuel Consumption — {modelGroup.model_name}
-                                            </span>
-                                            <div className="d-flex flex-column align-items-center justify-content-center text-center my-auto py-3">
-                                                <i className="bi bi-fuel-pump fs-2 text-muted mb-1" />
-                                                <span className="fw-semibold text-secondary small">Data belum tersedia</span>
-                                                <small className="text-muted" style={{ fontSize: '0.75rem' }}>
-                                                    Fuel Consumption bernilai NULL pada periode terpilih
-                                                </small>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ))
-                )}
+            {/* ── Ringkasan Agregat Performa Unit per Site (bukan per model) ── */}
+            <div className="mb-4">
+                <ChartCard
+                    title="Ringkasan Performa Unit Antar Site — Rata-rata PA & UA (%)"
+                    type="bar"
+                    data={unitPerfBySite}
+                    xKey="site_code"
+                    series={[
+                        { key: 'physical_availability', label: 'Physical Availability (%)', color: '#1a56db' },
+                        { key: 'unit_availability', label: 'Unit Availability (%)', color: '#16a34a' },
+                    ]}
+                    loading={loadingPerf}
+                    height={280}
+                />
+                <small className="text-muted d-block mt-2">
+                    Rata-rata seluruh model unit di tiap site. Detail per model unit tersedia di Dashboard Per Site.
+                </small>
             </div>
 
             {/* ── 5. Ringkasan Tambahan (KPI Cards Operational & Pending Supply) ── */}
@@ -628,18 +460,7 @@ function DashboardAllSite() {
                 </div>
             </div>
 
-            {/* ── 6. Tabel Detail Performa Unit & Pending Supply ─────────── */}
-            <div className="mb-3">
-                <DataTable
-                    title={`Performa Unit Detail — ${totalUnits} unit terpantau`}
-                    columns={unitColumns}
-                    data={unitRows}
-                    loading={loadingPerf}
-                    emptyMessage="Tidak ada data performa unit untuk filter yang dipilih"
-                    rowKey="unit_model_id"
-                />
-            </div>
-
+            {/* ── 6. Tabel Pending Supply Seluruh Site ─────────────────── */}
             <div className="mb-3">
                 <DataTable
                     title={`Pending Supply Detail — ${totalPending} item (${totalPendingQty} pcs)`}

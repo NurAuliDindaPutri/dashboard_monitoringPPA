@@ -14,6 +14,7 @@ import DataTable from '../../components/common/DataTable';
 import {
     aggregateKpiSummary,
     aggregatePerfByMonth,
+    aggregatePerfByUnit,
     countUnits,
     countPendingSupply,
     sumPendingQty,
@@ -115,6 +116,20 @@ function DashboardPerSite() {
         MTBF: p.mtbf !== null ? parseFloat(p.mtbf.toFixed(1)) : null,
         MTTR: p.mttr !== null ? parseFloat(p.mttr.toFixed(1)) : null,
     }));
+
+    // Performa unit per model (site ini saja) - relokasi dari Dashboard All Site,
+    // di sini sumbu X adalah model_name karena konteksnya sudah 1 site.
+    const unitByModel = aggregatePerfByUnit(perfRows).map((u) => ({
+        model_name: u.model_name,
+        physical_availability: u.physical_availability !== null ? parseFloat((u.physical_availability * 100).toFixed(1)) : null,
+        unit_availability: u.unit_availability !== null ? parseFloat((u.unit_availability * 100).toFixed(1)) : null,
+        mtbf: u.mtbf !== null ? parseFloat(u.mtbf.toFixed(1)) : null,
+        mttr: u.mttr !== null ? parseFloat(u.mttr.toFixed(1)) : null,
+        productivity: u.productivity !== null ? parseFloat(u.productivity.toFixed(1)) : null,
+        fuel_consumption: u.fuel_consumption !== null ? parseFloat(u.fuel_consumption.toFixed(1)) : null,
+    }));
+    const hasProductivity = unitByModel.some((u) => u.productivity !== null && u.productivity > 0);
+    const hasFuelConsumption = unitByModel.some((u) => u.fuel_consumption !== null && u.fuel_consumption > 0);
 
     // Info site terpilih
     const selectedSite = sites.find((s) => String(s.id) === String(siteId));
@@ -368,6 +383,95 @@ function DashboardPerSite() {
                                 loading={loadingPerf}
                                 height={260}
                             />
+                        </div>
+                    </div>
+
+                    {/* ── Performa Unit per Model (relokasi dari Dashboard All Site) ── */}
+                    <div className="mb-3">
+                        <h6 className="fw-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                            Performa Unit per Model
+                        </h6>
+                        <div className="row g-3">
+                            <div className="col-12 col-lg-6">
+                                <ChartCard
+                                    title="Physical & Unit Availability per Model (%)"
+                                    type="bar"
+                                    data={unitByModel}
+                                    xKey="model_name"
+                                    series={[
+                                        { key: 'physical_availability', label: 'PA (%)', color: '#1a56db' },
+                                        { key: 'unit_availability', label: 'UA (%)', color: '#16a34a' },
+                                    ]}
+                                    loading={loadingPerf}
+                                    height={240}
+                                />
+                            </div>
+                            <div className="col-12 col-lg-6">
+                                <ChartCard
+                                    title="MTBF & MTTR per Model (jam)"
+                                    type="bar"
+                                    data={unitByModel}
+                                    xKey="model_name"
+                                    series={[
+                                        { key: 'mtbf', label: 'MTBF', color: '#d97706' },
+                                        { key: 'mttr', label: 'MTTR', color: '#dc2626' },
+                                    ]}
+                                    loading={loadingPerf}
+                                    height={240}
+                                />
+                            </div>
+                            <div className="col-12 col-lg-6">
+                                {hasProductivity ? (
+                                    <ChartCard
+                                        title="Productivity per Model"
+                                        type="bar"
+                                        data={unitByModel}
+                                        xKey="model_name"
+                                        series={[{ key: 'productivity', label: 'Productivity', color: '#0284c7' }]}
+                                        loading={loadingPerf}
+                                        height={220}
+                                    />
+                                ) : (
+                                    <div className="app-card p-3 h-100 d-flex flex-column justify-content-between">
+                                        <span className="fw-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                                            Productivity per Model
+                                        </span>
+                                        <div className="d-flex flex-column align-items-center justify-content-center text-center my-auto py-3">
+                                            <i className="bi bi-inbox fs-2 text-muted mb-1" />
+                                            <span className="fw-semibold text-secondary small">Data belum tersedia</span>
+                                            <small className="text-muted" style={{ fontSize: '0.75rem' }}>
+                                                Productivity bernilai NULL pada periode terpilih
+                                            </small>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="col-12 col-lg-6">
+                                {hasFuelConsumption ? (
+                                    <ChartCard
+                                        title="Fuel Consumption per Model (L)"
+                                        type="bar"
+                                        data={unitByModel}
+                                        xKey="model_name"
+                                        series={[{ key: 'fuel_consumption', label: 'Fuel (L)', color: '#8b5cf6' }]}
+                                        loading={loadingPerf}
+                                        height={220}
+                                    />
+                                ) : (
+                                    <div className="app-card p-3 h-100 d-flex flex-column justify-content-between">
+                                        <span className="fw-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                                            Fuel Consumption per Model
+                                        </span>
+                                        <div className="d-flex flex-column align-items-center justify-content-center text-center my-auto py-3">
+                                            <i className="bi bi-fuel-pump fs-2 text-muted mb-1" />
+                                            <span className="fw-semibold text-secondary small">Data belum tersedia</span>
+                                            <small className="text-muted" style={{ fontSize: '0.75rem' }}>
+                                                Fuel Consumption bernilai NULL pada periode terpilih
+                                            </small>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
