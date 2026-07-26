@@ -163,7 +163,7 @@ http://localhost/phpmyadmin
 Pastikan database berikut tersedia:
 
 ```text
-monitoring_performance_ppa
+ppa_monitoring
 ```
 
 Database digunakan untuk menyimpan data:
