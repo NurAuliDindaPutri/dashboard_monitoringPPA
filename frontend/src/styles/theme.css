@@ -1,0 +1,123 @@
+:root {
+    /* Palet utama */
+    --color-primary: #1a56db;
+    --color-primary-dark: #133a99;
+    --color-primary-light: #e8f0fe;
+    --color-secondary: #64748b;
+
+    /* Netral */
+    --color-white: #ffffff;
+    --color-bg: #f4f6f9;
+    --color-surface: #ffffff;
+    --color-border: #e2e8f0;
+
+    /* Teks */
+    --color-text-primary: #1e293b;
+    --color-text-secondary: #64748b;
+    --color-text-muted: #94a3b8;
+
+    /* Status */
+    --color-success: #16a34a;
+    --color-warning: #d97706;
+    --color-danger: #dc2626;
+
+    /* Layout */
+    --sidebar-width: 260px;
+    --navbar-height: 64px;
+    --footer-height: 48px;
+
+    /* Efek */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+    --transition-base: all 0.2s ease-in-out;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+    margin: 0;
+}
+
+/* Override warna utama Bootstrap agar konsisten dengan theme */
+.btn-primary {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: var(--color-primary-dark);
+    border-color: var(--color-primary-dark);
+}
+
+.btn-outline-primary {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.text-primary-custom {
+    color: var(--color-primary) !important;
+}
+
+.bg-primary-custom {
+    background-color: var(--color-primary) !important;
+}
+
+/* Card/surface umum */
+.app-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Scrollbar tipis untuk sidebar */
+.thin-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.5);
+    border-radius: 999px;
+}
+
+/* Sidebar links */
+.sidebar-link {
+    color: var(--color-text-secondary);
+    transition: var(--transition-base);
+}
+
+.sidebar-link:hover {
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+}
+
+.sidebar-link-active {
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+/* Sidebar selalu tampil di layar besar (>= 992px) */
+@media (min-width: 992px) {
+    .app-sidebar {
+        transform: translateX(0) !important;
+    }
+
+    .app-main-content {
+        margin-left: var(--sidebar-width);
+    }
+}
