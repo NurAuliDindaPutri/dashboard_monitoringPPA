@@ -1,71 +1,135 @@
 import { NavLink } from 'react-router-dom';
 
 const menuItems = [
-    { label: 'Dashboard All Site', path: '/dashboard-all-site', icon: 'bi-grid-1x2' },
-    { label: 'Dashboard Per Site', path: '/dashboard-per-site', icon: 'bi-pin-map' },
-    { label: 'Input Data', path: '/input-data', icon: 'bi-pencil-square' },
-    { label: 'Data Unit', path: '/data-unit', icon: 'bi-truck' },
-    { label: 'Detail LT Supply', path: '/detail-lt-supply', icon: 'bi-clock-history' },
-    { label: 'Pending Supply', path: '/pending-supply', icon: 'bi-box-seam' },
-    { label: 'Import Excel Bulanan', path: '/import-master-data', icon: 'bi-file-earmark-arrow-up' },
+    {
+        label: 'Dashboard All Site',
+        path: '/dashboard-all-site',
+        icon: 'bi-grid-1x2',
+    },
+    {
+        label: 'Dashboard Per Site',
+        path: '/dashboard-per-site',
+        icon: 'bi-pin-map',
+    },
+    {
+        label: 'Input Data',
+        path: '/input-data',
+        icon: 'bi-pencil-square',
+    },
+    {
+        label: 'Data Unit',
+        path: '/data-unit',
+        icon: 'bi-truck',
+    },
+    {
+        label: 'Detail LT Supply',
+        path: '/detail-lt-supply',
+        icon: 'bi-clock-history',
+    },
+    {
+        label: 'Pending Supply',
+        path: '/pending-supply',
+        icon: 'bi-box-seam',
+    },
+    {
+        label: 'Import Excel Bulanan',
+        path: '/import-master-data',
+        icon: 'bi-file-earmark-arrow-up',
+    },
 ];
 
-function Sidebar({ isOpen, onClose }) {
+function Sidebar({
+    isMobileOpen,
+    onCloseMobile,
+    isCollapsed,
+    onToggleCollapse,
+}) {
     return (
         <>
-            {/* Overlay untuk mobile saat sidebar terbuka */}
-            {isOpen && (
-                <div
-                    className="d-lg-none"
-                    onClick={onClose}
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        backgroundColor: 'rgba(15, 23, 42, 0.4)',
-                        zIndex: 1040,
-                    }}
+            {isMobileOpen && (
+                <button
+                    type="button"
+                    className="sidebar-overlay d-lg-none border-0"
+                    onClick={onCloseMobile}
+                    aria-label="Tutup sidebar"
                 />
             )}
 
             <aside
-                className={`app-sidebar thin-scrollbar ${isOpen ? '' : 'sidebar-hidden'}`}
-                style={{
-                    width: 'var(--sidebar-width)',
-                    backgroundColor: 'var(--color-white)',
-                    borderRight: '1px solid var(--color-border)',
-                    position: 'fixed',
-                    top: 0,
-                    bottom: 0,
-                    left: 0,
-                    zIndex: 1050,
-                    overflowY: 'auto',
-                    transition: 'transform 0.25s ease-in-out',
-                    transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
-                }}
+                className={[
+                    'app-sidebar',
+                    'thin-scrollbar',
+                    isCollapsed ? 'is-collapsed' : '',
+                    isMobileOpen ? 'is-open' : '',
+                ]
+                    .filter(Boolean)
+                    .join(' ')}
             >
-                <div
-                    className="d-flex align-items-center px-4"
-                    style={{ height: 'var(--navbar-height)', borderBottom: '1px solid var(--color-border)' }}
-                >
-                    <i className="bi bi-speedometer2 fs-4 text-primary-custom me-2" />
-                    <span className="fw-bold" style={{ color: 'var(--color-text-primary)' }}>
-                        PPA Monitor
-                    </span>
+                <div className="sidebar-brand">
+                    <div className="sidebar-brand-logo-wrap">
+                        <div className="sidebar-logo-chip">
+                            <i className="bi bi-speedometer2" />
+                        </div>
+
+                        <span className="sidebar-brand-text">
+                            PPA Monitor
+                        </span>
+                    </div>
+
+                    <button
+                        type="button"
+                        className="sidebar-toggle-btn d-none d-lg-flex"
+                        onClick={onToggleCollapse}
+                        aria-label={
+                            isCollapsed
+                                ? 'Perluas sidebar'
+                                : 'Perkecil sidebar'
+                        }
+                        title={
+                            isCollapsed
+                                ? 'Perluas sidebar'
+                                : 'Perkecil sidebar'
+                        }
+                    >
+                        <i
+                            className={`bi ${isCollapsed
+                                    ? 'bi-chevron-right'
+                                    : 'bi-chevron-left'
+                                }`}
+                        />
+                    </button>
+
+                    <button
+                        type="button"
+                        className="sidebar-mobile-close d-lg-none"
+                        onClick={onCloseMobile}
+                        aria-label="Tutup sidebar"
+                    >
+                        <i className="bi bi-x-lg" />
+                    </button>
                 </div>
 
-                <nav className="d-flex flex-column p-3 gap-1">
+                <nav className="sidebar-nav">
                     {menuItems.map((item) => (
                         <NavLink
                             key={item.path}
                             to={item.path}
-                            onClick={onClose}
+                            onClick={onCloseMobile}
+                            data-tooltip={item.label}
                             className={({ isActive }) =>
-                                `d-flex align-items-center gap-2 px-3 py-2 text-decoration-none rounded-2 ${isActive ? 'sidebar-link-active' : 'sidebar-link'
-                                }`
+                                isActive
+                                    ? 'sidebar-link-active'
+                                    : 'sidebar-link'
                             }
                         >
-                            <i className={`bi ${item.icon}`} />
-                            <span>{item.label}</span>
+                            <i
+                                className={`bi ${item.icon}`}
+                                aria-hidden="true"
+                            />
+
+                            <span className="sidebar-link-label">
+                                {item.label}
+                            </span>
                         </NavLink>
                     ))}
                 </nav>
