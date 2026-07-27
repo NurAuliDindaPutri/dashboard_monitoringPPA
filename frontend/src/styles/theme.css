@@ -1,6 +1,6 @@
 /* ============================================================
-   DARK NAVY THEME — MONITORING PERFORMANCE PPA
-   Sidebar, Navbar, Layout, Card, Form, Table, dan Dashboard
+   THEME VARIABLES — DARK & LIGHT
+   Monitoring Performance PPA
    ============================================================ */
 
 :root {
@@ -8,35 +8,6 @@
     --sidebar-width: 230px;
     --sidebar-width-collapsed: 76px;
     --navbar-height: 58px;
-
-    /* Background */
-    --navy-950: #121629;
-    --navy-900: #171c33;
-    --navy-850: #1c223d;
-    --navy-800: #222a49;
-    --navy-750: #293153;
-    --navy-700: #30395e;
-
-    --app-shell-bg: #14182d;
-
-    /* Card */
-    --card-bg: #1c223d;
-    --card-bg-hover: #222a49;
-    --card-border: rgba(255, 255, 255, 0.08);
-
-    /* Text */
-    --text-primary: #f7f8ff;
-    --text-secondary: #aab2cf;
-    --text-muted: #7f89aa;
-
-    /* Accent */
-    --accent-indigo: #7067f0;
-    --accent-violet: #8b5cf6;
-    --accent-blue: #4f8cff;
-
-    --accent-gradient: linear-gradient(135deg,
-            #7067f0 0%,
-            #8b5cf6 100%);
 
     /* Status */
     --success: #22c55e;
@@ -48,7 +19,47 @@
     --danger: #ef4444;
     --danger-soft: rgba(239, 68, 68, 0.14);
 
-    /* Sidebar */
+    /* Transition */
+    --theme-transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease;
+}
+
+/* ============================================================
+   DARK MODE
+   ============================================================ */
+
+:root,
+:root[data-theme='dark'] {
+    --navy-950: #121629;
+    --navy-900: #171c33;
+    --navy-850: #1c223d;
+    --navy-800: #222a49;
+    --navy-750: #293153;
+    --navy-700: #30395e;
+
+    --app-shell-bg: #14182d;
+
+    --card-bg: #1c223d;
+    --card-bg-hover: #222a49;
+    --card-border: rgba(255, 255, 255, 0.08);
+
+    --text-primary: #f7f8ff;
+    --text-secondary: #aab2cf;
+    --text-muted: #7f89aa;
+
+    --accent-indigo: #7067f0;
+    --accent-violet: #8b5cf6;
+    --accent-blue: #4f8cff;
+
+    --accent-gradient:
+        linear-gradient(135deg,
+            #7067f0 0%,
+            #8b5cf6 100%);
+
     --sidebar-bg:
         radial-gradient(circle at 0% 0%,
             rgba(112, 103, 240, 0.14),
@@ -57,15 +68,15 @@
             #191e36 0%,
             #14182c 100%);
 
-    --sidebar-text: rgba(226, 232, 240, 0.7);
+    --sidebar-text: #aeb6d0;
     --sidebar-text-hover: #ffffff;
+    --sidebar-brand-color: #ffffff;
+    --sidebar-icon-color: #aeb6d0;
 
-    /* Navbar */
     --navbar-bg: rgba(23, 28, 51, 0.96);
     --navbar-border: rgba(255, 255, 255, 0.07);
     --navbar-text: #f4f6ff;
 
-    /* General */
     --border-color: rgba(255, 255, 255, 0.08);
 
     --shadow-soft:
@@ -73,13 +84,63 @@
 
     --shadow-card:
         0 10px 26px rgba(4, 7, 20, 0.22);
+}
 
-    --theme-transition:
-        background-color 0.2s ease,
-        border-color 0.2s ease,
-        color 0.2s ease,
-        box-shadow 0.2s ease,
-        transform 0.2s ease;
+/* ============================================================
+   LIGHT MODE
+   ============================================================ */
+
+:root[data-theme='light'] {
+    --navy-950: #eef0f7;
+    --navy-900: #f2f3f9;
+    --navy-850: #f5f6fb;
+    --navy-800: #eef0f6;
+    --navy-750: #e7e9f2;
+    --navy-700: #dfe2ef;
+
+    --app-shell-bg: #f5f6fb;
+
+    --card-bg: #ffffff;
+    --card-bg-hover: #f7f8fc;
+    --card-border: rgba(15, 23, 42, 0.08);
+
+    --text-primary: #1e2233;
+    --text-secondary: #5b6178;
+    --text-muted: #8a90a6;
+
+    --accent-indigo: #6d5ef0;
+    --accent-violet: #7c3aed;
+    --accent-blue: #3b82f6;
+
+    --accent-gradient:
+        linear-gradient(135deg,
+            #6d5ef0 0%,
+            #7c3aed 100%);
+
+    --sidebar-bg:
+        radial-gradient(circle at 0% 0%,
+            rgba(109, 94, 240, 0.08),
+            transparent 40%),
+        linear-gradient(180deg,
+            #ffffff 0%,
+            #f7f7fc 100%);
+
+    --sidebar-text: #34394c;
+    --sidebar-text-hover: #171b2b;
+    --sidebar-brand-color: #222738;
+    --sidebar-icon-color: #60667a;
+
+    --navbar-bg: rgba(255, 255, 255, 0.96);
+    --navbar-border: rgba(15, 23, 42, 0.06);
+    --navbar-text: #1e2233;
+
+    --border-color: rgba(15, 23, 42, 0.08);
+
+    --shadow-soft:
+        0 12px 30px rgba(15, 23, 42, 0.08);
+
+    --shadow-card:
+        0 10px 26px rgba(15, 23, 42, 0.06);
 }
 
 /* ============================================================
@@ -228,7 +289,7 @@ a {
 }
 
 .sidebar-brand-text {
-    color: #ffffff;
+    color: var(--sidebar-brand-color);
     font-weight: 700;
     letter-spacing: 0.2px;
     white-space: nowrap;
@@ -255,18 +316,40 @@ a {
     text-decoration: none;
     white-space: nowrap;
 
+    font-weight: 600;
+
+    transition: var(--theme-transition);
+}
+
+.sidebar-link i,
+.sidebar-link-active i {
+    width: 20px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    color: var(--sidebar-icon-color);
+    font-size: 1.05rem;
+
     transition: var(--theme-transition);
 }
 
 .sidebar-link:hover {
     color: var(--sidebar-text-hover);
-    background: rgba(255, 255, 255, 0.055);
+    background: rgba(139, 92, 246, 0.08);
     transform: translateX(2px);
+}
+
+.sidebar-link:hover i {
+    color: var(--accent-violet);
 }
 
 .sidebar-link-active {
     color: #ffffff !important;
-    font-weight: 600;
+    font-weight: 700;
 
     background:
         linear-gradient(90deg,
@@ -276,6 +359,10 @@ a {
     box-shadow:
         inset 0 0 0 1px rgba(139, 92, 246, 0.24),
         0 8px 18px rgba(4, 7, 20, 0.14);
+}
+
+.sidebar-link-active i {
+    color: #ffffff !important;
 }
 
 .sidebar-link-active::before {
@@ -296,23 +383,41 @@ a {
         0 0 10px rgba(139, 92, 246, 0.5);
 }
 
-.sidebar-link i,
-.sidebar-link-active i {
-    width: 20px;
-
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-
-    flex-shrink: 0;
-
-    font-size: 1.05rem;
-}
-
 .sidebar-link-label {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* ============================================================
+   LIGHT MODE SIDEBAR OVERRIDE
+   ============================================================ */
+
+:root[data-theme='light'] .sidebar-link {
+    color: #34394c !important;
+}
+
+:root[data-theme='light'] .sidebar-link i {
+    color: #60667a !important;
+}
+
+:root[data-theme='light'] .sidebar-link:hover {
+    color: #171b2b !important;
+    background: rgba(124, 58, 237, 0.08);
+}
+
+:root[data-theme='light'] .sidebar-link:hover i {
+    color: var(--accent-violet) !important;
+}
+
+:root[data-theme='light'] .sidebar-link-active,
+:root[data-theme='light'] .sidebar-link-active .sidebar-link-label,
+:root[data-theme='light'] .sidebar-link-active i {
+    color: #ffffff !important;
+}
+
+:root[data-theme='light'] .sidebar-brand-text {
+    color: #222738 !important;
 }
 
 /* ============================================================
@@ -333,7 +438,7 @@ a {
     border-radius: 9px;
 
     background: rgba(255, 255, 255, 0.07);
-    color: #ffffff;
+    color: var(--text-primary);
 
     cursor: pointer;
 
@@ -343,7 +448,14 @@ a {
 .sidebar-toggle-btn:hover {
     background: var(--accent-gradient);
     border-color: transparent;
+    color: #ffffff;
     transform: scale(1.05);
+}
+
+:root[data-theme='light'] .sidebar-toggle-btn {
+    background: #ffffff;
+    color: #34394c;
+    border-color: rgba(15, 23, 42, 0.12);
 }
 
 .sidebar-mobile-close {
@@ -417,10 +529,10 @@ a {
         border-radius: 8px;
 
         background: var(--navy-800);
-        color: #ffffff;
+        color: var(--text-primary);
 
         font-size: 0.78rem;
-        font-weight: 500;
+        font-weight: 600;
         white-space: nowrap;
 
         box-shadow: var(--shadow-soft);
@@ -590,10 +702,11 @@ a {
 }
 
 /* ============================================================
-   CARD UMUM
+   CARD
    ============================================================ */
 
 .card,
+.app-card,
 .dashboard-card,
 .chart-card,
 .kpi-card,
@@ -610,6 +723,7 @@ a {
 }
 
 .card,
+.app-card,
 .dashboard-card,
 .chart-card,
 .kpi-card,
@@ -626,6 +740,7 @@ a {
 }
 
 .card:hover,
+.app-card:hover,
 .dashboard-card:hover,
 .chart-card:hover,
 .kpi-card:hover,
@@ -654,6 +769,7 @@ a {
 }
 
 /* Bootstrap text override */
+
 .text-dark,
 .text-body,
 .text-black {

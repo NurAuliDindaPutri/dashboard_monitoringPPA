@@ -22,9 +22,9 @@ function GaugeCard({ title, value, target, loading = false }) {
     const segmentStops = [0, stop1, safeTarget, 100];
 
     return (
-        <div className="app-card p-3 h-100 d-flex flex-column align-items-center">
+        <div className="app-card gauge-card p-3 h-100 d-flex flex-column align-items-center">
             <div className="w-100 d-flex justify-content-between align-items-center mb-2">
-                <span className="fw-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                <span className="fw-semibold" style={{ color: 'var(--text-primary)' }}>
                     {title}
                 </span>
                 {hasData && (
@@ -49,7 +49,7 @@ function GaugeCard({ title, value, target, loading = false }) {
                     className="d-flex flex-column align-items-center justify-content-center text-center"
                     style={{ height: 160 }}
                 >
-                    <i className="bi bi-slash-circle fs-2" style={{ color: 'var(--color-text-muted)' }} />
+                    <i className="bi bi-slash-circle fs-2" style={{ color: 'var(--text-muted)' }} />
                     <small className="text-muted mt-2">Data belum tersedia</small>
                 </div>
             ) : (

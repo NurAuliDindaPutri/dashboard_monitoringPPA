@@ -1,4 +1,6 @@
-function Navbar({ onToggleMobileSidebar }) {
+function Navbar({ onToggleMobileSidebar, theme, onToggleTheme }) {
+    const isDark = theme === 'dark';
+
     return (
         <nav className="app-navbar d-flex align-items-center justify-content-between px-3">
             <div className="d-flex align-items-center gap-3">
@@ -16,6 +18,15 @@ function Navbar({ onToggleMobileSidebar }) {
             </div>
 
             <div className="d-flex align-items-center gap-2">
+                <button
+                    type="button"
+                    className="navbar-icon-btn"
+                    onClick={onToggleTheme}
+                    aria-label={isDark ? 'Aktifkan light mode' : 'Aktifkan dark mode'}
+                    title={isDark ? 'Light mode' : 'Dark mode'}
+                >
+                    <i className={`bi ${isDark ? 'bi-sun' : 'bi-moon-stars'} fs-6`} />
+                </button>
                 <button type="button" className="navbar-icon-btn" aria-label="Notifikasi">
                     <i className="bi bi-bell fs-6" />
                 </button>
