@@ -1,75 +1,214 @@
 const { pool } = require('../../config/db');
-const { findRowIndex, toDecimalOrNull, toNumberOrNull } = require('../../utils/excelHelpers');
-const { ensureSiteId, ensureUnitModelId } = require('./resolvers');
 
-/**
- * Parse sheet "DATA UNIT" (All Site). Kolom A-F adalah tabel utama di sebelah kiri:
- * SITE | MODEL UNIT | AVERAGE PA | UA | AVERAGE MTBF | AVERAGE MTTR.
- * Kolom G ke kanan adalah PivotTable ("Row Labels") dan SENGAJA diabaikan.
- * Periode (bulan/tahun) diambil dari parameter form request.
- */
-async function importUnitPerformanceSheet(matrix, periodMonth, periodYear) {
-    const month = Number(periodMonth);
-    const year = Number(periodYear);
+const {
+    toDecimalOrNull,
+    toNumberOrNull,
+} = require('../../utils/excelHelpers');
 
-    if (!month || !year || Number.isNaN(month) || Number.isNaN(year)) {
-        throw new Error('Periode data (bulan dan tahun) wajib ditentukan.');
+const {
+    ensureSiteId,
+    ensureUnitModelId,
+} = require('./resolvers');
+
+function normalizeHeader(value) {
+    return String(value ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '_');
+}
+
+function findHeaderIndex(matrix) {
+    return matrix.findIndex((row) => {
+        const headers = (row || []).map(normalizeHeader);
+
+        return (
+            headers.includes('site_code') &&
+            headers.includes('model_name') &&
+            headers.includes('period_year') &&
+            headers.includes('period_month')
+        );
+    });
+}
+
+function buildColumnMap(headerRow) {
+    const map = {};
+
+    headerRow.forEach((value, index) => {
+        const key = normalizeHeader(value);
+
+        if (key) {
+            map[key] = index;
+        }
+    });
+
+    return map;
+}
+
+function getCell(row, columns, key) {
+    const index = columns[key];
+
+    if (index === undefined) {
+        return null;
     }
 
-    const headerIdx = findRowIndex(matrix, (v) => String(v).trim().toLowerCase() === 'site');
-    if (headerIdx === -1) {
+    return row[index];
+}
+
+function toInteger(value) {
+    const number = Number(value);
+
+    return Number.isInteger(number) ? number : null;
+}
+
+async function importUnitPerformanceSheet(matrix) {
+    const headerIndex = findHeaderIndex(matrix);
+
+    if (headerIndex === -1) {
         return {
-            summary: 'Header "SITE" tidak ditemukan pada sheet "DATA UNIT"',
+            summary:
+                'Header template Unit Performance tidak ditemukan',
             skippedDetails: [],
         };
     }
 
-    let successCount = 0;
+    const columns = buildColumnMap(matrix[headerIndex]);
     const skippedDetails = [];
 
-    for (let r = headerIdx + 1; r < matrix.length; r += 1) {
-        const row = matrix[r] || [];
-        const siteCode = row[0] !== null && row[0] !== undefined ? String(row[0]).trim() : '';
-        const modelName = row[1] !== null && row[1] !== undefined ? String(row[1]).trim() : '';
+    let successCount = 0;
 
-        // Baris kosong dianggap akhir data pada tabel utama di sebelah kiri.
-        if (!siteCode && !modelName) continue;
+    for (
+        let rowIndex = headerIndex + 1;
+        rowIndex < matrix.length;
+        rowIndex += 1
+    ) {
+        const row = matrix[rowIndex] || [];
+
+        const rowIsEmpty = row.every(
+            (value) =>
+                value === null ||
+                value === undefined ||
+                String(value).trim() === ''
+        );
+
+        if (rowIsEmpty) {
+            continue;
+        }
+
+        const siteCode = String(
+            getCell(row, columns, 'site_code') ?? ''
+        )
+            .trim()
+            .toUpperCase();
+
+        const modelName = String(
+            getCell(row, columns, 'model_name') ?? ''
+        ).trim();
+
+        const year = toInteger(
+            getCell(row, columns, 'period_year')
+        );
+
+        const month = toInteger(
+            getCell(row, columns, 'period_month')
+        );
 
         if (!siteCode || !modelName) {
             skippedDetails.push({
-                sheet: 'DATA UNIT',
-                row: { rowIndex: r + 1, values: row.slice(0, 6) },
-                reason: 'Kolom SITE atau MODEL UNIT kosong',
+                sheet: 'Unit Performance',
+                row: rowIndex + 1,
+                reason: 'site_code atau model_name kosong',
             });
             continue;
         }
 
-        const physicalAvailability = toDecimalOrNull(row[2]);
-        const unitAvailability = toDecimalOrNull(row[3]);
-        const mtbf = toNumberOrNull(row[4]);
-        const mttr = toNumberOrNull(row[5]);
+        if (!year || year < 2000 || year > 2100) {
+            skippedDetails.push({
+                sheet: 'Unit Performance',
+                row: rowIndex + 1,
+                reason: 'period_year tidak valid',
+            });
+            continue;
+        }
+
+        if (!month || month < 1 || month > 12) {
+            skippedDetails.push({
+                sheet: 'Unit Performance',
+                row: rowIndex + 1,
+                reason: 'period_month harus bernilai 1-12',
+            });
+            continue;
+        }
 
         const siteId = await ensureSiteId(siteCode);
-        const unitModelId = await ensureUnitModelId(siteId, modelName);
 
-        const [existing] = await pool.query(
-            'SELECT id FROM monthly_unit_performance WHERE unit_model_id = ? AND period_year = ? AND period_month = ? LIMIT 1',
+        const unitModelId = await ensureUnitModelId(
+            siteId,
+            modelName
+        );
+
+        const values = [
+            toDecimalOrNull(
+                getCell(
+                    row,
+                    columns,
+                    'physical_availability'
+                )
+            ),
+            toDecimalOrNull(
+                getCell(row, columns, 'unit_availability')
+            ),
+            toNumberOrNull(
+                getCell(row, columns, 'mtbf')
+            ),
+            toNumberOrNull(
+                getCell(row, columns, 'mttr')
+            ),
+            toNumberOrNull(
+                getCell(row, columns, 'productivity')
+            ),
+            toNumberOrNull(
+                getCell(row, columns, 'fuel_consumption')
+            ),
+        ];
+
+        const [existingRows] = await pool.query(
+            `SELECT id
+             FROM monthly_unit_performance
+             WHERE unit_model_id = ?
+               AND period_year = ?
+               AND period_month = ?
+             LIMIT 1`,
             [unitModelId, year, month]
         );
 
-        if (existing[0]) {
+        if (existingRows[0]) {
             await pool.query(
                 `UPDATE monthly_unit_performance
-         SET physical_availability = ?, unit_availability = ?, mtbf = ?, mttr = ?
-         WHERE id = ?`,
-                [physicalAvailability, unitAvailability, mtbf, mttr, existing[0].id]
+                 SET physical_availability = ?,
+                     unit_availability = ?,
+                     mtbf = ?,
+                     mttr = ?,
+                     productivity = ?,
+                     fuel_consumption = ?
+                 WHERE id = ?`,
+                [...values, existingRows[0].id]
             );
         } else {
             await pool.query(
                 `INSERT INTO monthly_unit_performance
-           (unit_model_id, period_year, period_month, physical_availability, unit_availability, mtbf, mttr)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [unitModelId, year, month, physicalAvailability, unitAvailability, mtbf, mttr]
+                (
+                    unit_model_id,
+                    period_year,
+                    period_month,
+                    physical_availability,
+                    unit_availability,
+                    mtbf,
+                    mttr,
+                    productivity,
+                    fuel_consumption
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [unitModelId, year, month, ...values]
             );
         }
 
@@ -77,7 +216,7 @@ async function importUnitPerformanceSheet(matrix, periodMonth, periodYear) {
     }
 
     return {
-        summary: `${successCount} baris unit berhasil diproses untuk periode ${month}/${year}`,
+        summary: `${successCount} baris performa unit berhasil diproses`,
         skippedDetails,
     };
 }

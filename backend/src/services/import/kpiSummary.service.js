@@ -1,110 +1,192 @@
 const { pool } = require('../../config/db');
-const { findRowIndex, extractSiteColumns, toDecimalOrNull } = require('../../utils/excelHelpers');
+const { toDecimalOrNull } = require('../../utils/excelHelpers');
 const { ensureSiteId } = require('./resolvers');
 
-/**
- * Cari satu blok KPI pada matrix sheet "Input". Pola tiap blok:
- *   [judul blok: Readyness VHS / Availability VHS / Leadtime Supply]
- *   [header: Remarks/Site, <site1>, <site2>, ..., ALL SITE]
- *   [baris actual]
- *   [ ...opsional baris dekoratif... ]
- *   [baris target, kolom pertama diawali kata "target"]
- */
-function extractKpiBlock(matrix, titleMatch) {
-    const titleIdx = findRowIndex(matrix, (v) => titleMatch(String(v).toLowerCase()));
-    if (titleIdx === -1) return null;
-
-    const headerRow = matrix[titleIdx + 1] || [];
-    const actualRow = matrix[titleIdx + 2] || [];
-
-    let targetRow = null;
-    for (let r = titleIdx + 3; r < Math.min(titleIdx + 8, matrix.length); r += 1) {
-        const label = matrix[r]?.[0];
-        if (label && String(label).trim().toLowerCase().startsWith('target')) {
-            targetRow = matrix[r];
-            break;
-        }
-    }
-
-    return { headerRow, actualRow, targetRow };
+function normalizeHeader(value) {
+    return String(value ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '_');
 }
 
-/**
- * Parse sheet "Input" - 3 blok KPI: Readyness VHS, Availability VHS, Leadtime Supply.
- * Periode (month & year) diambil secara wajib dari parameter (form request).
- */
-async function importKpiSummarySheet(matrix, periodMonth, periodYear) {
-    const month = Number(periodMonth);
-    const year = Number(periodYear);
+function findHeaderIndex(matrix) {
+    return matrix.findIndex((row) => {
+        const headers = (row || []).map(normalizeHeader);
 
-    if (!month || !year || Number.isNaN(month) || Number.isNaN(year)) {
-        throw new Error('Periode data (bulan dan tahun) wajib ditentukan.');
-    }
+        return (
+            headers.includes('site_code') &&
+            headers.includes('period_year') &&
+            headers.includes('period_month')
+        );
+    });
+}
 
-    const readyness = extractKpiBlock(matrix, (t) => t.includes('readyness') || t.includes('readiness'));
-    const availability = extractKpiBlock(matrix, (t) => t.includes('availability vhs') || t.includes('availability'));
-    const leadtime = extractKpiBlock(matrix, (t) => t.includes('leadtime supply') || t.includes('leadtime') || t.includes('lead time'));
+function buildColumnMap(headerRow) {
+    const map = {};
 
-    const siteDataMap = new Map();
+    headerRow.forEach((value, index) => {
+        const key = normalizeHeader(value);
 
-    function mergeBlock(block, actualKey, targetKey) {
-        if (!block) return;
-        const siteColumns = extractSiteColumns(block.headerRow);
-        for (const { siteCode, colIndex } of siteColumns) {
-            const entry = siteDataMap.get(siteCode) || {};
-            entry[actualKey] = toDecimalOrNull(block.actualRow[colIndex]);
-            entry[targetKey] = block.targetRow ? toDecimalOrNull(block.targetRow[colIndex]) : null;
-            siteDataMap.set(siteCode, entry);
+        if (key) {
+            map[key] = index;
         }
+    });
+
+    return map;
+}
+
+function getCell(row, columns, key) {
+    const index = columns[key];
+
+    if (index === undefined) {
+        return null;
     }
 
-    mergeBlock(readyness, 'readyness_actual', 'readyness_target');
-    mergeBlock(availability, 'availability_actual', 'availability_target');
-    mergeBlock(leadtime, 'leadtime_actual', 'leadtime_target');
+    return row[index];
+}
 
-    if (siteDataMap.size === 0) {
+function toInteger(value) {
+    const number = Number(value);
+
+    return Number.isInteger(number) ? number : null;
+}
+
+async function importKpiSummarySheet(matrix) {
+    const headerIndex = findHeaderIndex(matrix);
+
+    if (headerIndex === -1) {
         return {
-            summary: 'Blok KPI (Readyness/Availability/Leadtime) tidak ditemukan pada sheet "Input"',
+            summary:
+                'Header template KPI Summary tidak ditemukan',
             skippedDetails: [],
         };
     }
 
-    let successCount = 0;
+    const columns = buildColumnMap(matrix[headerIndex]);
     const skippedDetails = [];
 
-    for (const [siteCode, values] of siteDataMap.entries()) {
+    let successCount = 0;
+
+    for (
+        let rowIndex = headerIndex + 1;
+        rowIndex < matrix.length;
+        rowIndex += 1
+    ) {
+        const row = matrix[rowIndex] || [];
+
+        const siteCode = String(
+            getCell(row, columns, 'site_code') ?? ''
+        )
+            .trim()
+            .toUpperCase();
+
+        const year = toInteger(
+            getCell(row, columns, 'period_year')
+        );
+
+        const month = toInteger(
+            getCell(row, columns, 'period_month')
+        );
+
+        const rowIsEmpty = row.every(
+            (value) =>
+                value === null ||
+                value === undefined ||
+                String(value).trim() === ''
+        );
+
+        if (rowIsEmpty) {
+            continue;
+        }
+
+        if (!siteCode) {
+            skippedDetails.push({
+                sheet: 'KPI Summary',
+                row: rowIndex + 1,
+                reason: 'site_code kosong',
+            });
+            continue;
+        }
+
+        if (!year || year < 2000 || year > 2100) {
+            skippedDetails.push({
+                sheet: 'KPI Summary',
+                row: rowIndex + 1,
+                reason: 'period_year tidak valid',
+            });
+            continue;
+        }
+
+        if (!month || month < 1 || month > 12) {
+            skippedDetails.push({
+                sheet: 'KPI Summary',
+                row: rowIndex + 1,
+                reason: 'period_month harus bernilai 1-12',
+            });
+            continue;
+        }
+
         const siteId = await ensureSiteId(siteCode);
 
-        const [existing] = await pool.query(
-            'SELECT id FROM monthly_kpi_summary WHERE site_id = ? AND period_year = ? AND period_month = ? LIMIT 1',
+        const values = [
+            toDecimalOrNull(
+                getCell(row, columns, 'readyness_actual')
+            ),
+            toDecimalOrNull(
+                getCell(row, columns, 'readyness_target')
+            ),
+            toDecimalOrNull(
+                getCell(row, columns, 'availability_actual')
+            ),
+            toDecimalOrNull(
+                getCell(row, columns, 'availability_target')
+            ),
+            toDecimalOrNull(
+                getCell(row, columns, 'leadtime_actual')
+            ),
+            toDecimalOrNull(
+                getCell(row, columns, 'leadtime_target')
+            ),
+        ];
+
+        const [existingRows] = await pool.query(
+            `SELECT id
+             FROM monthly_kpi_summary
+             WHERE site_id = ?
+               AND period_year = ?
+               AND period_month = ?
+             LIMIT 1`,
             [siteId, year, month]
         );
 
-        const values6 = [
-            values.readyness_actual ?? null,
-            values.readyness_target ?? null,
-            values.availability_actual ?? null,
-            values.availability_target ?? null,
-            values.leadtime_actual ?? null,
-            values.leadtime_target ?? null,
-        ];
-
-        if (existing[0]) {
+        if (existingRows[0]) {
             await pool.query(
                 `UPDATE monthly_kpi_summary
-         SET readyness_actual = ?, readyness_target = ?,
-             availability_actual = ?, availability_target = ?,
-             leadtime_actual = ?, leadtime_target = ?
-         WHERE id = ?`,
-                [...values6, existing[0].id]
+                 SET readyness_actual = ?,
+                     readyness_target = ?,
+                     availability_actual = ?,
+                     availability_target = ?,
+                     leadtime_actual = ?,
+                     leadtime_target = ?
+                 WHERE id = ?`,
+                [...values, existingRows[0].id]
             );
         } else {
             await pool.query(
                 `INSERT INTO monthly_kpi_summary
-           (site_id, period_year, period_month, readyness_actual, readyness_target,
-            availability_actual, availability_target, leadtime_actual, leadtime_target)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [siteId, year, month, ...values6]
+                (
+                    site_id,
+                    period_year,
+                    period_month,
+                    readyness_actual,
+                    readyness_target,
+                    availability_actual,
+                    availability_target,
+                    leadtime_actual,
+                    leadtime_target
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [siteId, year, month, ...values]
             );
         }
 
@@ -112,7 +194,7 @@ async function importKpiSummarySheet(matrix, periodMonth, periodYear) {
     }
 
     return {
-        summary: `${successCount} site berhasil diproses untuk periode ${month}/${year}`,
+        summary: `${successCount} baris KPI berhasil diproses`,
         skippedDetails,
     };
 }

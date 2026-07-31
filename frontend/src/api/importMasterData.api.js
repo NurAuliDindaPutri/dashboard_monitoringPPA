@@ -1,17 +1,19 @@
-import axiosClient from './axiosClient';
+import axios from 'axios';
 
-/**
- * Upload satu file Excel bulanan ke backend dengan periode.
- * @param {File} file
- * @param {number|string} periodMonth
- * @param {number|string} periodYear
- */
-export async function importExcel(file, periodMonth, periodYear) {
+const API_URL = 'http://localhost:5000/api';
+
+export function importExcel(file) {
     const formData = new FormData();
-    formData.append('file', file);
-    if (periodMonth) formData.append('period_month', periodMonth);
-    if (periodYear) formData.append('period_year', periodYear);
 
-    const response = await axiosClient.post('/import/excel', formData);
-    return response.data;
+    formData.append('file', file);
+
+    return axios.post(
+        `${API_URL}/import/excel`,
+        formData,
+        {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        }
+    );
 }

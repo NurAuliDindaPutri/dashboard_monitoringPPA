@@ -24,7 +24,7 @@ async function importPendingSupplySheet(matrix) {
 
     if (headerRowIdx === -1) {
         return {
-            summary: 'Header "Parts Number" atau "SITE" tidak ditemukan pada sheet "Pending Supply"',
+            summary: 'Sheet Pending Supply kosong, dilewati',
             skippedDetails: [],
         };
     }
