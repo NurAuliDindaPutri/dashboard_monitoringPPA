@@ -49,19 +49,42 @@ function DonutRing({ label, actual, target, isGood }) {
 
     return (
         <div
-            className="d-flex flex-column align-items-center text-center p-2 rounded flex-fill"
+            className="d-flex flex-column align-items-center text-center rounded"
             style={{
-                backgroundColor: 'var(--color-bg-secondary, rgba(255,255,255,0.04))',
-                border: '1px solid var(--color-border, rgba(255,255,255,0.12))',
-                minWidth: 120,
+                width: '100%',
+                minWidth: 0,
+                padding: 'clamp(0.25rem, 1.5vw, 0.5rem)',
+                backgroundColor:
+                    'var(--color-bg-secondary, rgba(255,255,255,0.04))',
+                border:
+                    '1px solid var(--color-border, rgba(255,255,255,0.12))',
+                overflow: 'hidden',
             }}
         >
             <div
                 className="position-relative d-inline-flex align-items-center justify-content-center mb-1"
-                style={{ width: 72, height: 72 }}
+                style={{
+                    width: 'clamp(52px, 16vw, 72px)',
+                    height: 'clamp(52px, 16vw, 72px)',
+                    maxWidth: '100%',
+                    flexShrink: 0,
+                }}
             >
-                <svg width="72" height="72" viewBox="0 0 76 76">
-                    <circle cx="38" cy="38" r={radius} fill="transparent" stroke={bgStroke} strokeWidth="7" />
+                <svg
+                    width="100%"
+                    height="100%"
+                    viewBox="0 0 76 76"
+                    aria-hidden="true"
+                >
+                    <circle
+                        cx="38"
+                        cy="38"
+                        r={radius}
+                        fill="transparent"
+                        stroke={bgStroke}
+                        strokeWidth="7"
+                    />
+
                     {hasData && (
                         <circle
                             cx="38"
@@ -74,31 +97,81 @@ function DonutRing({ label, actual, target, isGood }) {
                             strokeDashoffset={strokeDashoffset}
                             strokeLinecap="round"
                             transform="rotate(-90 38 38)"
-                            style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+                            style={{
+                                transition:
+                                    'stroke-dashoffset 0.6s ease',
+                            }}
                         />
                     )}
                 </svg>
+
                 <div className="position-absolute text-center">
-                    <span className="fw-bold" style={{ fontSize: '0.85rem', color: hasData ? color : 'var(--color-text-muted)' }}>
-                        {hasData ? `${(actual * 100).toFixed(0)}%` : 'N/A'}
+                    <span
+                        className="fw-bold"
+                        style={{
+                            fontSize:
+                                'clamp(0.65rem, 2.6vw, 0.85rem)',
+                            color: hasData
+                                ? color
+                                : 'var(--color-text-muted)',
+                        }}
+                    >
+                        {hasData
+                            ? `${(actual * 100).toFixed(0)}%`
+                            : 'N/A'}
                     </span>
                 </div>
             </div>
-            <span className="fw-semibold small mb-0 text-truncate w-100" style={{ fontSize: '0.78rem', color: 'var(--text-primary)' }}>
+
+            <span
+                className="fw-semibold mb-0 w-100"
+                title={label}
+                style={{
+                    minWidth: 0,
+                    fontSize:
+                        'clamp(0.58rem, 2.2vw, 0.78rem)',
+                    lineHeight: 1.2,
+                    color: 'var(--text-primary)',
+                    overflowWrap: 'anywhere',
+                }}
+            >
                 {label}
             </span>
-            <span className="text-muted" style={{ fontSize: '0.7rem' }}>
-                {targetPct !== null ? `Target: ${targetPct}%` : '-'}
+
+            <span
+                className="text-muted w-100"
+                style={{
+                    minWidth: 0,
+                    fontSize:
+                        'clamp(0.52rem, 1.9vw, 0.7rem)',
+                    lineHeight: 1.2,
+                    overflowWrap: 'anywhere',
+                }}
+            >
+                {targetPct !== null
+                    ? `Target: ${targetPct}%`
+                    : '-'}
             </span>
+
             <span
                 className="badge rounded-pill mt-1"
                 style={{
-                    fontSize: '0.65rem',
+                    maxWidth: '100%',
+                    padding: '0.25em 0.45em',
+                    fontSize:
+                        'clamp(0.5rem, 1.8vw, 0.65rem)',
+                    lineHeight: 1.15,
+                    whiteSpace: 'normal',
+                    overflowWrap: 'anywhere',
                     backgroundColor: `${color}1A`,
                     color,
                 }}
             >
-                {isGood ? 'Memenuhi' : 'Belum Target'}
+                {hasData
+                    ? isGood
+                        ? 'Memenuhi'
+                        : 'Belum Target'
+                    : 'Belum Ada Data'}
             </span>
         </div>
     );
@@ -191,6 +264,53 @@ function DashboardAllSite() {
     const kpiPerSiteChartData = buildKpiPerSiteChart(kpiRows);
     const unitPerfBySite = buildUnitPerformanceBySite(perfRows);
     const monthlyTrendData = aggregateKpiByMonth(kpiYearRows);
+
+    const monthlyTrendSeries = [
+        {
+            key: 'Readiness',
+            label: 'Readiness',
+            color: '#1a56db',
+        },
+        {
+            key: 'Availability',
+            label: 'Availability VHS',
+            color: '#16a34a',
+        },
+        {
+            key: 'Lead Time',
+            label: 'Lead Time Supply',
+            color: '#d97706',
+        },
+    ].filter((seriesItem) =>
+        monthlyTrendData.some(
+            (row) =>
+                row[seriesItem.key] !== null &&
+                row[seriesItem.key] !== undefined
+        )
+    );
+
+    const missingMonthlyTrendSeries = [
+        {
+            key: 'Readiness',
+            label: 'Readiness',
+        },
+        {
+            key: 'Availability',
+            label: 'Availability VHS',
+        },
+        {
+            key: 'Lead Time',
+            label: 'Lead Time Supply',
+        },
+    ]
+        .filter(
+            (seriesItem) =>
+                !monthlyTrendSeries.some(
+                    (availableSeries) =>
+                        availableSeries.key === seriesItem.key
+                )
+        )
+        .map((seriesItem) => seriesItem.label);
 
     const totalUnits = countUnits(perfRows);
     const totalPending = countPendingSupply(supplyRows);
@@ -298,7 +418,7 @@ function DashboardAllSite() {
 
             {/* ── 3. Ringkasan KPI Per Site ──────────────────────────────── */}
             <div className="app-card p-3 mb-4">
-                <div className="d-flex align-items-center justify-content-between mb-3">
+                <div className="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
                     <div>
                         <h6 className="fw-semibold mb-0" style={{ color: 'var(--text-primary)' }}>
                             Ringkasan KPI Per Site — Status Pencapaian Target
@@ -325,41 +445,101 @@ function DashboardAllSite() {
                 ) : (
                     <div className="row g-3">
                         {siteKpiSummaryList.map((siteItem) => (
-                            <div key={siteItem.site_id} className="col-12 col-md-6 col-xl-4">
+                            <div key={siteItem.site_id ?? siteItem.site_code} className="col-12 col-md-6 col-xl-4">
                                 <div
-                                    className="p-3 border rounded h-100"
+                                    className="border rounded h-100"
                                     style={{
-                                        backgroundColor: 'var(--card-bg)',
-                                        borderColor: 'var(--color-border)',
-                                        color: 'var(--text-primary)',
+                                        width: '100%',
+                                        minWidth: 0,
+                                        padding:
+                                            'clamp(0.65rem, 2vw, 1rem)',
+                                        backgroundColor:
+                                            'var(--card-bg)',
+                                        borderColor:
+                                            'var(--color-border)',
+                                        color:
+                                            'var(--text-primary)',
+                                        overflow: 'hidden',
                                     }}
                                 >
-                                    <div className="d-flex align-items-center justify-content-between mb-2">
-                                        <span className="fw-bold" style={{ color: 'var(--text-primary)' }}>
+                                    <div className="d-flex align-items-start justify-content-between gap-2 mb-2">
+                                        <span
+                                            className="fw-bold"
+                                            style={{
+                                                minWidth: 0,
+                                                color:
+                                                    'var(--text-primary)',
+                                                overflowWrap:
+                                                    'anywhere',
+                                            }}
+                                        >
                                             {siteItem.site_code}
                                         </span>
-                                        <small className="text-muted text-truncate ms-2" style={{ maxWidth: 140 }}>
-                                            {siteItem.site_name}
-                                        </small>
+
+                                        {siteItem.site_name && (
+                                            <small
+                                                className="text-muted text-end"
+                                                style={{
+                                                    minWidth: 0,
+                                                    maxWidth: '55%',
+                                                    overflowWrap:
+                                                        'anywhere',
+                                                }}
+                                            >
+                                                {siteItem.site_name}
+                                            </small>
+                                        )}
                                     </div>
-                                    <div className="d-flex gap-2">
+
+                                    <div
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns:
+                                                'repeat(3, minmax(0, 1fr))',
+                                            gap:
+                                                'clamp(0.2rem, 1.2vw, 0.5rem)',
+                                            alignItems: 'stretch',
+                                            width: '100%',
+                                            minWidth: 0,
+                                        }}
+                                    >
                                         <DonutRing
                                             label="Readiness"
-                                            actual={siteItem.readyness_actual}
-                                            target={siteItem.readyness_target}
-                                            isGood={siteItem.readyness_is_good}
+                                            actual={
+                                                siteItem.readyness_actual
+                                            }
+                                            target={
+                                                siteItem.readyness_target
+                                            }
+                                            isGood={
+                                                siteItem.readyness_is_good
+                                            }
                                         />
+
                                         <DonutRing
                                             label="Availability"
-                                            actual={siteItem.availability_actual}
-                                            target={siteItem.availability_target}
-                                            isGood={siteItem.availability_is_good}
+                                            actual={
+                                                siteItem.availability_actual
+                                            }
+                                            target={
+                                                siteItem.availability_target
+                                            }
+                                            isGood={
+                                                siteItem.availability_is_good
+                                            }
                                         />
+
                                         <DonutRing
                                             label="Lead Time"
-                                            actual={siteItem.leadtime_actual}
-                                            target={siteItem.leadtime_target}
-                                            isGood={siteItem.leadtime_is_good}
+                                            actual={
+                                                siteItem.leadtime_actual
+                                            }
+                                            target={
+                                                siteItem.leadtime_target
+                                            }
+                                            isGood={
+                                                siteItem.leadtime_is_good
+                                            }
                                         />
                                     </div>
                                 </div>
@@ -547,23 +727,7 @@ function DashboardAllSite() {
                             type="line"
                             data={monthlyTrendData}
                             xKey="month"
-                            series={[
-                                {
-                                    key: 'Readiness',
-                                    label: 'Readiness',
-                                    color: '#1a56db',
-                                },
-                                {
-                                    key: 'Availability',
-                                    label: 'Availability VHS',
-                                    color: '#16a34a',
-                                },
-                                {
-                                    key: 'Lead Time',
-                                    label: 'Lead Time Supply',
-                                    color: '#d97706',
-                                },
-                            ]}
+                            series={monthlyTrendSeries}
                             loading={loadingTrend}
                             height={280}
                         />
@@ -578,6 +742,19 @@ function DashboardAllSite() {
                                 Menampilkan tren KPI selama satu tahun penuh
                                 berdasarkan tahun terpilih. Filter bulan tidak
                                 memengaruhi grafik ini.
+                                {missingMonthlyTrendSeries.length > 0 && (
+                                    <>
+                                        {' '}
+                                        Data{' '}
+                                        <strong>
+                                            {missingMonthlyTrendSeries.join(
+                                                ' dan '
+                                            )}
+                                        </strong>{' '}
+                                        belum tersedia, sehingga garisnya belum
+                                        ditampilkan.
+                                    </>
+                                )}
                             </small>
                         </div>
                     </div>

@@ -166,7 +166,23 @@ function ChartCard({
                                     stroke={chartColor}
                                     fill={chartColor}
                                     strokeWidth={2}
-                                    dot={false}
+                                    dot={
+                                        type === 'line'
+                                            ? {
+                                                r: 3,
+                                                strokeWidth: 2,
+                                                fill: 'var(--card-bg)',
+                                            }
+                                            : false
+                                    }
+                                    activeDot={
+                                        type === 'line'
+                                            ? {
+                                                r: 5,
+                                            }
+                                            : undefined
+                                    }
+                                    connectNulls={false}
                                     radius={
                                         type === 'bar'
                                             ? [4, 4, 0, 0]

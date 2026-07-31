@@ -1018,3 +1018,218 @@ body::-webkit-scrollbar-thumb:hover {
         display: none !important;
     }
 }
+
+/* ============================================================
+   RESPONSIVE FIXES — MOBILE / IPHONE XR
+   ============================================================ */
+
+/* Cegah konten utama, card, chart, dan tabel mendorong lebar halaman. */
+html,
+body,
+#root,
+.app-shell,
+.app-main-content,
+.app-page-content {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.app-main-content,
+.app-page-content,
+.app-card,
+.card,
+.chart-card,
+.table-card {
+    min-width: 0;
+}
+
+/* Navbar title responsif. */
+.navbar-title {
+    display: block;
+    min-width: 0;
+    color: var(--navbar-text);
+    font-weight: 700;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+}
+
+/* Tombol navbar tidak boleh mengecil tidak beraturan. */
+.navbar-icon-btn {
+    flex: 0 0 auto;
+}
+
+/* Chart tetap berada dalam card. */
+.chart-card {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.chart-card .recharts-responsive-container {
+    min-width: 0 !important;
+}
+
+/* Tabel boleh digeser horizontal tanpa memperlebar halaman. */
+.table-responsive {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Card KPI per site. */
+.site-kpi-card {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.site-kpi-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(0.2rem, 1.2vw, 0.5rem);
+    width: 100%;
+    min-width: 0;
+}
+
+.site-kpi-metrics>* {
+    min-width: 0;
+}
+
+/* ============================================================
+   TABLET
+   ============================================================ */
+
+@media (max-width: 991.98px) {
+    .app-navbar {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+    }
+
+    .app-page-content {
+        width: 100%;
+        padding: 1rem;
+    }
+}
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 575.98px) {
+    :root {
+        --navbar-height: 58px;
+    }
+
+    .app-navbar {
+        min-height: var(--navbar-height);
+        height: auto;
+        padding: 0.45rem 0.5rem !important;
+        gap: 0.35rem;
+    }
+
+    .app-navbar>div:first-child {
+        min-width: 0;
+        flex: 1 1 auto;
+        gap: 0.4rem !important;
+    }
+
+    .app-navbar>div:last-child {
+        flex: 0 0 auto;
+        gap: 0.3rem !important;
+    }
+
+    .navbar-title {
+        max-width: 150px;
+        font-size: 0.88rem !important;
+        white-space: normal;
+        line-height: 1.08;
+    }
+
+    .navbar-icon-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+    }
+
+    .app-page-content {
+        padding: 0.75rem;
+    }
+
+    .app-page-content h4 {
+        font-size: 1.15rem;
+    }
+
+    .app-page-content p,
+    .app-page-content small {
+        overflow-wrap: anywhere;
+    }
+
+    .card,
+    .app-card,
+    .dashboard-card,
+    .chart-card,
+    .kpi-card,
+    .gauge-card,
+    .site-summary-card,
+    .filter-card,
+    .table-card {
+        border-radius: 12px;
+    }
+
+    .gauge-card {
+        min-height: 220px;
+        padding: 0.75rem;
+    }
+
+    .site-kpi-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.2rem;
+    }
+
+    .site-kpi-metrics .badge {
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        line-height: 1.1;
+    }
+
+    .table {
+        font-size: 0.78rem;
+    }
+
+    .table thead th,
+    .table tbody td {
+        padding: 0.55rem 0.6rem;
+    }
+
+    .form-control,
+    .form-select {
+        min-height: 40px;
+        font-size: 0.9rem;
+    }
+}
+
+/* ============================================================
+   VERY SMALL MOBILE
+   ============================================================ */
+
+@media (max-width: 380px) {
+    .navbar-title {
+        max-width: 125px;
+        font-size: 0.8rem !important;
+    }
+
+    .navbar-icon-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .app-page-content {
+        padding: 0.6rem;
+    }
+
+    .site-kpi-metrics {
+        gap: 0.15rem;
+    }
+}
