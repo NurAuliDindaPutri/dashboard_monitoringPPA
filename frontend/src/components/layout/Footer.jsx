@@ -10,7 +10,7 @@ function Footer() {
                 borderColor: 'var(--color-border)',
             }}
         >
-            <small style={{ color: 'var(--color-text-muted)' }}>
+            <small style={{ color: 'var(--text-muted)' }}>
                 &copy; {year} Monitoring Performance PPA. All rights reserved.
             </small>
         </footer>

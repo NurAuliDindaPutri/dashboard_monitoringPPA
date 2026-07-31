@@ -44,10 +44,27 @@ function resolveSiteIdentity(row) {
  * @param {Array<number|null>} values
  * @returns {number|null}
  */
-export function safeAvg(values) {
-    const valid = values.filter((v) => v !== null && v !== undefined && !Number.isNaN(Number(v)));
-    if (valid.length === 0) return null;
-    return valid.reduce((sum, v) => sum + Number(v), 0) / valid.length;
+export function safeAvg(values = []) {
+    const validValues = values
+        .filter(
+            (value) =>
+                value !== null &&
+                value !== undefined &&
+                value !== ''
+        )
+        .map(Number)
+        .filter(Number.isFinite);
+
+    if (validValues.length === 0) {
+        return null;
+    }
+
+    const total = validValues.reduce(
+        (sum, value) => sum + value,
+        0
+    );
+
+    return total / validValues.length;
 }
 
 /**
@@ -55,10 +72,25 @@ export function safeAvg(values) {
  * @param {Array<number|null>} values
  * @returns {number|null}
  */
-export function safeSum(values) {
-    const valid = values.filter((v) => v !== null && v !== undefined && !Number.isNaN(Number(v)));
-    if (valid.length === 0) return null;
-    return valid.reduce((sum, v) => sum + Number(v), 0);
+export function safeSum(values = []) {
+    const validValues = values
+        .filter(
+            (value) =>
+                value !== null &&
+                value !== undefined &&
+                value !== ''
+        )
+        .map(Number)
+        .filter(Number.isFinite);
+
+    if (validValues.length === 0) {
+        return 0;
+    }
+
+    return validValues.reduce(
+        (sum, value) => sum + value,
+        0
+    );
 }
 
 /**
@@ -88,15 +120,31 @@ export function aggregateKpiSummary(kpiRows) {
     }
 
     return {
-        readyness_actual: safeAvg(kpiRows.map((r) => r.readyness_actual)),
-        readyness_target: safeAvg(kpiRows.map((r) => r.readyness_target)),
-        availability_actual: safeAvg(kpiRows.map((r) => r.availability_actual)),
-        availability_target: safeAvg(kpiRows.map((r) => r.availability_target)),
-        leadtime_actual: safeAvg(kpiRows.map((r) => r.leadtime_actual)),
-        leadtime_target: safeAvg(kpiRows.map((r) => r.leadtime_target)),
+        readyness_actual: safeAvg(
+            kpiRows.map((row) => row.readyness_actual)
+        ),
+
+        readyness_target: safeAvg(
+            kpiRows.map((row) => row.readyness_target)
+        ),
+
+        availability_actual: safeAvg(
+            kpiRows.map((row) => row.availability_actual)
+        ),
+
+        availability_target: safeAvg(
+            kpiRows.map((row) => row.availability_target)
+        ),
+
+        leadtime_actual: safeAvg(
+            kpiRows.map((row) => row.leadtime_actual)
+        ),
+
+        leadtime_target: safeAvg(
+            kpiRows.map((row) => row.leadtime_target)
+        ),
     };
 }
-
 // ---------------------------------------------------------------------------
 // Unit Performance helpers
 // ---------------------------------------------------------------------------

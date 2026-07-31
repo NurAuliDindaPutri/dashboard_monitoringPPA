@@ -15,9 +15,9 @@ function DataTable({
     rowKey = 'id',
 }) {
     return (
-        <div className="app-card p-3">
+        <div className="app-card table-card p-3">
             {title && (
-                <div className="fw-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
+                <div className="fw-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
                     {title}
                 </div>
             )}
@@ -25,7 +25,7 @@ function DataTable({
             <div className="table-responsive">
                 <table className="table table-hover align-middle mb-0">
                     <thead>
-                        <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
+                        <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
                             {columns.map((col) => (
                                 <th
                                     key={col.key}

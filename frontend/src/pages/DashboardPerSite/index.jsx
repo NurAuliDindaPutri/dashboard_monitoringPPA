@@ -19,16 +19,23 @@ import {
     countPendingSupply,
     sumPendingQty,
 } from '../../utils/aggregate';
-import { formatPercent, formatNumber } from '../../utils/kpiStatus';
+import {
+    formatPercent,
+    formatNumber,
+    normalizePercentage,
+} from '../../utils/kpiStatus';
 
 const NOW = new Date();
 const DEFAULT_YEAR = NOW.getFullYear();
 const DEFAULT_MONTH = NOW.getMonth() + 1;
 
 // ── helper: konversi nilai 0-1 ke persen string untuk chart ─────────────────
-function toPct(val) {
-    if (val === null || val === undefined) return null;
-    return parseFloat((val * 100).toFixed(1));
+function toPct(value) {
+    const percentage = normalizePercentage(value);
+
+    return percentage === null
+        ? null
+        : Number(percentage.toFixed(1));
 }
 
 function DashboardPerSite() {
@@ -41,12 +48,16 @@ function DashboardPerSite() {
     const [sites, setSites] = useState([]);
     const [kpiRows, setKpiRows] = useState([]);
     const [perfRows, setPerfRows] = useState([]);
+
+    // Khusus grafik tren Januari–Desember
+    const [perfYearRows, setPerfYearRows] = useState([]);
     const [supplyRows, setSupplyRows] = useState([]);
 
     // ── Loading state ────────────────────────────────────────────────────
     const [loadingSites, setLoadingSites] = useState(true);
     const [loadingKpi, setLoadingKpi] = useState(false);
     const [loadingPerf, setLoadingPerf] = useState(false);
+    const [loadingPerfYear, setLoadingPerfYear] = useState(false);
     const [loadingSupply, setLoadingSupply] = useState(false);
 
     const [error, setError] = useState(null);
@@ -72,25 +83,80 @@ function DashboardPerSite() {
     const fetchData = useCallback(() => {
         if (!siteId) return;
 
-        const params = { site_id: siteId, period_year: year, period_month: month };
+        // Data untuk bulan yang sedang dipilih
+        const periodParams = {
+            site_id: siteId,
+            period_year: year,
+            period_month: month,
+        };
+
+        // Data satu tahun penuh untuk grafik tren
+        const yearParams = {
+            site_id: siteId,
+            period_year: year,
+        };
+
+        setError(null);
 
         setLoadingKpi(true);
-        getKpiSummary(params)
-            .then((d) => setKpiRows(d ?? []))
-            .catch(() => setKpiRows([]))
-            .finally(() => setLoadingKpi(false));
+        getKpiSummary(periodParams)
+            .then((data) => {
+                setKpiRows(data ?? []);
+            })
+            .catch((err) => {
+                console.error('Gagal memuat KPI:', err);
+                setKpiRows([]);
+                setError('Gagal memuat data KPI');
+            })
+            .finally(() => {
+                setLoadingKpi(false);
+            });
 
+        // Data detail pada bulan terpilih
         setLoadingPerf(true);
-        getUnitPerformance(params)
-            .then((d) => setPerfRows(d ?? []))
-            .catch(() => setPerfRows([]))
-            .finally(() => setLoadingPerf(false));
+        getUnitPerformance(periodParams)
+            .then((data) => {
+                setPerfRows(data ?? []);
+            })
+            .catch((err) => {
+                console.error('Gagal memuat performa unit:', err);
+                setPerfRows([]);
+                setError('Gagal memuat data performa unit');
+            })
+            .finally(() => {
+                setLoadingPerf(false);
+            });
+
+        // Data satu tahun untuk grafik tren
+        setLoadingPerfYear(true);
+        getUnitPerformance(yearParams)
+            .then((data) => {
+                setPerfYearRows(data ?? []);
+            })
+            .catch((err) => {
+                console.error('Gagal memuat tren performa:', err);
+                setPerfYearRows([]);
+                setError('Gagal memuat tren performa unit');
+            })
+            .finally(() => {
+                setLoadingPerfYear(false);
+            });
 
         setLoadingSupply(true);
-        getPendingSupply({ site_id: siteId })
-            .then((d) => setSupplyRows(d ?? []))
-            .catch(() => setSupplyRows([]))
-            .finally(() => setLoadingSupply(false));
+        getPendingSupply({
+            site_id: siteId,
+        })
+            .then((data) => {
+                setSupplyRows(data ?? []);
+            })
+            .catch((err) => {
+                console.error('Gagal memuat pending supply:', err);
+                setSupplyRows([]);
+                setError('Gagal memuat data pending supply');
+            })
+            .finally(() => {
+                setLoadingSupply(false);
+            });
     }, [siteId, month, year]);
 
     useEffect(() => {
@@ -103,15 +169,14 @@ function DashboardPerSite() {
     const totalPending = countPendingSupply(supplyRows);
     const totalPendingQty = sumPendingQty(supplyRows);
 
-    // Tren availability per bulan (ambil semua bulan dalam tahun ini, tanpa filter bulan)
-    const trendData = aggregatePerfByMonth(perfRows).map((p) => ({
+    const trendData = aggregatePerfByMonth(perfYearRows).map((p) => ({
         month: p.month,
         'PA (%)': toPct(p.physical_availability),
         'UA (%)': toPct(p.unit_availability),
     }));
 
     // MTBF & MTTR bar chart
-    const mtbfMttrData = aggregatePerfByMonth(perfRows).map((p) => ({
+    const mtbfMttrData = aggregatePerfByMonth(perfYearRows).map((p) => ({
         month: p.month,
         MTBF: p.mtbf !== null ? parseFloat(p.mtbf.toFixed(1)) : null,
         MTTR: p.mttr !== null ? parseFloat(p.mttr.toFixed(1)) : null,
@@ -121,15 +186,42 @@ function DashboardPerSite() {
     // di sini sumbu X adalah model_name karena konteksnya sudah 1 site.
     const unitByModel = aggregatePerfByUnit(perfRows).map((u) => ({
         model_name: u.model_name,
-        physical_availability: u.physical_availability !== null ? parseFloat((u.physical_availability * 100).toFixed(1)) : null,
-        unit_availability: u.unit_availability !== null ? parseFloat((u.unit_availability * 100).toFixed(1)) : null,
-        mtbf: u.mtbf !== null ? parseFloat(u.mtbf.toFixed(1)) : null,
-        mttr: u.mttr !== null ? parseFloat(u.mttr.toFixed(1)) : null,
-        productivity: u.productivity !== null ? parseFloat(u.productivity.toFixed(1)) : null,
-        fuel_consumption: u.fuel_consumption !== null ? parseFloat(u.fuel_consumption.toFixed(1)) : null,
+
+        physical_availability: toPct(u.physical_availability),
+        unit_availability: toPct(u.unit_availability),
+
+        mtbf:
+            u.mtbf !== null && u.mtbf !== undefined
+                ? Number(Number(u.mtbf).toFixed(1))
+                : null,
+
+        mttr:
+            u.mttr !== null && u.mttr !== undefined
+                ? Number(Number(u.mttr).toFixed(1))
+                : null,
+
+        productivity:
+            u.productivity !== null && u.productivity !== undefined
+                ? Number(Number(u.productivity).toFixed(1))
+                : null,
+
+        fuel_consumption:
+            u.fuel_consumption !== null && u.fuel_consumption !== undefined
+                ? Number(Number(u.fuel_consumption).toFixed(1))
+                : null,
     }));
-    const hasProductivity = unitByModel.some((u) => u.productivity !== null && u.productivity > 0);
-    const hasFuelConsumption = unitByModel.some((u) => u.fuel_consumption !== null && u.fuel_consumption > 0);
+
+    const hasProductivity = unitByModel.some(
+        (item) =>
+            item.productivity !== null &&
+            item.productivity !== undefined
+    );
+
+    const hasFuelConsumption = unitByModel.some(
+        (item) =>
+            item.fuel_consumption !== null &&
+            item.fuel_consumption !== undefined
+    );
 
     // Info site terpilih
     const selectedSite = sites.find((s) => String(s.id) === String(siteId));
@@ -142,13 +234,37 @@ function DashboardPerSite() {
             label: 'PA (%)',
             align: 'center',
             render: (row) => {
-                const v = row.physical_availability;
-                if (v === null || v === undefined) return <span className="text-muted">-</span>;
-                const pct = (v * 100).toFixed(1);
-                const color = v >= 0.98 ? '#16a34a' : v >= 0.95 ? '#d97706' : '#dc2626';
+                const value = Number(row.physical_availability);
+
+                if (!Number.isFinite(value)) {
+                    return <span className="text-muted">-</span>;
+                }
+
+                const percentage = normalizePercentage(value);
+
+                const normalizedValue =
+                    percentage !== null
+                        ? percentage / 100
+                        : 0;
+
+                const color =
+                    normalizedValue >= 0.98
+                        ? '#16a34a'
+                        : normalizedValue >= 0.95
+                            ? '#d97706'
+                            : '#dc2626';
+
                 return (
-                    <span className="badge rounded-pill" style={{ backgroundColor: `${color}1A`, color }}>
-                        {pct}%
+                    <span
+                        className="badge rounded-pill"
+                        style={{
+                            backgroundColor: `${color}1A`,
+                            color,
+                        }}
+                    >
+                        {percentage !== null
+                            ? `${percentage.toFixed(1)}%`
+                            : '-'}
                     </span>
                 );
             },
@@ -193,14 +309,18 @@ function DashboardPerSite() {
         { key: 'remarks', label: 'Keterangan', align: 'left' },
     ];
 
-    const isLoading = loadingKpi || loadingPerf || loadingSupply;
+    const isLoading =
+        loadingKpi ||
+        loadingPerf ||
+        loadingPerfYear ||
+        loadingSupply;
 
     return (
         <div>
             {/* ── Header ──────────────────────────────────────────────── */}
             <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <div>
-                    <h4 className="fw-bold mb-0" style={{ color: 'var(--color-text-primary)' }}>
+                    <h4 className="fw-bold mb-0" style={{ color: 'var(--text-primary)' }}>
                         Dashboard Per Site
                     </h4>
                     <p className="text-secondary mb-0" style={{ fontSize: '0.875rem' }}>
@@ -326,7 +446,7 @@ function DashboardPerSite() {
                     {/* ── Ringkasan KPI teks ───────────────────────────── */}
                     {!loadingKpi && (
                         <div className="app-card p-3 mb-3">
-                            <div className="fw-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                            <div className="fw-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                                 Ringkasan KPI — Periode ini
                             </div>
                             <div className="row g-2">
@@ -338,11 +458,14 @@ function DashboardPerSite() {
                                     <div key={item.label} className="col-12 col-md-4">
                                         <div
                                             className="rounded p-2 d-flex justify-content-between align-items-center"
-                                            style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)' }}
+                                            style={{
+                                                backgroundColor: 'var(--navy-800)',
+                                                border: '1px solid var(--border-color)',
+                                            }}
                                         >
                                             <span className="text-secondary small">{item.label}</span>
                                             <div className="text-end">
-                                                <div className="fw-bold" style={{ color: 'var(--color-text-primary)' }}>
+                                                <div className="fw-bold" style={{ color: 'var(--text-primary)' }}>
                                                     {formatPercent(item.actual)}
                                                 </div>
                                                 <small className="text-muted">Target: {formatPercent(item.target)}</small>
@@ -366,7 +489,7 @@ function DashboardPerSite() {
                                     { key: 'PA (%)', label: 'Physical Availability', color: '#1a56db' },
                                     { key: 'UA (%)', label: 'Unit Availability', color: '#16a34a' },
                                 ]}
-                                loading={loadingPerf}
+                                loading={loadingPerfYear}
                                 height={260}
                             />
                         </div>
@@ -380,7 +503,7 @@ function DashboardPerSite() {
                                     { key: 'MTBF', label: 'MTBF', color: '#1a56db' },
                                     { key: 'MTTR', label: 'MTTR', color: '#dc2626' },
                                 ]}
-                                loading={loadingPerf}
+                                loading={loadingPerfYear}
                                 height={260}
                             />
                         </div>
@@ -388,7 +511,7 @@ function DashboardPerSite() {
 
                     {/* ── Performa Unit per Model (relokasi dari Dashboard All Site) ── */}
                     <div className="mb-3">
-                        <h6 className="fw-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                        <h6 className="fw-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                             Performa Unit per Model
                         </h6>
                         <div className="row g-3">
@@ -433,7 +556,7 @@ function DashboardPerSite() {
                                     />
                                 ) : (
                                     <div className="app-card p-3 h-100 d-flex flex-column justify-content-between">
-                                        <span className="fw-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                                        <span className="fw-semibold" style={{ color: 'var(--text-primary)' }}>
                                             Productivity per Model
                                         </span>
                                         <div className="d-flex flex-column align-items-center justify-content-center text-center my-auto py-3">
@@ -459,7 +582,7 @@ function DashboardPerSite() {
                                     />
                                 ) : (
                                     <div className="app-card p-3 h-100 d-flex flex-column justify-content-between">
-                                        <span className="fw-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                                        <span className="fw-semibold" style={{ color: 'var(--text-primary)' }}>
                                             Fuel Consumption per Model
                                         </span>
                                         <div className="d-flex flex-column align-items-center justify-content-center text-center my-auto py-3">

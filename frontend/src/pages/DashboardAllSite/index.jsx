@@ -50,8 +50,8 @@ function DonutRing({ label, actual, target, isGood }) {
         <div
             className="d-flex flex-column align-items-center text-center p-2 rounded flex-fill"
             style={{
-                backgroundColor: 'var(--color-bg)',
-                border: '1px solid var(--color-border)',
+                backgroundColor: 'var(--color-bg-secondary, rgba(255,255,255,0.04))',
+                border: '1px solid var(--color-border, rgba(255,255,255,0.12))',
                 minWidth: 120,
             }}
         >
@@ -83,7 +83,7 @@ function DonutRing({ label, actual, target, isGood }) {
                     </span>
                 </div>
             </div>
-            <span className="fw-semibold small mb-0 text-truncate w-100" style={{ fontSize: '0.78rem', color: 'var(--color-text-primary)' }}>
+            <span className="fw-semibold small mb-0 text-truncate w-100" style={{ fontSize: '0.78rem', color: 'var(--text-primary)' }}>
                 {label}
             </span>
             <span className="text-muted" style={{ fontSize: '0.7rem' }}>
@@ -224,7 +224,7 @@ function DashboardAllSite() {
             {/* ── 1. Bagian Atas: Judul & Filter ───────────────────────────── */}
             <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <div>
-                    <h4 className="fw-bold mb-0" style={{ color: 'var(--color-text-primary)' }}>
+                    <h4 className="fw-bold mb-0" style={{ color: 'var(--text-primary)' }}>
                         Dashboard All Site
                     </h4>
                     <p className="text-secondary mb-0" style={{ fontSize: '0.875rem' }}>
@@ -298,7 +298,7 @@ function DashboardAllSite() {
             <div className="app-card p-3 mb-4">
                 <div className="d-flex align-items-center justify-content-between mb-3">
                     <div>
-                        <h6 className="fw-semibold mb-0" style={{ color: 'var(--color-text-primary)' }}>
+                        <h6 className="fw-semibold mb-0" style={{ color: 'var(--text-primary)' }}>
                             Ringkasan KPI Per Site — Status Pencapaian Target
                         </h6>
                         <small className="text-secondary">
@@ -324,9 +324,16 @@ function DashboardAllSite() {
                     <div className="row g-3">
                         {siteKpiSummaryList.map((siteItem) => (
                             <div key={siteItem.site_id} className="col-12 col-md-6 col-xl-4">
-                                <div className="p-3 border rounded h-100" style={{ backgroundColor: 'var(--color-surface, #fff)' }}>
+                                <div
+                                    className="p-3 border rounded h-100"
+                                    style={{
+                                        backgroundColor: 'var(--card-bg)',
+                                        borderColor: 'var(--color-border)',
+                                        color: 'var(--text-primary)',
+                                    }}
+                                >
                                     <div className="d-flex align-items-center justify-content-between mb-2">
-                                        <span className="fw-bold" style={{ color: 'var(--color-text-primary)' }}>
+                                        <span className="fw-bold" style={{ color: 'var(--text-primary)' }}>
                                             {siteItem.site_code}
                                         </span>
                                         <small className="text-muted text-truncate ms-2" style={{ maxWidth: 140 }}>
@@ -421,7 +428,7 @@ function DashboardAllSite() {
 
             {/* ── 5. Ringkasan Tambahan (KPI Cards Operational & Pending Supply) ── */}
             <div className="mb-4">
-                <h6 className="fw-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                <h6 className="fw-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                     Ringkasan Tambahan Operasional
                 </h6>
                 <div className="row g-3">

@@ -36,60 +36,140 @@ async function importExcel(req, res, next) {
         };
 
         // ----- Master Data -> sites & unit_models -----
-        const masterSheetName = findSheetName(workbook, 'Master Data');
+        const masterSheetName = findSheetName(
+            workbook,
+            'Master Data',
+            'Master',
+            'Data Master'
+        );
+
         if (masterSheetName) {
             const rows = sheetToMatrix(workbook, masterSheetName);
-            const { summary, skippedDetails } = await importMasterDataSheet(rows);
+            const { summary, skippedDetails } =
+                await importMasterDataSheet(rows);
+
             result.master_data = summary;
             result.skipped.push(...skippedDetails);
+        } else {
+            result.skipped.push({
+                sheet: 'Master Data',
+                reason: 'Sheet tidak ditemukan',
+            });
         }
 
         // ----- Input -> monthly_kpi_summary -----
-        const inputSheetName = findSheetName(workbook, 'Input');
+        const inputSheetName = findSheetName(
+            workbook,
+            'Input',
+            'Input Data',
+            'KPI',
+            'KPI Summary'
+        );
+
         if (inputSheetName) {
             const rows = sheetToMatrix(workbook, inputSheetName);
-            const { summary, skippedDetails } = await importKpiSummarySheet(rows, periodMonth, periodYear);
+            const { summary, skippedDetails } =
+                await importKpiSummarySheet(
+                    rows,
+                    periodMonth,
+                    periodYear
+                );
+
             result.kpi_summary = summary;
             result.skipped.push(...skippedDetails);
+        } else {
+            result.skipped.push({
+                sheet: 'Input',
+                reason: 'Sheet tidak ditemukan',
+            });
         }
 
         // ----- Data Unit -> monthly_unit_performance -----
-        const dataUnitSheetName = findSheetName(workbook, 'Data Unit');
+        const dataUnitSheetName = findSheetName(
+            workbook,
+            'Data Unit',
+            'Unit Data',
+            'Performance Unit',
+            'Unit Performance'
+        );
+
         if (dataUnitSheetName) {
             const rows = sheetToMatrix(workbook, dataUnitSheetName);
-            const { summary, skippedDetails } = await importUnitPerformanceSheet(rows, periodMonth, periodYear);
+            const { summary, skippedDetails } =
+                await importUnitPerformanceSheet(
+                    rows,
+                    periodMonth,
+                    periodYear
+                );
+
             result.unit_performance = summary;
             result.skipped.push(...skippedDetails);
+        } else {
+            result.skipped.push({
+                sheet: 'Data Unit',
+                reason: 'Sheet tidak ditemukan',
+            });
         }
 
         // ----- Pending Supply -> pending_supply -----
-        const pendingSheetName = findSheetName(workbook, 'Pending Supply');
+        const pendingSheetName = findSheetName(
+            workbook,
+            'Pending Supply',
+            'Pending',
+            'Supply Pending'
+        );
+
         if (pendingSheetName) {
             const rows = sheetToMatrix(workbook, pendingSheetName);
-            const { summary, skippedDetails } = await importPendingSupplySheet(rows);
+            const { summary, skippedDetails } =
+                await importPendingSupplySheet(rows);
+
             result.pending_supply = summary;
             result.skipped.push(...skippedDetails);
+        } else {
+            result.skipped.push({
+                sheet: 'Pending Supply',
+                reason: 'Sheet tidak ditemukan',
+            });
         }
 
         // ----- Detail LT Supply -----
-        const ltSheetName = findSheetName(workbook, 'Detail LT Supply');
+        const ltSheetName = findSheetName(
+            workbook,
+            'Detail LT Supply',
+            'Detail Lead Time Supply',
+            'LT Supply',
+            'Lead Time Supply'
+        );
+
         if (ltSheetName) {
             const rows = sheetToMatrix(workbook, ltSheetName);
-            const { summary, skippedDetails } = await importDetailLtSupplySheet(rows, periodMonth, periodYear);
-            result.detail_lt_supply = summary;
-            if (skippedDetails) result.skipped.push(...skippedDetails);
-        }
+            const { summary, skippedDetails } =
+                await importDetailLtSupplySheet(
+                    rows,
+                    periodMonth,
+                    periodYear
+                );
 
-        // Sheet "Speedometer" (jika ada) tidak diproses - murni tampilan di Excel, tidak berkorespondensi ke tabel manapun
+            result.detail_lt_supply = summary;
+
+            if (skippedDetails) {
+                result.skipped.push(...skippedDetails);
+            }
+        } else {
+            result.skipped.push({
+                sheet: 'Detail LT Supply',
+                reason: 'Sheet tidak ditemukan',
+            });
+        }
 
         return success(res, result, 'Import Excel selesai diproses');
     } catch (err) {
-        console.error("IMPORT ERROR:");
+        console.error("IMPORT EXCEL ERROR:");
         console.error(err);
 
         return res.status(400).json({
-            message: err.message,
-            stack: err.stack
+            message: err.message || 'Import Excel gagal diproses',
         });
     }
 }

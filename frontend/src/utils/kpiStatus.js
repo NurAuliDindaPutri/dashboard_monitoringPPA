@@ -33,11 +33,34 @@ export function getKpiStatusColor(value, target) {
 /**
  * Format angka desimal (0-1) menjadi persentase string, aman untuk nilai null.
  */
-export function formatPercent(value, digits = 1) {
-    if (value === null || value === undefined || Number.isNaN(value)) {
+export function normalizePercentage(value) {
+    if (
+        value === null ||
+        value === undefined ||
+        value === ''
+    ) {
+        return null;
+    }
+
+    const number = Number(value);
+
+    if (!Number.isFinite(number)) {
+        return null;
+    }
+
+    return number <= 1
+        ? number * 100
+        : number;
+}
+
+export function formatPercent(value, decimals = 1) {
+    const percentage = normalizePercentage(value);
+
+    if (percentage === null) {
         return '-';
     }
-    return `${(value * 100).toFixed(digits)}%`;
+
+    return `${percentage.toFixed(decimals)}%`;
 }
 
 /**

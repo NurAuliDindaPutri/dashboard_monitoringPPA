@@ -34,6 +34,7 @@
 
 :root,
 :root[data-theme='dark'] {
+    --chart-grid: rgba(255, 255, 255, 0.08);
     --navy-950: #121629;
     --navy-900: #171c33;
     --navy-850: #1c223d;
@@ -91,6 +92,7 @@
    ============================================================ */
 
 :root[data-theme='light'] {
+    --chart-grid: rgba(15, 23, 42, 0.10);
     --navy-950: #eef0f7;
     --navy-900: #f2f3f9;
     --navy-850: #f5f6fb;
@@ -714,7 +716,6 @@ a {
 .site-summary-card,
 .filter-card,
 .table-card,
-.border,
 .bg-white {
     background: var(--card-bg) !important;
     color: var(--text-primary) !important;
@@ -821,8 +822,7 @@ a {
 .site-summary-card .metric-box {
     border: 1px solid var(--border-color);
     border-radius: 12px;
-
-    background: rgba(255, 255, 255, 0.025);
+    background: var(--navy-800);
 }
 
 /* ============================================================
@@ -891,6 +891,22 @@ a {
     border-radius: 12px;
 }
 
+.table-card {
+    overflow: hidden;
+}
+
+.table-card .table-responsive {
+    border-radius: 12px;
+}
+
+.table-card .table thead th {
+    color: var(--text-secondary);
+}
+
+.table-card .table tbody td {
+    color: var(--text-primary);
+}
+
 /* ============================================================
    CHART / RECHARTS
    ============================================================ */
@@ -901,7 +917,7 @@ a {
 }
 
 .recharts-cartesian-grid line {
-    stroke: rgba(255, 255, 255, 0.07);
+    stroke: var(--chart-grid);
 }
 
 .recharts-default-tooltip {

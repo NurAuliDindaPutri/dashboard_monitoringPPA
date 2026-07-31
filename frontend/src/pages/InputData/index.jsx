@@ -64,7 +64,7 @@ function KpiSummaryForm({ sites }) {
 
     return (
         <div className="app-card p-4">
-            <div className="fw-semibold mb-3 d-flex align-items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
+            <div className="fw-semibold mb-3 d-flex align-items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                 <i className="bi bi-graph-up-arrow text-primary-custom" />
                 Input KPI Summary Bulanan
             </div>
@@ -260,7 +260,7 @@ function UnitPerformanceForm({ sites }) {
 
     return (
         <div className="app-card p-4">
-            <div className="fw-semibold mb-3 d-flex align-items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
+            <div className="fw-semibold mb-3 d-flex align-items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                 <i className="bi bi-truck text-primary-custom" />
                 Input Data Performa Unit Bulanan
             </div>
@@ -445,7 +445,7 @@ function PendingSupplyForm({ sites }) {
 
     return (
         <div className="app-card p-4">
-            <div className="fw-semibold mb-3 d-flex align-items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
+            <div className="fw-semibold mb-3 d-flex align-items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                 <i className="bi bi-hourglass-split text-primary-custom" />
                 Input Pending Supply
             </div>
@@ -540,7 +540,7 @@ function InputData() {
         <div>
             {/* ── Header ──────────────────────────────────────────────── */}
             <div className="mb-3">
-                <h4 className="fw-bold mb-0" style={{ color: 'var(--color-text-primary)' }}>
+                <h4 className="fw-bold mb-0" style={{ color: 'var(--text-primary)' }}>
                     Input Data
                 </h4>
                 <p className="text-secondary mb-0" style={{ fontSize: '0.875rem' }}>

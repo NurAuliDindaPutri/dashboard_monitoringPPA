@@ -1,20 +1,20 @@
 function KpiCard({ icon, label, value, suffix = '', loading = false, variant = 'primary' }) {
     const variantColor = {
-        primary: 'var(--color-primary)',
-        success: 'var(--color-success)',
-        warning: 'var(--color-warning)',
-        danger: 'var(--color-danger)',
-        secondary: 'var(--color-secondary)',
-    }[variant] || 'var(--color-primary)';
+        primary: 'var(--accent-indigo)',
+        secondary: 'var(--accent-violet)',
+        success: 'var(--success)',
+        warning: 'var(--warning)',
+        danger: 'var(--danger)',
+    }[variant] || 'var(--accent-indigo)';
 
     return (
-        <div className="app-card p-3 h-100 d-flex align-items-center gap-3">
+        <div className="app-card kpi-card p-3 h-100 d-flex align-items-center gap-3">
             <div
                 className="d-flex align-items-center justify-content-center flex-shrink-0"
                 style={{
                     width: 48,
                     height: 48,
-                    borderRadius: 'var(--radius-md)',
+                    borderRadius: '12px',
                     backgroundColor: `${variantColor}1A`,
                     color: variantColor,
                 }}
@@ -31,7 +31,7 @@ function KpiCard({ icon, label, value, suffix = '', loading = false, variant = '
                         <span className="placeholder col-6" />
                     </div>
                 ) : (
-                    <div className="fw-bold fs-5" style={{ color: 'var(--color-text-primary)' }}>
+                    <div className="fw-bold fs-5" style={{ color: 'var(--text-primary)' }}>
                         {value}
                         {suffix && <span className="fs-6 fw-normal text-secondary ms-1">{suffix}</span>}
                     </div>

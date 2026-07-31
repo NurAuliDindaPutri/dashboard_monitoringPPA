@@ -175,7 +175,7 @@ function DetailLTSupply() {
             {/* ── Header ──────────────────────────────────────────────── */}
             <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <div>
-                    <h4 className="fw-bold mb-0" style={{ color: 'var(--color-text-primary)' }}>
+                    <h4 className="fw-bold mb-0" style={{ color: 'var(--text-primary)' }}>
                         Detail Lead Time Supply
                     </h4>
                     <p className="text-secondary mb-0" style={{ fontSize: '0.875rem' }}>
