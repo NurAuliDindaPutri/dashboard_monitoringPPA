@@ -7,6 +7,7 @@ import DataUnit from '../pages/DataUnit';
 import DetailLTSupply from '../pages/DetailLTSupply';
 import PendingSupply from '../pages/PendingSupply';
 import ImportMasterData from '../pages/ImportMasterData';
+import CriticalItem from '../pages/CriticalItem';
 
 function AppRoutes() {
     return (
@@ -19,6 +20,7 @@ function AppRoutes() {
                 <Route path="/data-unit" element={<DataUnit />} />
                 <Route path="/detail-lt-supply" element={<DetailLTSupply />} />
                 <Route path="/pending-supply" element={<PendingSupply />} />
+                <Route path="/critical-items" element={<CriticalItem />} />
                 <Route path="/import-master-data" element={<ImportMasterData />} />
                 <Route path="*" element={<Navigate to="/dashboard-all-site" replace />} />
             </Route>

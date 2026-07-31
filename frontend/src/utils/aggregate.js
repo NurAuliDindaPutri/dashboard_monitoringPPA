@@ -369,6 +369,93 @@ export function buildKpiSummaryPerSite(kpiRows) {
 }
 
 /**
+ * Membuat daftar KPI per site yang belum mencapai target.
+ *
+ * @param {Array<object>} kpiRows
+ * @returns {Array<object>}
+ */
+export function buildKpiBelowTargetAnalysis(kpiRows) {
+    const siteSummaries =
+        buildKpiSummaryPerSite(kpiRows);
+
+    const result = [];
+
+    const kpiDefinitions = [
+        {
+            key: 'readyness',
+            label: 'Readiness',
+            actualKey: 'readyness_actual',
+            targetKey: 'readyness_target',
+        },
+        {
+            key: 'availability',
+            label: 'Availability VHS',
+            actualKey: 'availability_actual',
+            targetKey: 'availability_target',
+        },
+        {
+            key: 'leadtime',
+            label: 'Lead Time Supply',
+            actualKey: 'leadtime_actual',
+            targetKey: 'leadtime_target',
+        },
+    ];
+
+    for (const site of siteSummaries) {
+        for (const kpi of kpiDefinitions) {
+            const actual = site[kpi.actualKey];
+            const target = site[kpi.targetKey];
+
+            if (
+                actual === null ||
+                actual === undefined ||
+                target === null ||
+                target === undefined ||
+                actual >= target
+            ) {
+                continue;
+            }
+
+            const gap = target - actual;
+            const gapPercent = gap * 100;
+
+            let priority = 'Perlu Perhatian';
+
+            if (gapPercent >= 10) {
+                priority = 'Prioritas Tinggi';
+            } else if (gapPercent >= 5) {
+                priority = 'Prioritas Sedang';
+            }
+
+            result.push({
+                id: `${site.site_id ?? site.site_code}-${kpi.key}`,
+                site_id: site.site_id,
+                site_code: site.site_code,
+                site_name: site.site_name,
+                kpi: kpi.label,
+                actual,
+                target,
+                gap,
+                actual_percent: Number(
+                    (actual * 100).toFixed(1)
+                ),
+                target_percent: Number(
+                    (target * 100).toFixed(1)
+                ),
+                gap_percent: Number(
+                    gapPercent.toFixed(1)
+                ),
+                priority,
+            });
+        }
+    }
+
+    return result.sort(
+        (a, b) => b.gap_percent - a.gap_percent
+    );
+}
+
+/**
  * Mengelompokkan data unit performance berdasarkan Model Unit (mis. PC3400, PC2000, dll.).
  * Mengabaikan site yang tidak memiliki data pada periode terpilih (Rule 6).
  * Sumbu X adalah Site (`site_code`).

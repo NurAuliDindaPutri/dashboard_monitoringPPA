@@ -23,6 +23,7 @@ import {
     buildKpiPerSiteChart,
     buildUnitPerformanceBySite,
     aggregateKpiByMonth,
+    buildKpiBelowTargetAnalysis,
 } from '../../utils/aggregate';
 
 // ── Inisialisasi filter default ─────────────────────────────────────────────
@@ -186,6 +187,7 @@ function DashboardAllSite() {
     // ── Derived data ──────────────────────────────────────────────────────
     const kpiSummary = aggregateKpiSummary(kpiRows);
     const siteKpiSummaryList = buildKpiSummaryPerSite(kpiRows);
+    const belowTargetAnalysis = buildKpiBelowTargetAnalysis(kpiRows);
     const kpiPerSiteChartData = buildKpiPerSiteChart(kpiRows);
     const unitPerfBySite = buildUnitPerformanceBySite(perfRows);
     const monthlyTrendData = aggregateKpiByMonth(kpiYearRows);
@@ -367,48 +369,223 @@ function DashboardAllSite() {
                 )}
             </div>
 
-            {/* ── 4. Perbandingan & Tren Seluruh Site (agregat, bukan per-model) ── */}
+            {/* ── Analisis KPI Belum Mencapai Target ───────────────────── */}
+            <div className="app-card p-3 mb-4">
+                <div className="d-flex align-items-start justify-content-between gap-3 mb-3 flex-wrap">
+                    <div>
+                        <h6
+                            className="fw-semibold mb-1"
+                            style={{ color: 'var(--text-primary)' }}
+                        >
+                            Analisis KPI Belum Mencapai Target
+                        </h6>
+
+                        <small className="text-secondary">
+                            Daftar KPI site yang nilai aktualnya masih berada
+                            di bawah target pada periode terpilih.
+                        </small>
+                    </div>
+
+                    {!loadingKpi && (
+                        <span
+                            className={`badge rounded-pill ${belowTargetAnalysis.length > 0
+                                ? 'text-bg-danger'
+                                : 'text-bg-success'
+                                }`}
+                        >
+                            {belowTargetAnalysis.length > 0
+                                ? `${belowTargetAnalysis.length} KPI perlu perhatian`
+                                : 'Semua KPI memenuhi target'}
+                        </span>
+                    )}
+                </div>
+
+                {loadingKpi ? (
+                    <div className="placeholder-glow">
+                        <span
+                            className="placeholder w-100 rounded"
+                            style={{ height: 120 }}
+                        />
+                    </div>
+                ) : belowTargetAnalysis.length === 0 ? (
+                    <div className="text-center py-4">
+                        <i className="bi bi-check-circle-fill text-success fs-2" />
+
+                        <p
+                            className="fw-semibold mb-1 mt-2"
+                            style={{ color: 'var(--text-primary)' }}
+                        >
+                            Semua KPI telah mencapai target
+                        </p>
+
+                        <small className="text-secondary">
+                            Tidak ada KPI site yang berada di bawah target
+                            pada periode terpilih.
+                        </small>
+                    </div>
+                ) : (
+                    <div className="table-responsive">
+                        <table className="table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Site</th>
+                                    <th>KPI</th>
+                                    <th className="text-end">Aktual</th>
+                                    <th className="text-end">Target</th>
+                                    <th className="text-end">Kekurangan</th>
+                                    <th className="text-center">Prioritas</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {belowTargetAnalysis.map((item) => {
+                                    const priorityClass =
+                                        item.priority === 'Prioritas Tinggi'
+                                            ? 'text-bg-danger'
+                                            : item.priority === 'Prioritas Sedang'
+                                                ? 'text-bg-warning'
+                                                : 'text-bg-secondary';
+
+                                    return (
+                                        <tr key={item.id}>
+                                            <td>
+                                                <div
+                                                    className="fw-semibold"
+                                                    style={{
+                                                        color: 'var(--text-primary)',
+                                                    }}
+                                                >
+                                                    {item.site_code}
+                                                </div>
+
+                                                {item.site_name && (
+                                                    <small className="text-muted">
+                                                        {item.site_name}
+                                                    </small>
+                                                )}
+                                            </td>
+
+                                            <td>{item.kpi}</td>
+
+                                            <td className="text-end text-danger fw-semibold">
+                                                {item.actual_percent}%
+                                            </td>
+
+                                            <td className="text-end">
+                                                {item.target_percent}%
+                                            </td>
+
+                                            <td className="text-end text-danger">
+                                                -{item.gap_percent}%
+                                            </td>
+
+                                            <td className="text-center">
+                                                <span
+                                                    className={`badge rounded-pill ${priorityClass}`}
+                                                >
+                                                    {item.priority}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* ── 4. Perbandingan & Tren Seluruh Site ─────────────────── */}
             <div className="row g-3 mb-4">
                 <div className="col-12 col-lg-6">
-                    <ChartCard
-                        title="Perbandingan KPI Antar Site (%) — Nilai Aktual"
-                        type="bar"
-                        data={kpiPerSiteChartData}
-                        xKey="site"
-                        series={[
-                            { key: 'readyness', label: 'Readiness', color: '#1a56db' },
-                            { key: 'availability', label: 'Availability VHS', color: '#16a34a' },
-                            { key: 'leadtime', label: 'Lead Time Supply', color: '#d97706' },
-                        ]}
-                        loading={loadingKpi}
-                        height={280}
-                    />
-                    <small className="text-muted d-block mt-2">
-                        Membandingkan <strong>besaran nilai aktual</strong> antar site pada periode terpilih (bukan status pencapaian target — lihat bagian di atas untuk itu).
-                    </small>
+                    <div className="h-100 d-flex flex-column gap-2">
+                        <ChartCard
+                            title="Perbandingan KPI Antar Site (%) — Nilai Aktual"
+                            type="bar"
+                            data={kpiPerSiteChartData}
+                            xKey="site"
+                            series={[
+                                {
+                                    key: 'readyness',
+                                    label: 'Readiness',
+                                    color: '#1a56db',
+                                },
+                                {
+                                    key: 'availability',
+                                    label: 'Availability VHS',
+                                    color: '#16a34a',
+                                },
+                                {
+                                    key: 'leadtime',
+                                    label: 'Lead Time Supply',
+                                    color: '#d97706',
+                                },
+                            ]}
+                            loading={loadingKpi}
+                            height={280}
+                        />
+
+                        <div className="px-1">
+                            <small
+                                className="text-secondary d-block"
+                                style={{
+                                    lineHeight: 1.5,
+                                }}
+                            >
+                                Membandingkan <strong>besaran nilai aktual</strong>{' '}
+                                antar site pada periode terpilih. Untuk status
+                                pencapaian target, lihat bagian ringkasan KPI di atas.
+                            </small>
+                        </div>
+                    </div>
                 </div>
+
                 <div className="col-12 col-lg-6">
-                    <ChartCard
-                        title="Tren Bulanan KPI Seluruh Site (%)"
-                        type="line"
-                        data={monthlyTrendData}
-                        xKey="month"
-                        series={[
-                            { key: 'Readiness', label: 'Readiness', color: '#1a56db' },
-                            { key: 'Availability', label: 'Availability VHS', color: '#16a34a' },
-                            { key: 'Lead Time', label: 'Lead Time Supply', color: '#d97706' },
-                        ]}
-                        loading={loadingTrend}
-                        height={280}
-                    />
-                    <small className="text-muted d-block mt-2">
-                        Menampilkan tren KPI selama satu tahun penuh berdasarkan tahun terpilih. Filter bulan tidak memengaruhi grafik ini.
-                    </small>
+                    <div className="h-100 d-flex flex-column gap-2">
+                        <ChartCard
+                            title="Tren Bulanan KPI Seluruh Site (%)"
+                            type="line"
+                            data={monthlyTrendData}
+                            xKey="month"
+                            series={[
+                                {
+                                    key: 'Readiness',
+                                    label: 'Readiness',
+                                    color: '#1a56db',
+                                },
+                                {
+                                    key: 'Availability',
+                                    label: 'Availability VHS',
+                                    color: '#16a34a',
+                                },
+                                {
+                                    key: 'Lead Time',
+                                    label: 'Lead Time Supply',
+                                    color: '#d97706',
+                                },
+                            ]}
+                            loading={loadingTrend}
+                            height={280}
+                        />
+
+                        <div className="px-1">
+                            <small
+                                className="text-secondary d-block"
+                                style={{
+                                    lineHeight: 1.5,
+                                }}
+                            >
+                                Menampilkan tren KPI selama satu tahun penuh
+                                berdasarkan tahun terpilih. Filter bulan tidak
+                                memengaruhi grafik ini.
+                            </small>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* ── Ringkasan Agregat Performa Unit per Site (bukan per model) ── */}
-            <div className="mb-4">
+            <div className="mb-4 pt-2">
                 <ChartCard
                     title="Ringkasan Performa Unit Antar Site — Rata-rata PA & UA (%)"
                     type="bar"

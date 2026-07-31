@@ -31,6 +31,13 @@ const menuItems = [
         path: '/pending-supply',
         icon: 'bi-box-seam',
     },
+
+    {
+        label: 'Critical Item',
+        path: '/critical-items',
+        icon: 'bi-exclamation-diamond',
+    },
+
     {
         label: 'Import Excel Bulanan',
         path: '/import-master-data',
@@ -93,8 +100,8 @@ function Sidebar({
                     >
                         <i
                             className={`bi ${isCollapsed
-                                    ? 'bi-chevron-right'
-                                    : 'bi-chevron-left'
+                                ? 'bi-chevron-right'
+                                : 'bi-chevron-left'
                                 }`}
                         />
                     </button>

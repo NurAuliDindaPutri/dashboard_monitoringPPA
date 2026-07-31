@@ -44,7 +44,7 @@ function ChartCard({
         type === 'bar' ? Bar : Line;
 
     return (
-        <div className="app-card chart-card p-3 h-100">
+        <div className="app-card chart-card p-3">
             <div
                 className="fw-semibold mb-3"
                 style={{

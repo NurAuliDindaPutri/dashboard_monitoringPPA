@@ -3,10 +3,10 @@ const { pool } = require('../config/db');
 async function findAll(filter = {}) {
     const { site_id } = filter;
     let sql = `
-    SELECT ps.*, s.site_code, s.site_name
-    FROM pending_supply ps
-    JOIN sites s ON s.id = ps.site_id
-  `;
+        SELECT ps.*, s.site_code, s.site_name
+        FROM pending_supply ps
+        JOIN sites s ON s.id = ps.site_id
+    `;
     const params = [];
 
     if (site_id) {
@@ -23,10 +23,10 @@ async function findAll(filter = {}) {
 async function findById(id) {
     const [rows] = await pool.query(
         `SELECT ps.*, s.site_code, s.site_name
-     FROM pending_supply ps
-     JOIN sites s ON s.id = ps.site_id
-     WHERE ps.id = ?
-     LIMIT 1`,
+        FROM pending_supply ps
+        JOIN sites s ON s.id = ps.site_id
+        WHERE ps.id = ?
+        LIMIT 1`,
         [id]
     );
     return rows[0] || null;
@@ -36,8 +36,8 @@ async function create(data) {
     const { site_id, parts_number, description, qty, no_po, eta, remarks } = data;
     const [result] = await pool.query(
         `INSERT INTO pending_supply
-       (site_id, parts_number, description, qty, no_po, eta, remarks)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (site_id, parts_number, description, qty, no_po, eta, remarks)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
             site_id,
             parts_number,
@@ -55,9 +55,9 @@ async function update(id, data) {
     const { site_id, parts_number, description, qty, no_po, eta, remarks } = data;
     await pool.query(
         `UPDATE pending_supply
-     SET site_id = ?, parts_number = ?, description = ?, qty = ?,
-         no_po = ?, eta = ?, remarks = ?
-     WHERE id = ?`,
+        SET site_id = ?, parts_number = ?, description = ?, qty = ?,
+            no_po = ?, eta = ?, remarks = ?
+        WHERE id = ?`,
         [
             site_id,
             parts_number,

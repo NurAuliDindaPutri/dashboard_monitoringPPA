@@ -20,8 +20,19 @@ async function importExcel(req, res, next) {
         const periodMonth = Number(req.body?.period_month);
         const periodYear = Number(req.body?.period_year);
 
-        if (!periodMonth || !periodYear || Number.isNaN(periodMonth) || Number.isNaN(periodYear) || periodMonth < 1 || periodMonth > 12) {
-            return error(res, 'Periode data tidak ditemukan. Silakan pilih bulan dan tahun sebelum import.', 400);
+        if (
+            !Number.isInteger(periodMonth) ||
+            periodMonth < 1 ||
+            periodMonth > 12 ||
+            !Number.isInteger(periodYear) ||
+            periodYear < 2000 ||
+            periodYear > 2100
+        ) {
+            return error(
+                res,
+                'Periode tidak valid. Bulan harus 1-12 dan tahun harus 2000-2100.',
+                400
+            );
         }
 
         const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });

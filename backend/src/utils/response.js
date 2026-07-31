@@ -1,9 +1,30 @@
-function success(res, data = null, message = 'Success', status = 200) {
-    return res.status(status).json({ status: 'success', message, data });
+function success(
+    res,
+    data = null,
+    message = 'Success',
+    status = 200
+) {
+    return res.status(status).json({
+        status: 'success',
+        message,
+        data,
+    });
 }
 
-function error(res, message = 'Error', status = 500, details = null) {
-    return res.status(status).json({ status: 'error', message, details });
+function error(
+    res,
+    message = 'Error',
+    status = 500,
+    details = null
+) {
+    return res.status(status).json({
+        status: 'error',
+        message,
+        ...(details !== null && { details }),
+    });
 }
 
-module.exports = { success, error };
+module.exports = {
+    success,
+    error,
+};
