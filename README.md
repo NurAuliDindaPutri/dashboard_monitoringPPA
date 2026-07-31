@@ -2,7 +2,7 @@
 
 Aplikasi web untuk memonitor performa PPA pada seluruh site maupun per site.
 
-Aplikasi menampilkan data monitoring dalam bentuk dashboard, grafik, tabel, serta mendukung input data dan import data dari file Excel.
+Aplikasi menampilkan data monitoring dalam bentuk dashboard, grafik, dan tabel. Pengguna juga dapat menambahkan, memperbarui, serta mengimpor data monitoring dari file Excel.
 
 ---
 
@@ -11,7 +11,7 @@ Aplikasi menampilkan data monitoring dalam bentuk dashboard, grafik, tabel, sert
 - Dashboard All Site
 - Dashboard Per Site
 - Monitoring Readiness
-- Monitoring Availability
+- Monitoring Availability VHS
 - Monitoring Lead Time Supply
 - Monitoring Physical Availability
 - Monitoring Unit Availability
@@ -21,11 +21,17 @@ Aplikasi menampilkan data monitoring dalam bentuk dashboard, grafik, tabel, sert
 - Monitoring Fuel Consumption
 - Data Unit
 - Pending Supply
-- Detail LT Supply
-- Input Data
-- Import Excel Bulanan
+- Critical Items
+- Detail Lead Time Supply
+- Input dan edit data
+- Import data dari file Excel
 - Filter berdasarkan site, bulan, dan tahun
-- Visualisasi data dalam bentuk grafik dan tabel
+- Grafik perbandingan KPI antar-site
+- Grafik tren performa bulanan
+- Tabel pencapaian KPI terhadap target
+- REST API frontend dan backend
+
+Aplikasi tidak menggunakan login atau autentikasi.
 
 ---
 
@@ -36,7 +42,9 @@ Aplikasi menampilkan data monitoring dalam bentuk dashboard, grafik, tabel, sert
 - React.js
 - Vite
 - JavaScript
+- JSX
 - Bootstrap 5
+- Bootstrap Icons
 - Axios
 - Recharts
 - React D3 Speedometer
@@ -48,6 +56,8 @@ Aplikasi menampilkan data monitoring dalam bentuk dashboard, grafik, tabel, sert
 - MySQL2
 - CORS
 - Dotenv
+- Multer
+- XLSX
 - Nodemon
 
 ### Database dan Tools
@@ -56,12 +66,12 @@ Aplikasi menampilkan data monitoring dalam bentuk dashboard, grafik, tabel, sert
 - Laragon
 - phpMyAdmin
 - Visual Studio Code
+- Git
+- NPM
 
 ---
 
 ## Bahasa Pemrograman
-
-Bahasa utama yang digunakan dalam project ini:
 
 - JavaScript
 - JSX
@@ -83,6 +93,7 @@ dashboard_monitoringPPA/
 │   │   ├── models/
 │   │   ├── routes/
 │   │   ├── services/
+│   │   │   └── import/
 │   │   └── utils/
 │   │
 │   ├── uploads/
@@ -108,6 +119,7 @@ dashboard_monitoringPPA/
 │   ├── vite.config.js
 │   └── package.json
 │
+├── ppa_monitoring.sql
 ├── .gitignore
 └── README.md
 ```
@@ -127,7 +139,6 @@ Sebelum menjalankan aplikasi, pastikan perangkat sudah memiliki:
 - MySQL
 - phpMyAdmin
 - Browser
-- Visual Studio Code atau editor lainnya
 
 Cek versi Node.js dan NPM:
 
@@ -138,11 +149,27 @@ npm -v
 
 ---
 
+## Instalasi Project
+
+Clone repository:
+
+```bash
+git clone <URL_REPOSITORY>
+```
+
+Masuk ke folder project:
+
+```bash
+cd dashboard_monitoringPPA
+```
+
+---
+
 ## Konfigurasi Database
 
 ### 1. Jalankan Laragon
 
-Buka Laragon, lalu klik:
+Buka Laragon, kemudian klik:
 
 ```text
 Start All
@@ -152,28 +179,34 @@ Pastikan MySQL sudah berjalan.
 
 ### 2. Buka phpMyAdmin
 
-Buka melalui browser:
+Buka alamat berikut melalui browser:
 
 ```text
 http://localhost/phpmyadmin
 ```
 
-### 3. Siapkan Database
+### 3. Buat Database
 
-Pastikan database berikut tersedia:
+Buat database dengan nama:
 
-```text
-ppa_monitoring
+```sql
+CREATE DATABASE ppa_monitoring;
 ```
 
-Database digunakan untuk menyimpan data:
+Setelah database dibuat, import file:
+
+```text
+ppa_monitoring.sql
+```
+
+Database digunakan untuk menyimpan:
 
 - Site
 - Model unit
 - KPI bulanan
 - Performa unit bulanan
 - Pending supply
-- Critical item
+- Critical items
 - Detail lead time supply
 
 ---
@@ -192,7 +225,7 @@ Install dependency:
 npm install
 ```
 
-Buat file `.env` pada folder backend.
+Buat file `.env` di dalam folder `backend`.
 
 Contoh isi file `.env`:
 
@@ -203,17 +236,8 @@ DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=
-DB_NAME=monitoring_performance_ppa
+DB_NAME=ppa_monitoring
 ```
-
-Keterangan:
-
-- `PORT` adalah port backend.
-- `DB_HOST` adalah alamat server database.
-- `DB_PORT` adalah port MySQL.
-- `DB_USER` adalah username MySQL.
-- `DB_PASSWORD` adalah password MySQL.
-- `DB_NAME` adalah nama database.
 
 File `.env` tidak disimpan ke repository.
 
@@ -221,7 +245,7 @@ File `.env` tidak disimpan ke repository.
 
 ## Menjalankan Backend
 
-Masuk ke folder backend:
+Pastikan terminal berada di folder backend:
 
 ```bash
 cd backend
@@ -243,7 +267,7 @@ http://localhost:5000
 
 ## Menjalankan Frontend
 
-Buka terminal baru, lalu masuk ke folder frontend:
+Buka terminal baru, kemudian masuk ke folder frontend:
 
 ```bash
 cd frontend
@@ -287,6 +311,8 @@ cd frontend
 npm run dev
 ```
 
+Pastikan MySQL di Laragon sudah aktif.
+
 Setelah backend dan frontend berjalan, buka:
 
 ```text
@@ -299,22 +325,29 @@ http://localhost:5173
 
 ### Dashboard All Site
 
-Menampilkan ringkasan performa seluruh site, seperti:
+Menampilkan ringkasan performa seluruh site berdasarkan bulan dan tahun yang dipilih.
+
+Data yang ditampilkan:
 
 - Readiness
-- Availability
+- Availability VHS
 - Lead Time Supply
+- Nilai actual dan target
 - Perbandingan KPI antar-site
 - Tren performa bulanan
 - Status pencapaian target
 
+Data kosong tidak dihitung sebagai nilai `0`.
+
 ### Dashboard Per Site
 
-Menampilkan detail performa berdasarkan site yang dipilih, seperti:
+Menampilkan detail performa berdasarkan site yang dipilih.
 
-- Readiness site
-- Availability site
-- Lead Time Supply site
+Data yang ditampilkan:
+
+- Readiness
+- Availability VHS
+- Lead Time Supply
 - Physical Availability
 - Unit Availability
 - MTBF
@@ -325,55 +358,113 @@ Menampilkan detail performa berdasarkan site yang dipilih, seperti:
 
 ### Input Data
 
-Digunakan untuk menambahkan dan memperbarui data monitoring.
+Digunakan untuk menambahkan dan memperbarui data monitoring secara langsung melalui aplikasi.
 
 ### Data Unit
 
-Menampilkan data unit berdasarkan site dan model unit.
+Menampilkan performa unit berdasarkan:
+
+- Site
+- Model unit
+- Bulan
+- Tahun
 
 ### Pending Supply
 
-Menampilkan daftar kebutuhan supply yang masih pending.
+Menampilkan daftar kebutuhan supply yang masih dalam proses.
 
-### Detail LT Supply
+### Critical Items
 
-Menampilkan detail data Lead Time Supply.
+Menampilkan daftar item atau spare part dengan tingkat prioritas tinggi.
 
-### Import Excel Bulanan
+### Detail Lead Time Supply
 
-Digunakan untuk mengimpor data monitoring dari file Excel.
+Menampilkan detail data Lead Time Supply berdasarkan site dan periode.
+
+### Import Excel
+
+Digunakan untuk mengimpor data monitoring dari file Excel ke database.
 
 ---
 
 ## Import File Excel
 
-Aplikasi mendukung import beberapa jenis data, yaitu:
+Format file yang didukung:
 
-- Data All Site
-- Data Per Site
-- Data KPI
-- Data Unit
-- Data Pending Supply
-- Data Critical Item
-- Data Detail Lead Time Supply
+```text
+.xlsx
+.xls
+```
+
+Pada proses import, pengguna memilih:
+
+- File Excel
+- Bulan data
+- Tahun data
 
 Alur proses import:
 
 ```text
 Pilih file Excel
         ↓
+Pilih bulan dan tahun
+        ↓
+Klik tombol Import
+        ↓
 Sistem membaca workbook
         ↓
-Sistem mendeteksi site dan periode
+Sistem membaca sheet yang dikenali
         ↓
 Data divalidasi
         ↓
-Data disimpan ke database
+Site dan model unit dicocokkan
         ↓
-Dashboard diperbarui
+Data disimpan atau diperbarui
+        ↓
+Dashboard menampilkan data terbaru
 ```
 
-Format file Excel harus memiliki header dan data yang dapat dikenali oleh sistem.
+Data dengan kombinasi site dan periode yang sama akan diperbarui sehingga tidak menghasilkan duplikasi.
+
+Nilai persentase disimpan dalam bentuk desimal:
+
+```text
+90% = 0.9000
+93% = 0.9300
+98% = 0.9800
+```
+
+Nilai yang kosong akan disimpan sebagai `null`, bukan `0`.
+
+---
+
+## Struktur Database
+
+Tabel utama yang digunakan:
+
+```text
+sites
+unit_models
+monthly_kpi_summary
+monthly_unit_performance
+pending_supply
+critical_items
+detail_lt_supply
+```
+
+Relasi utama database:
+
+```text
+sites
+├── monthly_kpi_summary
+├── pending_supply
+├── critical_items
+├── detail_lt_supply
+└── unit_models
+    └── monthly_unit_performance
+```
+
+Dashboard tidak memiliki tabel tersendiri. Data dashboard diperoleh dari query dan agregasi tabel utama.
 
 ---
 
@@ -386,10 +477,32 @@ GET    /api/monthly-kpi-summary
 GET    /api/monthly-unit-performance
 GET    /api/pending-supply
 GET    /api/critical-items
+GET    /api/detail-lt-supply
+
+POST   /api/sites
+POST   /api/unit-models
+POST   /api/monthly-kpi-summary
+POST   /api/monthly-unit-performance
+POST   /api/pending-supply
+POST   /api/critical-items
 POST   /api/import/excel
+
+PUT    /api/sites/:id
+PUT    /api/unit-models/:id
+PUT    /api/monthly-kpi-summary/:id
+PUT    /api/monthly-unit-performance/:id
+PUT    /api/pending-supply/:id
+PUT    /api/critical-items/:id
+
+DELETE /api/sites/:id
+DELETE /api/unit-models/:id
+DELETE /api/monthly-kpi-summary/:id
+DELETE /api/monthly-unit-performance/:id
+DELETE /api/pending-supply/:id
+DELETE /api/critical-items/:id
 ```
 
-Endpoint dapat berubah sesuai perkembangan backend.
+Endpoint dapat berubah sesuai perkembangan project.
 
 ---
 
@@ -401,17 +514,40 @@ Endpoint dapat berubah sesuai perkembangan backend.
 - Backend dan frontend harus dijalankan bersamaan.
 - Dashboard mengambil data dari database melalui REST API.
 - Dashboard bukan tabel terpisah di database.
+- Data kosong disimpan sebagai `null`, bukan `0`.
 - File `.env` tidak boleh disimpan ke repository.
 - Folder `node_modules` tidak perlu disimpan ke repository.
+- File Excel harus menggunakan struktur yang dikenali oleh sistem.
+- Jangan mengimpor data satu periode ke bulan yang berbeda.
 
 ---
 
 ## Status Project
 
-Project masih dalam tahap pengembangan dan dapat diperbarui sesuai kebutuhan Monitoring Performance PPA.
+Fitur yang sudah tersedia:
+
+- Frontend React dan Vite
+- Backend Node.js dan Express.js
+- Koneksi database MySQL
+- REST API
+- Dashboard All Site
+- Dashboard Per Site
+- Filter site, bulan, dan tahun
+- Grafik KPI
+- Grafik tren bulanan
+- Tabel monitoring
+- Input dan edit data
+- Data Unit
+- Pending Supply
+- Critical Items
+- Detail Lead Time Supply
+- Import file Excel
+- Proses insert dan update data
+
+Project masih dapat dikembangkan sesuai kebutuhan Monitoring Performance PPA.
 
 ---
 
 ## Pengembang
 
-Dikembangkan sebagai bagian dari kegiatan kerja praktik.
+Dikembangkan sebagai bagian dari kegiatan Kerja Praktik untuk kebutuhan Monitoring Performance PPA.
