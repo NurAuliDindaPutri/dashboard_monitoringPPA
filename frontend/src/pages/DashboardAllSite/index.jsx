@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 // ── API layer ───────────────────────────────────────────────────────────────
 import { getSites } from '../../api/site.api';
 import { getKpiSummary } from '../../api/kpiSummary.api';
-import { getUnitPerformance } from '../../api/unitPerformance.api';
+import { getUnitPerformances } from '../../api/unitPerformance.api';
 import { getPendingSupply } from '../../api/pendingSupply.api';
 
 // ── Komponen reusable ───────────────────────────────────────────────────────
@@ -228,11 +228,25 @@ function DashboardAllSite() {
             .catch(() => setKpiRows([]))
             .finally(() => setLoadingKpi(false));
 
-        // Unit Performance
+        /// Unit Performance
         setLoadingPerf(true);
-        getUnitPerformance(params)
-            .then((data) => setPerfRows(data ?? []))
-            .catch(() => setPerfRows([]))
+
+        getUnitPerformances(params)
+            .then((response) => {
+                const rows = Array.isArray(response.data?.data)
+                    ? response.data.data
+                    : [];
+
+                setPerfRows(rows);
+            })
+            .catch((err) => {
+                console.error(
+                    'Gagal memuat data performa unit:',
+                    err
+                );
+
+                setPerfRows([]);
+            })
             .finally(() => setLoadingPerf(false));
 
         // Pending Supply

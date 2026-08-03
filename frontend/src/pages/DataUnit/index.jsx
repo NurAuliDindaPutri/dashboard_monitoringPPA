@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 
 import { getSites } from '../../api/site.api';
-import { getUnitPerformance } from '../../api/unitPerformance.api';
+import { getUnitPerformances } from '../../api/unitPerformance.api';
 
 import FilterBar from '../../components/common/FilterBar';
 import KpiCard from '../../components/common/KpiCard';
@@ -12,6 +12,22 @@ import { aggregatePerfByMonth, countUnits, safeAvg } from '../../utils/aggregate
 import { formatNumber } from '../../utils/kpiStatus';
 
 const NOW = new Date();
+
+function extractRows(response) {
+    if (Array.isArray(response)) {
+        return response;
+    }
+
+    if (Array.isArray(response?.data?.data)) {
+        return response.data.data;
+    }
+
+    if (Array.isArray(response?.data)) {
+        return response.data;
+    }
+
+    return [];
+}
 
 function DataUnit() {
     const [siteId, setSiteId] = useState('');
@@ -29,8 +45,12 @@ function DataUnit() {
     useEffect(() => {
         setLoadingSites(true);
         getSites()
-            .then((d) => setSites(d ?? []))
-            .catch(() => setError('Gagal memuat daftar site'))
+            .then((response) => setSites(extractRows(response)))
+            .catch((err) => {
+                console.error('Gagal memuat daftar site:', err);
+                setSites([]);
+                setError('Gagal memuat daftar site');
+            })
             .finally(() => setLoadingSites(false));
     }, []);
 
@@ -43,30 +63,46 @@ function DataUnit() {
             period_year: year,
             period_month: month,
         };
-        getUnitPerformance(params)
-            .then((d) => setPerfRows(d ?? []))
-            .catch(() => { setPerfRows([]); setError('Gagal memuat data performa unit'); })
+        getUnitPerformances(params)
+            .then((response) => {
+                setPerfRows(extractRows(response));
+            })
+            .catch((err) => {
+                console.error('Gagal memuat data performa unit:', err);
+                setPerfRows([]);
+                setError('Gagal memuat data performa unit');
+            })
             .finally(() => setLoadingData(false));
     }, [siteId, month, year]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
     // Derived
-    const totalUnits = countUnits(perfRows);
-    const avgPA = safeAvg(perfRows.map((r) => r.physical_availability));
-    const avgUA = safeAvg(perfRows.map((r) => r.unit_availability));
-    const avgMTBF = safeAvg(perfRows.map((r) => r.mtbf));
-    const avgMTTR = safeAvg(perfRows.map((r) => r.mttr));
+    const safePerfRows = Array.isArray(perfRows) ? perfRows : [];
+
+    const totalUnits = countUnits(safePerfRows);
+    const avgPA = safeAvg(
+        safePerfRows.map((r) => r.physical_availability)
+    );
+    const avgUA = safeAvg(
+        safePerfRows.map((r) => r.unit_availability)
+    );
+    const avgMTBF = safeAvg(
+        safePerfRows.map((r) => r.mtbf)
+    );
+    const avgMTTR = safeAvg(
+        safePerfRows.map((r) => r.mttr)
+    );
 
     // Chart: Rata-rata PA/UA per bulan
-    const availTrend = aggregatePerfByMonth(perfRows).map((p) => ({
+    const availTrend = aggregatePerfByMonth(safePerfRows).map((p) => ({
         month: p.month,
         'PA (%)': p.physical_availability !== null ? parseFloat((p.physical_availability * 100).toFixed(1)) : null,
         'UA (%)': p.unit_availability !== null ? parseFloat((p.unit_availability * 100).toFixed(1)) : null,
     }));
 
     // Chart: Produktivitas & Fuel per bulan
-    const prodFuelTrend = aggregatePerfByMonth(perfRows).map((p) => ({
+    const prodFuelTrend = aggregatePerfByMonth(safePerfRows).map((p) => ({
         month: p.month,
         Produktivitas: p.productivity !== null ? parseFloat(p.productivity.toFixed(1)) : null,
         'Fuel (L)': p.fuel_consumption !== null ? parseFloat(p.fuel_consumption.toFixed(0)) : null,
@@ -241,7 +277,7 @@ function DataUnit() {
             <DataTable
                 title={`Detail Performa Unit — ${totalUnits} unit · Rata-rata UA: ${avgUA !== null ? (avgUA * 100).toFixed(1) + '%' : '-'}`}
                 columns={columns}
-                data={perfRows}
+                data={safePerfRows}
                 loading={loadingData}
                 emptyMessage="Tidak ada data performa unit untuk filter yang dipilih"
                 rowKey="id"

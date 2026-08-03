@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 
 import { getSites } from '../../api/site.api';
 import { getKpiSummary } from '../../api/kpiSummary.api';
-import { getUnitPerformance } from '../../api/unitPerformance.api';
+import { getUnitPerformances } from '../../api/unitPerformance.api';
 import { getPendingSupply } from '../../api/pendingSupply.api';
 
 import FilterBar from '../../components/common/FilterBar';
@@ -28,6 +28,13 @@ import {
 const NOW = new Date();
 const DEFAULT_YEAR = NOW.getFullYear();
 const DEFAULT_MONTH = NOW.getMonth() + 1;
+
+function extractRows(response) {
+    if (Array.isArray(response)) return response;
+    if (Array.isArray(response?.data?.data)) return response.data.data;
+    if (Array.isArray(response?.data)) return response.data;
+    return [];
+}
 
 // ── helper: konversi nilai 0-1 ke persen string untuk chart ─────────────────
 function toPct(value) {
@@ -66,8 +73,8 @@ function DashboardPerSite() {
     useEffect(() => {
         setLoadingSites(true);
         getSites()
-            .then((data) => {
-                const list = data ?? [];
+            .then((response) => {
+                const list = extractRows(response);
                 setSites(list);
                 // Default ke site pertama jika ada
                 if (list.length > 0 && !siteId) {
@@ -100,8 +107,8 @@ function DashboardPerSite() {
 
         setLoadingKpi(true);
         getKpiSummary(periodParams)
-            .then((data) => {
-                setKpiRows(data ?? []);
+            .then((response) => {
+                setKpiRows(extractRows(response));
             })
             .catch((err) => {
                 console.error('Gagal memuat KPI:', err);
@@ -114,9 +121,9 @@ function DashboardPerSite() {
 
         // Data detail pada bulan terpilih
         setLoadingPerf(true);
-        getUnitPerformance(periodParams)
-            .then((data) => {
-                setPerfRows(data ?? []);
+        getUnitPerformances(periodParams)
+            .then((response) => {
+                setPerfRows(extractRows(response));
             })
             .catch((err) => {
                 console.error('Gagal memuat performa unit:', err);
@@ -129,9 +136,9 @@ function DashboardPerSite() {
 
         // Data satu tahun untuk grafik tren
         setLoadingPerfYear(true);
-        getUnitPerformance(yearParams)
-            .then((data) => {
-                setPerfYearRows(data ?? []);
+        getUnitPerformances(yearParams)
+            .then((response) => {
+                setPerfYearRows(extractRows(response));
             })
             .catch((err) => {
                 console.error('Gagal memuat tren performa:', err);
@@ -146,8 +153,8 @@ function DashboardPerSite() {
         getPendingSupply({
             site_id: siteId,
         })
-            .then((data) => {
-                setSupplyRows(data ?? []);
+            .then((response) => {
+                setSupplyRows(extractRows(response));
             })
             .catch((err) => {
                 console.error('Gagal memuat pending supply:', err);
@@ -164,19 +171,24 @@ function DashboardPerSite() {
     }, [fetchData]);
 
     // ── Derived ──────────────────────────────────────────────────────────
-    const kpiSummary = aggregateKpiSummary(kpiRows);
-    const totalUnits = countUnits(perfRows);
-    const totalPending = countPendingSupply(supplyRows);
-    const totalPendingQty = sumPendingQty(supplyRows);
+    const safeKpiRows = Array.isArray(kpiRows) ? kpiRows : [];
+    const safePerfRows = Array.isArray(perfRows) ? perfRows : [];
+    const safePerfYearRows = Array.isArray(perfYearRows) ? perfYearRows : [];
+    const safeSupplyRows = Array.isArray(supplyRows) ? supplyRows : [];
 
-    const trendData = aggregatePerfByMonth(perfYearRows).map((p) => ({
+    const kpiSummary = aggregateKpiSummary(safeKpiRows);
+    const totalUnits = countUnits(safePerfRows);
+    const totalPending = countPendingSupply(safeSupplyRows);
+    const totalPendingQty = sumPendingQty(safeSupplyRows);
+
+    const trendData = aggregatePerfByMonth(safePerfYearRows).map((p) => ({
         month: p.month,
         'PA (%)': toPct(p.physical_availability),
         'UA (%)': toPct(p.unit_availability),
     }));
 
     // MTBF & MTTR bar chart
-    const mtbfMttrData = aggregatePerfByMonth(perfYearRows).map((p) => ({
+    const mtbfMttrData = aggregatePerfByMonth(safePerfYearRows).map((p) => ({
         month: p.month,
         MTBF: p.mtbf !== null ? parseFloat(p.mtbf.toFixed(1)) : null,
         MTTR: p.mttr !== null ? parseFloat(p.mttr.toFixed(1)) : null,
@@ -184,7 +196,7 @@ function DashboardPerSite() {
 
     // Performa unit per model (site ini saja) - relokasi dari Dashboard All Site,
     // di sini sumbu X adalah model_name karena konteksnya sudah 1 site.
-    const unitByModel = aggregatePerfByUnit(perfRows).map((u) => ({
+    const unitByModel = aggregatePerfByUnit(safePerfRows).map((u) => ({
         model_name: u.model_name,
 
         physical_availability: toPct(u.physical_availability),
@@ -603,7 +615,7 @@ function DashboardPerSite() {
                         <DataTable
                             title={`Performa Unit — ${totalUnits} unit`}
                             columns={perfColumns}
-                            data={perfRows}
+                            data={safePerfRows}
                             loading={loadingPerf}
                             emptyMessage="Tidak ada data performa unit untuk periode yang dipilih"
                             rowKey="id"
@@ -615,7 +627,7 @@ function DashboardPerSite() {
                         <DataTable
                             title={`Pending Supply — ${totalPending} item (${totalPendingQty} pcs)`}
                             columns={supplyColumns}
-                            data={supplyRows}
+                            data={safeSupplyRows}
                             loading={loadingSupply}
                             emptyMessage="Tidak ada pending supply untuk site ini"
                             rowKey="id"
