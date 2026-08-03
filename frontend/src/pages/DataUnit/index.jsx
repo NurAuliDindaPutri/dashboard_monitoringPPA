@@ -6,10 +6,10 @@ import { getUnitPerformances } from '../../api/unitPerformance.api';
 import FilterBar from '../../components/common/FilterBar';
 import KpiCard from '../../components/common/KpiCard';
 import ChartCard from '../../components/common/ChartCard';
-import DataTable from '../../components/common/DataTable';
 
 import { aggregatePerfByMonth, countUnits, safeAvg } from '../../utils/aggregate';
 import { formatNumber } from '../../utils/kpiStatus';
+import { dummySites, dummyUnitPerformances } from '../../data/dummyData';
 
 const NOW = new Date();
 
@@ -40,6 +40,10 @@ function DataUnit() {
     const [loadingSites, setLoadingSites] = useState(true);
     const [loadingData, setLoadingData] = useState(true);
     const [error, setError] = useState(null);
+    const [dataSource, setDataSource] = useState('database');
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const rowsPerPage = 20;
 
     // Fetch sites sekali
     useEffect(() => {
@@ -47,9 +51,11 @@ function DataUnit() {
         getSites()
             .then((response) => setSites(extractRows(response)))
             .catch((err) => {
-                console.error('Gagal memuat daftar site:', err);
-                setSites([]);
-                setError('Gagal memuat daftar site');
+                console.warn(
+                    'Backend tidak aktif. Menggunakan dummy sites:',
+                    err
+                );
+                setSites(dummySites);
             })
             .finally(() => setLoadingSites(false));
     }, []);
@@ -66,19 +72,62 @@ function DataUnit() {
         getUnitPerformances(params)
             .then((response) => {
                 setPerfRows(extractRows(response));
+                setDataSource('database');
             })
             .catch((err) => {
-                console.error('Gagal memuat data performa unit:', err);
-                setPerfRows([]);
-                setError('Gagal memuat data performa unit');
+                console.warn(
+                    'Backend tidak aktif. Menggunakan data dummy unit:',
+                    err
+                );
+
+                const filteredDummy = dummyUnitPerformances.filter(
+                    (row) => {
+                        const matchSite =
+                            !siteId ||
+                            String(row.site_id) === String(siteId);
+
+                        const matchMonth =
+                            Number(row.period_month) === Number(month);
+
+                        const matchYear =
+                            Number(row.period_year) === Number(year);
+
+                        return matchSite && matchMonth && matchYear;
+                    }
+                );
+
+                setPerfRows(filteredDummy);
+                setDataSource('dummy');
             })
             .finally(() => setLoadingData(false));
     }, [siteId, month, year]);
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+    useEffect(() => {
+        setCurrentPage(1);
+        fetchData();
+    }, [fetchData]);
 
     // Derived
     const safePerfRows = Array.isArray(perfRows) ? perfRows : [];
+
+    const totalPages = Math.max(
+        1,
+        Math.ceil(safePerfRows.length / rowsPerPage)
+    );
+
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+
+    const paginatedRows = safePerfRows.slice(
+        startIndex,
+        endIndex
+    );
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
 
     const totalUnits = countUnits(safePerfRows);
     const avgPA = safeAvg(
@@ -187,6 +236,18 @@ function DataUnit() {
                 </div>
             )}
 
+            {dataSource === 'dummy' && (
+                <div
+                    className="alert alert-warning d-flex align-items-center gap-2 py-2 mb-3"
+                    role="alert"
+                >
+                    <i className="bi bi-database-exclamation" />
+                    <span>
+                        Backend atau database tidak terhubung. Halaman sedang menampilkan data dummy.
+                    </span>
+                </div>
+            )}
+
             {/* ── Filter ───────────────────────────────────────────────── */}
             <FilterBar
                 sites={loadingSites ? [] : sites}
@@ -274,14 +335,189 @@ function DataUnit() {
             </div>
 
             {/* ── Tabel Data Unit ──────────────────────────────────────── */}
-            <DataTable
-                title={`Detail Performa Unit — ${totalUnits} unit · Rata-rata UA: ${avgUA !== null ? (avgUA * 100).toFixed(1) + '%' : '-'}`}
-                columns={columns}
-                data={safePerfRows}
-                loading={loadingData}
-                emptyMessage="Tidak ada data performa unit untuk filter yang dipilih"
-                rowKey="id"
-            />
+            <div className="app-card p-4">
+                <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-2 mb-3">
+                    <div>
+                        <div
+                            className="fw-semibold d-flex align-items-center gap-2"
+                            style={{ color: 'var(--text-primary)' }}
+                        >
+                            <i className="bi bi-table text-primary-custom" />
+                            Detail Performa Unit
+                        </div>
+
+                        <div className="small text-secondary mt-1">
+                            {totalUnits} unit · Rata-rata UA:{' '}
+                            {avgUA !== null
+                                ? `${(avgUA * 100).toFixed(1)}%`
+                                : '-'}
+                        </div>
+                    </div>
+
+                    <div className="small text-secondary">
+                        Menampilkan{' '}
+                        {safePerfRows.length === 0
+                            ? 0
+                            : startIndex + 1}
+                        {' - '}
+                        {Math.min(endIndex, safePerfRows.length)}
+                        {' dari '}
+                        {safePerfRows.length} data
+                    </div>
+                </div>
+
+                <div className="table-responsive">
+                    <table className="table table-sm table-hover align-middle mb-0">
+                        <thead>
+                            <tr
+                                className="text-secondary"
+                                style={{ fontSize: '0.8rem' }}
+                            >
+                                {columns.map((column) => (
+                                    <th
+                                        key={column.key}
+                                        className={
+                                            column.align === 'center'
+                                                ? 'text-center'
+                                                : column.align === 'right'
+                                                    ? 'text-end'
+                                                    : ''
+                                        }
+                                    >
+                                        {column.label}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {loadingData ? (
+                                <tr>
+                                    <td
+                                        colSpan={columns.length}
+                                        className="text-center py-4"
+                                    >
+                                        <span className="spinner-border spinner-border-sm me-2" />
+                                        Memuat data performa unit...
+                                    </td>
+                                </tr>
+                            ) : paginatedRows.length === 0 ? (
+                                <tr>
+                                    <td
+                                        colSpan={columns.length}
+                                        className="text-center text-muted py-4"
+                                    >
+                                        Tidak ada data performa unit untuk filter yang dipilih
+                                    </td>
+                                </tr>
+                            ) : (
+                                paginatedRows.map((row) => (
+                                    <tr key={row.id}>
+                                        {columns.map((column) => (
+                                            <td
+                                                key={column.key}
+                                                className={
+                                                    column.align === 'center'
+                                                        ? 'text-center'
+                                                        : column.align === 'right'
+                                                            ? 'text-end'
+                                                            : ''
+                                                }
+                                            >
+                                                {column.render
+                                                    ? column.render(row)
+                                                    : row[column.key] ?? '-'}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {!loadingData && safePerfRows.length > 0 && (
+                    <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 mt-3">
+                        <small className="text-secondary">
+                            Halaman {currentPage} dari {totalPages}
+                        </small>
+
+                        <nav aria-label="Pagination Data Unit">
+                            <ul className="pagination pagination-sm mb-0">
+                                <li
+                                    className={`page-item ${currentPage === 1
+                                        ? 'disabled'
+                                        : ''
+                                        }`}
+                                >
+                                    <button
+                                        type="button"
+                                        className="page-link"
+                                        onClick={() =>
+                                            setCurrentPage((page) =>
+                                                Math.max(1, page - 1)
+                                            )
+                                        }
+                                        disabled={currentPage === 1}
+                                        aria-label="Halaman sebelumnya"
+                                    >
+                                        <i className="bi bi-chevron-left" />
+                                    </button>
+                                </li>
+
+                                {Array.from(
+                                    { length: totalPages },
+                                    (_, index) => index + 1
+                                ).map((pageNumber) => (
+                                    <li
+                                        key={pageNumber}
+                                        className={`page-item ${currentPage === pageNumber
+                                            ? 'active'
+                                            : ''
+                                            }`}
+                                    >
+                                        <button
+                                            type="button"
+                                            className="page-link"
+                                            onClick={() =>
+                                                setCurrentPage(pageNumber)
+                                            }
+                                        >
+                                            {pageNumber}
+                                        </button>
+                                    </li>
+                                ))}
+
+                                <li
+                                    className={`page-item ${currentPage === totalPages
+                                        ? 'disabled'
+                                        : ''
+                                        }`}
+                                >
+                                    <button
+                                        type="button"
+                                        className="page-link"
+                                        onClick={() =>
+                                            setCurrentPage((page) =>
+                                                Math.min(
+                                                    totalPages,
+                                                    page + 1
+                                                )
+                                            )
+                                        }
+                                        disabled={
+                                            currentPage === totalPages
+                                        }
+                                        aria-label="Halaman berikutnya"
+                                    >
+                                        <i className="bi bi-chevron-right" />
+                                    </button>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

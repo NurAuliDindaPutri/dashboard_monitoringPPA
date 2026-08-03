@@ -5,6 +5,12 @@ import { getSites } from '../../api/site.api';
 import { getKpiSummary } from '../../api/kpiSummary.api';
 import { getUnitPerformances } from '../../api/unitPerformance.api';
 import { getPendingSupply } from '../../api/pendingSupply.api';
+import {
+    dummySites,
+    dummyKpiSummary,
+    dummyUnitPerformances,
+    dummyPendingSupply,
+} from '../../data/dummyData';
 
 // ── Komponen reusable ───────────────────────────────────────────────────────
 import FilterBar from '../../components/common/FilterBar';
@@ -12,6 +18,7 @@ import KpiCard from '../../components/common/KpiCard';
 import GaugeCard from '../../components/common/GaugeCard';
 import ChartCard from '../../components/common/ChartCard';
 import DataTable from '../../components/common/DataTable';
+
 
 // ── Utils ───────────────────────────────────────────────────────────────────
 import {
@@ -30,6 +37,58 @@ import {
 const NOW = new Date();
 const DEFAULT_YEAR = NOW.getFullYear();
 const DEFAULT_MONTH = NOW.getMonth() + 1; // 1-12
+const SUPPLY_ROWS_PER_PAGE = 15;
+
+
+function extractRows(response) {
+    if (Array.isArray(response)) {
+        return response;
+    }
+
+    if (Array.isArray(response?.data?.data)) {
+        return response.data.data;
+    }
+
+    if (Array.isArray(response?.data)) {
+        return response.data;
+    }
+
+    return [];
+}
+
+
+function filterDummyRows(
+    rows,
+    {
+        siteId = '',
+        month = '',
+        year = '',
+    } = {}
+) {
+    if (!Array.isArray(rows)) {
+        return [];
+    }
+
+    return rows.filter((row) => {
+        const matchesSite =
+            !siteId ||
+            String(row.site_id) === String(siteId);
+
+        const matchesMonth =
+            !month ||
+            Number(row.period_month) === Number(month);
+
+        const matchesYear =
+            !year ||
+            Number(row.period_year) === Number(year);
+
+        return (
+            matchesSite &&
+            matchesMonth &&
+            matchesYear
+        );
+    });
+}
 
 /**
  * Komponen Ring/Donut sederhana untuk visualisasi Ringkasan KPI per Site
@@ -193,6 +252,7 @@ function DashboardAllSite() {
     const [kpiRows, setKpiRows] = useState([]);
     const [perfRows, setPerfRows] = useState([]);
     const [supplyRows, setSupplyRows] = useState([]);
+    const [supplyPage, setSupplyPage] = useState(1);
     const [kpiYearRows, setKpiYearRows] = useState([]); // 1 tahun penuh, tanpa filter bulan - untuk tren
 
     // ── State loading per endpoint ────────────────────────────────────────
@@ -202,15 +262,28 @@ function DashboardAllSite() {
     const [loadingSupply, setLoadingSupply] = useState(true);
     const [loadingTrend, setLoadingTrend] = useState(true);
 
-    // ── State error ───────────────────────────────────────────────────────
+    // ── State error & sumber data ─────────────────────────────────────────
     const [error, setError] = useState(null);
+    const [dataSource, setDataSource] = useState('database');
 
     // ── Fetch sites sekali saat mount ─────────────────────────────────────
     useEffect(() => {
         setLoadingSites(true);
+
         getSites()
-            .then((data) => setSites(data ?? []))
-            .catch(() => setError('Gagal memuat daftar site'))
+            .then((response) => {
+                setSites(extractRows(response));
+            })
+            .catch((err) => {
+                console.warn(
+                    'Backend tidak aktif. Menggunakan dummy site:',
+                    err
+                );
+
+                setSites(dummySites);
+                setDataSource('dummy');
+                setError(null);
+            })
             .finally(() => setLoadingSites(false));
     }, []);
 
@@ -221,55 +294,119 @@ function DashboardAllSite() {
             period_month: month,
         };
 
+        setError(null);
+
         // KPI Summary
         setLoadingKpi(true);
+
         getKpiSummary(params)
-            .then((data) => setKpiRows(data ?? []))
-            .catch(() => setKpiRows([]))
+            .then((response) => {
+                setKpiRows(extractRows(response));
+            })
+            .catch((err) => {
+                console.warn(
+                    'Backend tidak aktif. Menggunakan dummy KPI Summary:',
+                    err
+                );
+
+                setKpiRows(
+                    filterDummyRows(
+                        dummyKpiSummary,
+                        {
+                            month,
+                            year,
+                        }
+                    )
+                );
+
+                setDataSource('dummy');
+            })
             .finally(() => setLoadingKpi(false));
 
-        /// Unit Performance
+        // Unit Performance
         setLoadingPerf(true);
 
         getUnitPerformances(params)
             .then((response) => {
-                const rows = Array.isArray(response.data?.data)
-                    ? response.data.data
-                    : [];
-
-                setPerfRows(rows);
+                setPerfRows(extractRows(response));
             })
             .catch((err) => {
-                console.error(
-                    'Gagal memuat data performa unit:',
+                console.warn(
+                    'Backend tidak aktif. Menggunakan dummy Unit Performance:',
                     err
                 );
 
-                setPerfRows([]);
+                setPerfRows(
+                    filterDummyRows(
+                        dummyUnitPerformances,
+                        {
+                            month,
+                            year,
+                        }
+                    )
+                );
+
+                setDataSource('dummy');
             })
             .finally(() => setLoadingPerf(false));
 
         // Pending Supply
         setLoadingSupply(true);
+
         getPendingSupply({})
-            .then((data) => setSupplyRows(data ?? []))
-            .catch(() => setSupplyRows([]))
+            .then((response) => {
+                setSupplyRows(extractRows(response));
+            })
+            .catch((err) => {
+                console.warn(
+                    'Backend tidak aktif. Menggunakan dummy Pending Supply:',
+                    err
+                );
+
+                setSupplyRows(dummyPendingSupply);
+                setDataSource('dummy');
+            })
             .finally(() => setLoadingSupply(false));
     }, [month, year]);
 
     useEffect(() => {
+        setDataSource('database');
         fetchDashboardData();
     }, [fetchDashboardData]);
 
     // ── Fetch tren KPI 1 tahun penuh (endpoint sama, tanpa filter bulan) ──
     useEffect(() => {
         setLoadingTrend(true);
-        const params = { period_year: year };
+
+        const params = {
+            period_year: year,
+        };
+
         getKpiSummary(params)
-            .then((data) => setKpiYearRows(data ?? []))
-            .catch(() => setKpiYearRows([]))
+            .then((response) => {
+                setKpiYearRows(extractRows(response));
+            })
+            .catch((err) => {
+                console.warn(
+                    'Backend tidak aktif. Menggunakan tren KPI dummy:',
+                    err
+                );
+
+                setKpiYearRows(
+                    filterDummyRows(
+                        dummyKpiSummary,
+                        { year }
+                    )
+                );
+
+                setDataSource('dummy');
+            })
             .finally(() => setLoadingTrend(false));
     }, [year]);
+
+    useEffect(() => {
+        setSupplyPage(1);
+    }, [month, year, supplyRows.length]);
 
     // ── Derived data ──────────────────────────────────────────────────────
     const kpiSummary = aggregateKpiSummary(kpiRows);
@@ -330,6 +467,37 @@ function DashboardAllSite() {
     const totalPending = countPendingSupply(supplyRows);
     const totalPendingQty = sumPendingQty(supplyRows);
 
+
+    const totalSupplyPages = Math.max(
+        1,
+        Math.ceil(supplyRows.length / SUPPLY_ROWS_PER_PAGE)
+    );
+
+    const supplyStartIndex =
+        (supplyPage - 1) * SUPPLY_ROWS_PER_PAGE;
+
+    const paginatedSupplyRows = supplyRows.slice(
+        supplyStartIndex,
+        supplyStartIndex + SUPPLY_ROWS_PER_PAGE
+    );
+
+    const supplyStartNumber =
+        supplyRows.length === 0 ? 0 : supplyStartIndex + 1;
+
+    const supplyEndNumber = Math.min(
+        supplyStartIndex + SUPPLY_ROWS_PER_PAGE,
+        supplyRows.length
+    );
+
+    const visibleSupplyPages = Array.from(
+        { length: totalSupplyPages },
+        (_, index) => index + 1
+    ).filter((pageNumber) => {
+        if (totalSupplyPages <= 7) return true;
+        if (pageNumber === 1 || pageNumber === totalSupplyPages) return true;
+        return Math.abs(pageNumber - supplyPage) <= 1;
+    });
+
     // ── Definisi kolom tabel pending supply ───────────────────────────────
     const supplyColumns = [
         { key: 'site_code', label: 'Site', align: 'left' },
@@ -377,15 +545,37 @@ function DashboardAllSite() {
 
             {/* Error Banner */}
             {error && (
-                <div className="alert alert-danger d-flex align-items-center gap-2 py-2 mb-3" role="alert">
+                <div
+                    className="alert alert-danger d-flex align-items-center gap-2 py-2 mb-3"
+                    role="alert"
+                >
                     <i className="bi bi-exclamation-triangle-fill" />
                     <span>{error}</span>
+
                     <button
+                        type="button"
                         className="btn btn-sm btn-outline-danger ms-auto"
-                        onClick={() => { setError(null); fetchDashboardData(); }}
+                        onClick={() => {
+                            setError(null);
+                            fetchDashboardData();
+                        }}
                     >
                         Coba lagi
                     </button>
+                </div>
+            )}
+
+            {dataSource === 'dummy' && (
+                <div
+                    className="alert alert-warning d-flex align-items-center gap-2 py-2 mb-3"
+                    role="alert"
+                >
+                    <i className="bi bi-database-exclamation" />
+
+                    <span>
+                        Backend atau database tidak terhubung. Dashboard sedang
+                        menampilkan data dummy Januari–Desember 2026.
+                    </span>
                 </div>
             )}
 
@@ -846,11 +1036,113 @@ function DashboardAllSite() {
                 <DataTable
                     title={`Pending Supply Detail — ${totalPending} item (${totalPendingQty} pcs)`}
                     columns={supplyColumns}
-                    data={supplyRows}
+                    data={paginatedSupplyRows}
                     loading={loadingSupply}
-                    emptyMessage="Tidak ada pending supply untuk site yang dipilih"
+                    emptyMessage="Tidak ada pending supply"
                     rowKey="id"
                 />
+
+                {!loadingSupply && supplyRows.length > 0 && (
+                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3">
+                        <small className="text-secondary">
+                            Menampilkan{' '}
+                            <strong>{supplyStartNumber}</strong>
+                            {' - '}
+                            <strong>{supplyEndNumber}</strong>
+                            {' dari '}
+                            <strong>{supplyRows.length}</strong>
+                            {' data'}
+                        </small>
+
+                        <nav aria-label="Pagination Pending Supply">
+                            <ul className="pagination pagination-sm mb-0">
+                                <li
+                                    className={`page-item ${supplyPage === 1 ? 'disabled' : ''
+                                        }`}
+                                >
+                                    <button
+                                        type="button"
+                                        className="page-link"
+                                        onClick={() =>
+                                            setSupplyPage((currentPage) =>
+                                                Math.max(1, currentPage - 1)
+                                            )
+                                        }
+                                        disabled={supplyPage === 1}
+                                    >
+                                        Sebelumnya
+                                    </button>
+                                </li>
+
+                                {visibleSupplyPages.map((pageNumber, index) => {
+                                    const previousPage =
+                                        visibleSupplyPages[index - 1];
+
+                                    const showEllipsis =
+                                        previousPage &&
+                                        pageNumber - previousPage > 1;
+
+                                    return (
+                                        <div
+                                            key={pageNumber}
+                                            className="d-flex"
+                                        >
+                                            {showEllipsis && (
+                                                <li className="page-item disabled">
+                                                    <span className="page-link">
+                                                        …
+                                                    </span>
+                                                </li>
+                                            )}
+
+                                            <li
+                                                className={`page-item ${supplyPage === pageNumber
+                                                        ? 'active'
+                                                        : ''
+                                                    }`}
+                                            >
+                                                <button
+                                                    type="button"
+                                                    className="page-link"
+                                                    onClick={() =>
+                                                        setSupplyPage(pageNumber)
+                                                    }
+                                                >
+                                                    {pageNumber}
+                                                </button>
+                                            </li>
+                                        </div>
+                                    );
+                                })}
+
+                                <li
+                                    className={`page-item ${supplyPage === totalSupplyPages
+                                            ? 'disabled'
+                                            : ''
+                                        }`}
+                                >
+                                    <button
+                                        type="button"
+                                        className="page-link"
+                                        onClick={() =>
+                                            setSupplyPage((currentPage) =>
+                                                Math.min(
+                                                    totalSupplyPages,
+                                                    currentPage + 1
+                                                )
+                                            )
+                                        }
+                                        disabled={
+                                            supplyPage === totalSupplyPages
+                                        }
+                                    >
+                                        Berikutnya
+                                    </button>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                )}
             </div>
         </div>
     );
