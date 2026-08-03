@@ -41,8 +41,13 @@ function CriticalItem() {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
     const [message, setMessage] = useState(null);
     const [error, setError] = useState(null);
+
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const rowsPerPage = 20;
 
     useEffect(() => {
         getSites()
@@ -71,6 +76,7 @@ function CriticalItem() {
     }, [siteFilter]);
 
     useEffect(() => {
+        setCurrentPage(1);
         fetchItems();
     }, [fetchItems]);
 
@@ -188,6 +194,7 @@ function CriticalItem() {
 
         setError(null);
         setMessage(null);
+        setDeletingId(item.id);
 
         try {
             await deleteCriticalItem(item.id);
@@ -219,8 +226,42 @@ function CriticalItem() {
                 err.message ||
                 'Critical item gagal dihapus'
             );
+        } finally {
+            setDeletingId(null);
         }
     }
+
+    function formatEstimasi(value) {
+        if (!value) return '-';
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) {
+            return '-';
+        }
+
+        return date.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric',
+        });
+    }
+
+    const totalPages = Math.max(
+        1,
+        Math.ceil(items.length / rowsPerPage)
+    );
+
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+
+    const paginatedItems = items.slice(startIndex, endIndex);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
 
     return (
         <div>
@@ -459,7 +500,7 @@ function CriticalItem() {
                                     </td>
                                 </tr>
                             ) : (
-                                items.map((item) => (
+                                paginatedItems.map((item) => (
                                     <tr key={item.id}>
                                         <td>
                                             {item.site_code ?? '-'}
@@ -482,35 +523,45 @@ function CriticalItem() {
                                         </td>
 
                                         <td>
-                                            {item.estimasi
-                                                ? new Date(
-                                                    item.estimasi
-                                                ).toLocaleDateString(
-                                                    'id-ID'
-                                                )
-                                                : '-'}
+                                            {formatEstimasi(
+                                                item.estimasi
+                                            )}
                                         </td>
 
                                         <td className="text-center">
                                             <div className="d-inline-flex gap-2">
                                                 <button
                                                     type="button"
-                                                    className="btn btn-sm btn-outline-primary"
+                                                    className="btn btn-outline-primary btn-sm d-flex align-items-center gap-1"
                                                     onClick={() =>
                                                         handleEdit(item)
                                                     }
+                                                    disabled={
+                                                        saving ||
+                                                        deletingId === item.id
+                                                    }
                                                 >
                                                     <i className="bi bi-pencil" />
+                                                    Edit
                                                 </button>
 
                                                 <button
                                                     type="button"
-                                                    className="btn btn-sm btn-outline-danger"
+                                                    className="btn btn-outline-danger btn-sm d-flex align-items-center gap-1"
                                                     onClick={() =>
                                                         handleDelete(item)
                                                     }
+                                                    disabled={
+                                                        saving ||
+                                                        deletingId === item.id
+                                                    }
                                                 >
-                                                    <i className="bi bi-trash" />
+                                                    {deletingId === item.id ? (
+                                                        <span className="spinner-border spinner-border-sm" />
+                                                    ) : (
+                                                        <i className="bi bi-trash" />
+                                                    )}
+                                                    Hapus
                                                 </button>
                                             </div>
                                         </td>
@@ -519,6 +570,95 @@ function CriticalItem() {
                             )}
                         </tbody>
                     </table>
+
+                    {!loading && items.length > 0 && (
+                        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 mt-3">
+                            <small className="text-secondary">
+                                Menampilkan{' '}
+                                {items.length === 0
+                                    ? 0
+                                    : startIndex + 1}
+                                {' - '}
+                                {Math.min(endIndex, items.length)}
+                                {' dari '}
+                                {items.length} data
+                            </small>
+
+                            <nav aria-label="Pagination Critical Item">
+                                <ul className="pagination pagination-sm mb-0">
+                                    <li
+                                        className={`page-item ${currentPage === 1
+                                                ? 'disabled'
+                                                : ''
+                                            }`}
+                                    >
+                                        <button
+                                            type="button"
+                                            className="page-link"
+                                            onClick={() =>
+                                                setCurrentPage((page) =>
+                                                    Math.max(1, page - 1)
+                                                )
+                                            }
+                                            disabled={currentPage === 1}
+                                            aria-label="Halaman sebelumnya"
+                                        >
+                                            <i className="bi bi-chevron-left" />
+                                        </button>
+                                    </li>
+
+                                    {Array.from(
+                                        { length: totalPages },
+                                        (_, index) => index + 1
+                                    ).map((pageNumber) => (
+                                        <li
+                                            key={pageNumber}
+                                            className={`page-item ${currentPage === pageNumber
+                                                    ? 'active'
+                                                    : ''
+                                                }`}
+                                        >
+                                            <button
+                                                type="button"
+                                                className="page-link"
+                                                onClick={() =>
+                                                    setCurrentPage(pageNumber)
+                                                }
+                                            >
+                                                {pageNumber}
+                                            </button>
+                                        </li>
+                                    ))}
+
+                                    <li
+                                        className={`page-item ${currentPage === totalPages
+                                                ? 'disabled'
+                                                : ''
+                                            }`}
+                                    >
+                                        <button
+                                            type="button"
+                                            className="page-link"
+                                            onClick={() =>
+                                                setCurrentPage((page) =>
+                                                    Math.min(
+                                                        totalPages,
+                                                        page + 1
+                                                    )
+                                                )
+                                            }
+                                            disabled={
+                                                currentPage === totalPages
+                                            }
+                                            aria-label="Halaman berikutnya"
+                                        >
+                                            <i className="bi bi-chevron-right" />
+                                        </button>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
