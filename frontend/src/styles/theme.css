@@ -1644,3 +1644,68 @@ body,
         overflow-wrap: anywhere;
     }
 }
+
+/* ============================================================
+   INPUT DATA — TAB NAVIGATION (ikon & teks)
+   ============================================================
+   Bootstrap Icons menyisipkan glyph lewat ::before dengan
+   vertical-align: -.125em, tapi vertical-align tidak berlaku di
+   dalam flex container (tombol tab pakai d-flex). Akibatnya posisi
+   vertikal tiap glyph terlihat sedikit berbeda-beda antar ikon
+   (bi-graph-up-arrow, bi-truck, bi-hourglass-split) karena masing-
+   masing glyph punya kotak metrik yang tidak identik.
+
+   Solusi: beri ikon kotak tetap (1em x 1em) yang di-flex-center
+   sendiri, dan beri label line-height: 1 supaya tinggi baris teks
+   tidak lagi mendikte posisi ikon. Tinggi tombol juga disamakan
+   lewat min-height agar antar tab tetap sejajar saat wrap.
+   ============================================================ */
+
+.tab-nav-btn {
+    min-height: 40px;
+    min-width: 0;
+    line-height: 1;
+}
+
+.tab-nav-btn .tab-nav-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+
+    width: 1em;
+    height: 1em;
+
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.tab-nav-btn .tab-nav-label {
+    min-width: 0;
+    line-height: 1;
+}
+
+@media (max-width: 575.98px) {
+    .tab-nav-btn {
+        min-height: 38px;
+        font-size: 0.8rem;
+        padding-left: 0.4rem;
+        padding-right: 0.4rem;
+    }
+
+    .tab-nav-btn .tab-nav-icon {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 380px) {
+    .tab-nav-btn {
+        font-size: 0.7rem;
+        padding-left: 0.3rem;
+        padding-right: 0.3rem;
+    }
+
+    .tab-nav-btn .tab-nav-icon {
+        font-size: 0.82rem;
+    }
+}
