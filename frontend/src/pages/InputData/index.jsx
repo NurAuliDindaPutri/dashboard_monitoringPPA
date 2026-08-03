@@ -2082,15 +2082,15 @@ function InputData() {
 
             {/* ── Tab Navigation ───────────────────────────────────────── */}
             <div className="app-card p-2 mb-3">
-                <div className="d-flex gap-1 flex-wrap">
+                <div className="d-flex gap-1 flex-nowrap">
                     {tabs.map((tab) => (
                         <button
                             key={tab.key}
-                            className={`btn btn-sm d-flex align-items-center gap-2 ${activeTab === tab.key ? 'btn-primary' : 'btn-outline-secondary'}`}
+                            className={`btn btn-sm tab-nav-btn flex-fill d-flex align-items-center justify-content-center gap-2 ${activeTab === tab.key ? 'btn-primary' : 'btn-outline-secondary'}`}
                             onClick={() => setActiveTab(tab.key)}
                         >
-                            <i className={`bi ${tab.icon}`} />
-                            {tab.label}
+                            <i className={`bi ${tab.icon} tab-nav-icon`} />
+                            <span className="tab-nav-label text-truncate">{tab.label}</span>
                         </button>
                     ))}
                 </div>
