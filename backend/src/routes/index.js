@@ -9,6 +9,7 @@ const pendingSupplyRoutes = require('./pendingSupply.routes');
 const criticalItemRoutes = require('./criticalItem.routes');
 const importRoutes = require('./import.routes');
 
+
 const router = express.Router();
 
 router.get('/health', async (req, res, next) => {
@@ -27,5 +28,6 @@ router.use('/unit-performance', monthlyUnitPerformanceRoutes);
 router.use('/pending-supply', pendingSupplyRoutes);
 router.use('/critical-items', criticalItemRoutes);
 router.use('/import', importRoutes);
+router.use('/monthly-unit-performance', monthlyUnitPerformanceRoutes);
 
 module.exports = router;

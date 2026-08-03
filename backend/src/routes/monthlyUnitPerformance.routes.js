@@ -1,12 +1,12 @@
 const express = require('express');
-const monthlyUnitPerformanceController = require('../controllers/monthlyUnitPerformance.controller');
-
 const router = express.Router();
 
-router.get('/', monthlyUnitPerformanceController.getAll);
-router.get('/:id', monthlyUnitPerformanceController.getById);
-router.post('/', monthlyUnitPerformanceController.create);
-router.put('/:id', monthlyUnitPerformanceController.update);
-router.delete('/:id', monthlyUnitPerformanceController.remove);
+const controller = require('../controllers/monthlyUnitPerformance.controller');
+
+router.get('/', controller.getAll);
+router.get('/:id', controller.getById);
+router.post('/', controller.create);
+router.put('/:id', controller.update);
+router.delete('/:id', controller.remove);
 
 module.exports = router;
