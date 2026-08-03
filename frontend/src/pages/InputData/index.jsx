@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { getSites } from '../../api/site.api';
 import { MONTHS, YEARS } from '../../utils/constants';
+import { addNotification } from '../../utils/notification';
 
 const NOW = new Date();
 const DEFAULT_YEAR = NOW.getFullYear();
@@ -132,6 +133,18 @@ function KpiSummaryForm({ sites }) {
                 type: 'success',
                 message: `Data KPI ${row.site_code} periode ${monthLabel} ${row.period_year} berhasil dihapus.`,
             });
+
+            addNotification({
+                title: 'KPI Summary dihapus',
+                message: `Data KPI site ${row.site_code} periode ${monthLabel} ${row.period_year} berhasil dihapus.`,
+                type: 'danger',
+                link: '/input-data',
+            });
+
+            window.dispatchEvent(
+                new CustomEvent('dashboard-data-changed')
+            );
+
             if (editingId === row.id) resetForm();
             await fetchList();
         } catch (err) {
@@ -184,17 +197,38 @@ function KpiSummaryForm({ sites }) {
         try {
             if (editingId) {
                 await axiosClient.put(`/kpi-summary/${editingId}`, payload);
+
                 setResult({
                     type: 'success',
                     message: `Data KPI ${siteLabel} periode ${monthLabel} ${form.period_year} berhasil diperbarui.`,
                 });
+
+                addNotification({
+                    title: 'KPI Summary diperbarui',
+                    message: `Data KPI site ${siteLabel} periode ${monthLabel} ${form.period_year} berhasil diperbarui.`,
+                    type: 'warning',
+                    link: '/input-data',
+                });
             } else {
                 await axiosClient.post('/kpi-summary', payload);
+
                 setResult({
                     type: 'success',
                     message: `Data KPI ${siteLabel} periode ${monthLabel} ${form.period_year} berhasil disimpan.`,
                 });
+
+                addNotification({
+                    title: 'KPI Summary ditambahkan',
+                    message: `Data KPI site ${siteLabel} periode ${monthLabel} ${form.period_year} berhasil disimpan.`,
+                    type: 'success',
+                    link: '/input-data',
+                });
             }
+
+            window.dispatchEvent(
+                new CustomEvent('dashboard-data-changed')
+            );
+
             resetForm();
             await fetchList();
         } catch (err) {
@@ -440,8 +474,8 @@ function KpiSummaryForm({ sites }) {
                                 <ul className="pagination pagination-sm mb-0">
                                     <li
                                         className={`page-item ${currentPage === 1
-                                                ? 'disabled'
-                                                : ''
+                                            ? 'disabled'
+                                            : ''
                                             }`}
                                     >
                                         <button
@@ -466,8 +500,8 @@ function KpiSummaryForm({ sites }) {
                                         <li
                                             key={pageNumber}
                                             className={`page-item ${currentPage === pageNumber
-                                                    ? 'active'
-                                                    : ''
+                                                ? 'active'
+                                                : ''
                                                 }`}
                                         >
                                             <button
@@ -484,8 +518,8 @@ function KpiSummaryForm({ sites }) {
 
                                     <li
                                         className={`page-item ${currentPage === totalPages
-                                                ? 'disabled'
-                                                : ''
+                                            ? 'disabled'
+                                            : ''
                                             }`}
                                     >
                                         <button
@@ -730,6 +764,17 @@ function UnitPerformanceForm({ sites }) {
                 message: `Data ${item.model_name ?? 'unit'} periode ${monthLabel} ${item.period_year} berhasil dihapus.`,
             });
 
+            addNotification({
+                title: 'Performa Unit dihapus',
+                message: `Data ${item.model_name ?? 'unit'} site ${item.site_code ?? '-'} periode ${monthLabel} ${item.period_year} berhasil dihapus.`,
+                type: 'danger',
+                link: '/input-data',
+            });
+
+            window.dispatchEvent(
+                new CustomEvent('dashboard-data-changed')
+            );
+
             await fetchUnitPerformances();
         } catch (err) {
             setResult({
@@ -841,6 +886,13 @@ function UnitPerformanceForm({ sites }) {
                     type: 'success',
                     message: `Data ${modelLabel} periode ${monthLabel} ${form.period_year} berhasil diperbarui.`,
                 });
+
+                addNotification({
+                    title: 'Performa Unit diperbarui',
+                    message: `Data ${modelLabel} periode ${monthLabel} ${form.period_year} berhasil diperbarui.`,
+                    type: 'warning',
+                    link: '/input-data',
+                });
             } else {
                 await axiosClient.post(
                     '/monthly-unit-performance',
@@ -851,7 +903,18 @@ function UnitPerformanceForm({ sites }) {
                     type: 'success',
                     message: `Data ${modelLabel} periode ${monthLabel} ${form.period_year} berhasil disimpan.`,
                 });
+
+                addNotification({
+                    title: 'Performa Unit ditambahkan',
+                    message: `Data ${modelLabel} periode ${monthLabel} ${form.period_year} berhasil disimpan.`,
+                    type: 'success',
+                    link: '/input-data',
+                });
             }
+
+            window.dispatchEvent(
+                new CustomEvent('dashboard-data-changed')
+            );
 
             resetForm();
             await fetchUnitPerformances();
@@ -1411,8 +1474,8 @@ function UnitPerformanceForm({ sites }) {
                                 <ul className="pagination pagination-sm mb-0">
                                     <li
                                         className={`page-item ${currentPage === 1
-                                                ? 'disabled'
-                                                : ''
+                                            ? 'disabled'
+                                            : ''
                                             }`}
                                     >
                                         <button
@@ -1445,9 +1508,9 @@ function UnitPerformanceForm({ sites }) {
                                         <li
                                             key={pageNumber}
                                             className={`page-item ${currentPage ===
-                                                    pageNumber
-                                                    ? 'active'
-                                                    : ''
+                                                pageNumber
+                                                ? 'active'
+                                                : ''
                                                 }`}
                                         >
                                             <button
@@ -1466,9 +1529,9 @@ function UnitPerformanceForm({ sites }) {
 
                                     <li
                                         className={`page-item ${currentPage ===
-                                                totalPages
-                                                ? 'disabled'
-                                                : ''
+                                            totalPages
+                                            ? 'disabled'
+                                            : ''
                                             }`}
                                     >
                                         <button
@@ -1628,6 +1691,18 @@ function PendingSupplyForm({ sites }) {
                 type: 'success',
                 message: `Data Pending Supply part ${row.parts_number} site ${row.site_code} berhasil dihapus.`,
             });
+
+            addNotification({
+                title: 'Pending Supply dihapus',
+                message: `Part ${row.parts_number} site ${row.site_code ?? '-'} berhasil dihapus.`,
+                type: 'danger',
+                link: '/pending-supply',
+            });
+
+            window.dispatchEvent(
+                new CustomEvent('dashboard-data-changed')
+            );
+
             if (editingId === row.id) resetForm();
             await fetchList();
         } catch (err) {
@@ -1662,24 +1737,60 @@ function PendingSupplyForm({ sites }) {
             remarks: form.remarks.trim() || null,
         };
 
-        const siteLabel = sites.find((s) => String(s.id) === String(form.site_id))?.site_code ?? '';
+        const selectedSite = sites.find(
+            (site) =>
+                String(site.id) ===
+                String(form.site_id)
+        );
+
+        const siteLabel =
+            selectedSite?.site_code ?? '-';
+
         const partLabel = payload.parts_number;
 
         setSaving(true);
+
         try {
             if (editingId) {
-                await axiosClient.put(`/pending-supply/${editingId}`, payload);
+                await axiosClient.put(
+                    `/pending-supply/${editingId}`,
+                    payload
+                );
+
                 setResult({
                     type: 'success',
                     message: `Data Pending Supply part ${partLabel} site ${siteLabel} berhasil diperbarui.`,
                 });
+
+                addNotification({
+                    title: 'Pending Supply diperbarui',
+                    message: `Part ${partLabel} site ${siteLabel} berhasil diperbarui.`,
+                    type: 'warning',
+                    link: '/pending-supply',
+                });
             } else {
-                await axiosClient.post('/pending-supply', payload);
+                await axiosClient.post(
+                    '/pending-supply',
+                    payload
+                );
+
                 setResult({
                     type: 'success',
                     message: `Data Pending Supply part ${partLabel} site ${siteLabel} berhasil disimpan.`,
                 });
+
+                addNotification({
+                    title: 'Pending Supply ditambahkan',
+                    message: `Part ${partLabel} site ${siteLabel} berhasil ditambahkan.`,
+                    type: 'success',
+                    link: '/pending-supply',
+                });
             }
+
+            window.dispatchEvent(
+                new CustomEvent('dashboard-data-changed')
+            );
+
             resetForm();
             await fetchList();
         } catch (err) {
