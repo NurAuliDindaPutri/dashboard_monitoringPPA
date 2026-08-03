@@ -1503,28 +1503,154 @@ function UnitPerformanceForm({ sites }) {
 }
 
 // ── Sub-form: Input Pending Supply ──────────────────────────────────────────
+const EMPTY_SUPPLY_FORM = {
+    site_id: '',
+    parts_number: '',
+    description: '',
+    qty: '',
+    no_po: '',
+    eta: '',
+    remarks: '',
+};
+
+const ID_MONTH_NAMES = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+];
+
+// Format tanggal (YYYY-MM-DD atau ISO datetime) menjadi format Indonesia.
+// "2026-08-15" -> "15 Agustus 2026", null/'' -> "-"
+function formatEtaIndonesia(value) {
+    if (!value) return '-';
+    const dateOnly = String(value).slice(0, 10);
+    const parts = dateOnly.split('-').map(Number);
+    const [year, month, day] = parts;
+    if (!year || !month || !day || !ID_MONTH_NAMES[month - 1]) return '-';
+    return `${day} ${ID_MONTH_NAMES[month - 1]} ${year}`;
+}
+
+// Tampilkan '-' untuk nilai kosong/null pada kolom teks bebas.
+function displayOrDash(value) {
+    if (value === null || value === undefined || value === '') return '-';
+    return value;
+}
+
 function PendingSupplyForm({ sites }) {
-    const [form, setForm] = useState({
-        site_id: '',
-        parts_number: '',
-        description: '',
-        qty: '',
-        no_po: '',
-        eta: '',
-        remarks: '',
-    });
+    const [form, setForm] = useState({ ...EMPTY_SUPPLY_FORM });
     const [saving, setSaving] = useState(false);
-    const [result, setResult] = useState(null);
+    const [result, setResult] = useState(null); // { type: 'success'|'error', message }
+    const [editingId, setEditingId] = useState(null);
+
+    const [list, setList] = useState([]);
+    const [loadingList, setLoadingList] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
+
+    // Pagination Pending Supply
+    const [currentPage, setCurrentPage] = useState(1);
+    const rowsPerPage = 20;
+
+    // Notifikasi otomatis hilang setelah beberapa detik
+    useEffect(() => {
+        if (!result) return undefined;
+        const timer = setTimeout(() => setResult(null), 4000);
+        return () => clearTimeout(timer);
+    }, [result]);
+
+    const fetchList = async () => {
+        setLoadingList(true);
+        try {
+            const res = await axiosClient.get('/pending-supply');
+            const data = res.data?.data ?? [];
+            const sorted = [...data].sort((a, b) => {
+                const bUpdated = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+                const aUpdated = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+                if (bUpdated !== aUpdated) return bUpdated - aUpdated;
+
+                const bCreated = b.created_at ? new Date(b.created_at).getTime() : 0;
+                const aCreated = a.created_at ? new Date(a.created_at).getTime() : 0;
+                if (bCreated !== aCreated) return bCreated - aCreated;
+
+                return b.id - a.id;
+            });
+            setList(sorted);
+        } catch (err) {
+            const msg = err.response?.data?.message ?? 'Gagal mengambil data Pending Supply';
+            setResult({ type: 'error', message: msg });
+        } finally {
+            setLoadingList(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchList();
+    }, []);
 
     const handleChange = (e) => {
         setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
         setResult(null);
     };
 
+    const resetForm = () => {
+        setForm({ ...EMPTY_SUPPLY_FORM });
+        setEditingId(null);
+    };
+
+    const handleCancelEdit = () => {
+        resetForm();
+        setResult(null);
+    };
+
+    const handleEdit = (row) => {
+        setEditingId(row.id);
+        setForm({
+            site_id: String(row.site_id ?? ''),
+            parts_number: row.parts_number ?? '',
+            description: row.description ?? '',
+            qty: row.qty !== null && row.qty !== undefined ? String(row.qty) : '',
+            no_po: row.no_po ?? '',
+            eta: row.eta ? String(row.eta).slice(0, 10) : '',
+            remarks: row.remarks ?? '',
+        });
+        setResult(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleDelete = async (row) => {
+        const confirmed = window.confirm(
+            `Yakin ingin menghapus Pending Supply part ${row.parts_number} site ${row.site_code}?`
+        );
+        if (!confirmed) return;
+
+        setDeletingId(row.id);
+        try {
+            await axiosClient.delete(`/pending-supply/${row.id}`);
+            setResult({
+                type: 'success',
+                message: `Data Pending Supply part ${row.parts_number} site ${row.site_code} berhasil dihapus.`,
+            });
+            if (editingId === row.id) resetForm();
+            await fetchList();
+        } catch (err) {
+            const msg = err.response?.data?.message ?? 'Gagal menghapus data Pending Supply';
+            setResult({ type: 'error', message: msg });
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+
         if (!form.site_id) { setResult({ type: 'error', message: 'Site wajib dipilih' }); return; }
         if (!form.parts_number.trim()) { setResult({ type: 'error', message: 'Part number wajib diisi' }); return; }
+
+        if (form.qty !== '') {
+            const qtyNum = Number(form.qty);
+            if (!Number.isFinite(qtyNum) || qtyNum < 0) {
+                setResult({ type: 'error', message: 'Qty tidak boleh negatif' });
+                return;
+            }
+        }
 
         const payload = {
             site_id: Number(form.site_id),
@@ -1536,90 +1662,271 @@ function PendingSupplyForm({ sites }) {
             remarks: form.remarks.trim() || null,
         };
 
+        const siteLabel = sites.find((s) => String(s.id) === String(form.site_id))?.site_code ?? '';
+        const partLabel = payload.parts_number;
+
         setSaving(true);
         try {
-            await axiosClient.post('/pending-supply', payload);
-            setResult({ type: 'success', message: 'Data Pending Supply berhasil disimpan!' });
-            setForm({ site_id: form.site_id, parts_number: '', description: '', qty: '', no_po: '', eta: '', remarks: '' });
+            if (editingId) {
+                await axiosClient.put(`/pending-supply/${editingId}`, payload);
+                setResult({
+                    type: 'success',
+                    message: `Data Pending Supply part ${partLabel} site ${siteLabel} berhasil diperbarui.`,
+                });
+            } else {
+                await axiosClient.post('/pending-supply', payload);
+                setResult({
+                    type: 'success',
+                    message: `Data Pending Supply part ${partLabel} site ${siteLabel} berhasil disimpan.`,
+                });
+            }
+            resetForm();
+            await fetchList();
         } catch (err) {
-            const msg = err.response?.data?.message ?? 'Gagal menyimpan data Pending Supply';
+            const fallback = editingId
+                ? 'Gagal memperbarui data Pending Supply'
+                : 'Gagal menyimpan data Pending Supply';
+            const msg = err.response?.data?.message ?? fallback;
             setResult({ type: 'error', message: msg });
         } finally {
             setSaving(false);
         }
     };
 
+    const totalPages = Math.max(1, Math.ceil(list.length / rowsPerPage));
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    const paginatedList = list.slice(startIndex, endIndex);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
     return (
-        <div className="app-card p-4">
-            <div className="fw-semibold mb-3 d-flex align-items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                <i className="bi bi-hourglass-split text-primary-custom" />
-                Input Pending Supply
+        <>
+            <div className="app-card p-4">
+                <div className="fw-semibold mb-3 d-flex align-items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                    <i className="bi bi-hourglass-split text-primary-custom" />
+                    {editingId ? 'Edit Pending Supply' : 'Input Pending Supply'}
+                </div>
+
+                {result && (
+                    <div className={`alert alert-${result.type === 'success' ? 'success' : 'danger'} py-2 mb-3`} role="alert">
+                        <i className={`bi ${result.type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2`} />
+                        {result.message}
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit}>
+                    <div className="row g-3 mb-3">
+                        <div className="col-12 col-md-4">
+                            <label className="form-label small text-secondary">Site <span className="text-danger">*</span></label>
+                            <select className="form-select" name="site_id" value={form.site_id} onChange={handleChange} required disabled={saving}>
+                                <option value="">Pilih Site</option>
+                                {sites.map((s) => (
+                                    <option key={s.id} value={s.id}>{s.site_code}{s.site_name ? ` - ${s.site_name}` : ''}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="col-12 col-md-4">
+                            <label className="form-label small text-secondary">Part Number <span className="text-danger">*</span></label>
+                            <input type="text" className="form-control" name="parts_number"
+                                value={form.parts_number} onChange={handleChange}
+                                placeholder="mis. ABC-123456" required disabled={saving} />
+                        </div>
+                        <div className="col-12 col-md-4">
+                            <label className="form-label small text-secondary">Deskripsi</label>
+                            <input type="text" className="form-control" name="description"
+                                value={form.description} onChange={handleChange}
+                                placeholder="Nama atau deskripsi part" disabled={saving} />
+                        </div>
+                        <div className="col-6 col-md-2">
+                            <label className="form-label small text-secondary">Qty</label>
+                            <input type="number" className="form-control" name="qty"
+                                value={form.qty} onChange={handleChange}
+                                min="0" step="1" placeholder="0" disabled={saving} />
+                        </div>
+                        <div className="col-6 col-md-3">
+                            <label className="form-label small text-secondary">No. PO</label>
+                            <input type="text" className="form-control" name="no_po"
+                                value={form.no_po} onChange={handleChange}
+                                placeholder="Nomor Purchase Order" disabled={saving} />
+                        </div>
+                        <div className="col-6 col-md-3">
+                            <label className="form-label small text-secondary">ETA</label>
+                            <input type="date" className="form-control" name="eta"
+                                value={form.eta} onChange={handleChange} disabled={saving} />
+                        </div>
+                        <div className="col-12 col-md-4">
+                            <label className="form-label small text-secondary">Keterangan</label>
+                            <input type="text" className="form-control" name="remarks"
+                                value={form.remarks} onChange={handleChange}
+                                placeholder="Catatan tambahan (opsional)" disabled={saving} />
+                        </div>
+                    </div>
+
+                    <div className="d-flex justify-content-end gap-2">
+                        {editingId && (
+                            <button type="button" className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+                                onClick={handleCancelEdit} disabled={saving}>
+                                <i className="bi bi-x-circle" />
+                                Batal Edit
+                            </button>
+                        )}
+                        <button type="submit" className="btn btn-primary btn-sm d-flex align-items-center gap-2" disabled={saving}>
+                            {saving && <span className="spinner-border spinner-border-sm" />}
+                            <i className="bi bi-save" />
+                            {editingId ? 'Simpan Perubahan' : 'Simpan Pending Supply'}
+                        </button>
+                    </div>
+                </form>
             </div>
 
-            {result && (
-                <div className={`alert alert-${result.type === 'success' ? 'success' : 'danger'} py-2 mb-3`} role="alert">
-                    <i className={`bi ${result.type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2`} />
-                    {result.message}
-                </div>
-            )}
+            {/* ── Tabel Data Pending Supply ─────────────────────────────────── */}
+            <div className="app-card p-4 mt-3">
+                <div className="d-flex justify-content-between align-items-start gap-3 mb-3">
+                    <div className="fw-semibold d-flex align-items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                        <i className="bi bi-table text-primary-custom" />
+                        Data Pending Supply Terbaru
+                    </div>
 
-            <form onSubmit={handleSubmit}>
-                <div className="row g-3 mb-3">
-                    <div className="col-12 col-md-4">
-                        <label className="form-label small text-secondary">Site <span className="text-danger">*</span></label>
-                        <select className="form-select" name="site_id" value={form.site_id} onChange={handleChange} required>
-                            <option value="">Pilih Site</option>
-                            {sites.map((s) => (
-                                <option key={s.id} value={s.id}>{s.site_code}{s.site_name ? ` - ${s.site_name}` : ''}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="col-12 col-md-4">
-                        <label className="form-label small text-secondary">Part Number <span className="text-danger">*</span></label>
-                        <input type="text" className="form-control" name="parts_number"
-                            value={form.parts_number} onChange={handleChange}
-                            placeholder="mis. ABC-123456" required />
-                    </div>
-                    <div className="col-12 col-md-4">
-                        <label className="form-label small text-secondary">Deskripsi</label>
-                        <input type="text" className="form-control" name="description"
-                            value={form.description} onChange={handleChange}
-                            placeholder="Nama atau deskripsi part" />
-                    </div>
-                    <div className="col-6 col-md-2">
-                        <label className="form-label small text-secondary">Qty</label>
-                        <input type="number" className="form-control" name="qty"
-                            value={form.qty} onChange={handleChange}
-                            min="0" step="1" placeholder="0" />
-                    </div>
-                    <div className="col-6 col-md-3">
-                        <label className="form-label small text-secondary">No. PO</label>
-                        <input type="text" className="form-control" name="no_po"
-                            value={form.no_po} onChange={handleChange}
-                            placeholder="Nomor Purchase Order" />
-                    </div>
-                    <div className="col-6 col-md-3">
-                        <label className="form-label small text-secondary">ETA</label>
-                        <input type="date" className="form-control" name="eta"
-                            value={form.eta} onChange={handleChange} />
-                    </div>
-                    <div className="col-12 col-md-4">
-                        <label className="form-label small text-secondary">Keterangan</label>
-                        <input type="text" className="form-control" name="remarks"
-                            value={form.remarks} onChange={handleChange}
-                            placeholder="Catatan tambahan (opsional)" />
-                    </div>
-                </div>
-
-                <div className="d-flex justify-content-end">
-                    <button type="submit" className="btn btn-primary btn-sm d-flex align-items-center gap-2" disabled={saving}>
-                        {saving && <span className="spinner-border spinner-border-sm" />}
-                        <i className="bi bi-save" />
-                        Simpan Pending Supply
+                    <button
+                        type="button"
+                        className="btn btn-outline-primary btn-sm"
+                        onClick={fetchList}
+                        disabled={loadingList}
+                    >
+                        {loadingList ? (
+                            <span className="spinner-border spinner-border-sm me-2" />
+                        ) : (
+                            <i className="bi bi-arrow-clockwise me-2" />
+                        )}
+                        Refresh
                     </button>
                 </div>
-            </form>
-        </div>
+
+                {loadingList ? (
+                    <div className="d-flex align-items-center gap-2 text-secondary py-3">
+                        <span className="spinner-border spinner-border-sm" role="status" />
+                        <span>Memuat data Pending Supply…</span>
+                    </div>
+                ) : list.length === 0 ? (
+                    <div className="text-secondary text-center py-3">Belum ada data Pending Supply.</div>
+                ) : (
+                    <div className="table-responsive">
+                        <table className="table table-sm table-hover align-middle mb-0">
+                            <thead>
+                                <tr className="text-secondary" style={{ fontSize: '0.8rem' }}>
+                                    <th>Site</th>
+                                    <th>Part Number</th>
+                                    <th>Deskripsi</th>
+                                    <th>Qty</th>
+                                    <th>No. PO</th>
+                                    <th>ETA</th>
+                                    <th>Keterangan</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedList.map((row) => (
+                                    <tr key={row.id}>
+                                        <td>{row.site_code}{row.site_name ? ` - ${row.site_name}` : ''}</td>
+                                        <td>{row.parts_number}</td>
+                                        <td>{displayOrDash(row.description)}</td>
+                                        <td>{row.qty ?? 0}</td>
+                                        <td>{displayOrDash(row.no_po)}</td>
+                                        <td>{formatEtaIndonesia(row.eta)}</td>
+                                        <td>{displayOrDash(row.remarks)}</td>
+                                        <td>
+                                            <div className="d-flex gap-2">
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-outline-primary btn-sm d-flex align-items-center gap-1"
+                                                    onClick={() => handleEdit(row)}
+                                                    disabled={saving || deletingId === row.id}
+                                                >
+                                                    <i className="bi bi-pencil" />
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-outline-danger btn-sm d-flex align-items-center gap-1"
+                                                    onClick={() => handleDelete(row)}
+                                                    disabled={saving || deletingId === row.id}
+                                                >
+                                                    {deletingId === row.id
+                                                        ? <span className="spinner-border spinner-border-sm" />
+                                                        : <i className="bi bi-trash" />}
+                                                    Hapus
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+
+                        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 mt-3">
+                            <small className="text-secondary">
+                                Menampilkan{' '}
+                                {list.length === 0 ? 0 : startIndex + 1}
+                                {' - '}
+                                {Math.min(endIndex, list.length)}
+                                {' dari '}
+                                {list.length} data
+                                <span className="mx-1">·</span>
+                                Halaman {currentPage} dari {totalPages}
+                            </small>
+
+                            <nav aria-label="Pagination Pending Supply">
+                                <ul className="pagination pagination-sm mb-0">
+                                    <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                                        <button
+                                            type="button"
+                                            className="page-link"
+                                            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                                            disabled={currentPage === 1}
+                                            aria-label="Halaman sebelumnya"
+                                        >
+                                            <i className="bi bi-chevron-left" />
+                                        </button>
+                                    </li>
+
+                                    {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+                                        <li
+                                            key={pageNumber}
+                                            className={`page-item ${currentPage === pageNumber ? 'active' : ''}`}
+                                        >
+                                            <button
+                                                type="button"
+                                                className="page-link"
+                                                onClick={() => setCurrentPage(pageNumber)}
+                                            >
+                                                {pageNumber}
+                                            </button>
+                                        </li>
+                                    ))}
+
+                                    <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                                        <button
+                                            type="button"
+                                            className="page-link"
+                                            onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                                            disabled={currentPage === totalPages}
+                                            aria-label="Halaman berikutnya"
+                                        >
+                                            <i className="bi bi-chevron-right" />
+                                        </button>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </>
     );
 }
 
