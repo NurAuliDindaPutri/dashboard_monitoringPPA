@@ -8,29 +8,158 @@ const DEFAULT_YEAR = NOW.getFullYear();
 const DEFAULT_MONTH = NOW.getMonth() + 1;
 
 // ── Sub-form: Input KPI Summary ─────────────────────────────────────────────
+const EMPTY_KPI_FORM = {
+    site_id: '',
+    period_year: DEFAULT_YEAR,
+    period_month: DEFAULT_MONTH,
+    readyness_actual: '',
+    readyness_target: '',
+    availability_actual: '',
+    availability_target: '',
+    leadtime_actual: '',
+    leadtime_target: '',
+};
+
+// Konversi nilai desimal database (0-1) menjadi teks persen untuk tabel.
+// 0.928 -> "92.8%", 0.98 -> "98%", null -> "-"
+function formatKpiPercent(value) {
+    if (value === null || value === undefined || value === '') return '-';
+    const num = Number(value) * 100;
+    if (!Number.isFinite(num)) return '-';
+    const rounded = Math.round(num * 100) / 100;
+    return `${rounded}%`;
+}
+
+// Konversi nilai desimal database (0-1) menjadi angka persen untuk form edit.
+// 0.928 -> "92.8", null -> ""
+function decimalToPercentInput(value) {
+    if (value === null || value === undefined || value === '') return '';
+    const num = Number(value) * 100;
+    if (!Number.isFinite(num)) return '';
+    return String(Math.round(num * 100) / 100);
+}
+
+function getMonthLabel(monthValue) {
+    const found = MONTHS.find((m) => m.value === Number(monthValue));
+    return found ? found.label : monthValue;
+}
+
 function KpiSummaryForm({ sites }) {
-    const [form, setForm] = useState({
-        site_id: '',
-        period_year: DEFAULT_YEAR,
-        period_month: DEFAULT_MONTH,
-        readyness_actual: '',
-        readyness_target: '',
-        availability_actual: '',
-        availability_target: '',
-        leadtime_actual: '',
-        leadtime_target: '',
-    });
+    const [form, setForm] = useState({ ...EMPTY_KPI_FORM });
     const [saving, setSaving] = useState(false);
     const [result, setResult] = useState(null); // { type: 'success'|'error', message }
+    const [editingId, setEditingId] = useState(null);
+
+    const [list, setList] = useState([]);
+    const [loadingList, setLoadingList] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
+
+    // Notifikasi otomatis hilang setelah beberapa detik
+    useEffect(() => {
+        if (!result) return undefined;
+        const timer = setTimeout(() => setResult(null), 4000);
+        return () => clearTimeout(timer);
+    }, [result]);
+
+    const fetchList = async () => {
+        setLoadingList(true);
+        try {
+            const res = await axiosClient.get('/kpi-summary');
+            const data = res.data?.data ?? [];
+            const sorted = [...data].sort((a, b) => {
+                if (b.period_year !== a.period_year) return b.period_year - a.period_year;
+                if (b.period_month !== a.period_month) return b.period_month - a.period_month;
+                return b.id - a.id;
+            });
+            setList(sorted.slice(0, 20));
+        } catch (err) {
+            setResult({ type: 'error', message: 'Gagal memuat data KPI Summary' });
+        } finally {
+            setLoadingList(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchList();
+    }, []);
 
     const handleChange = (e) => {
         setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
         setResult(null);
     };
 
+    const resetForm = () => {
+        setForm({ ...EMPTY_KPI_FORM });
+        setEditingId(null);
+    };
+
+    const handleCancelEdit = () => {
+        resetForm();
+        setResult(null);
+    };
+
+    const handleEdit = (row) => {
+        setEditingId(row.id);
+        setForm({
+            site_id: String(row.site_id),
+            period_year: row.period_year,
+            period_month: row.period_month,
+            readyness_actual: decimalToPercentInput(row.readyness_actual),
+            readyness_target: decimalToPercentInput(row.readyness_target),
+            availability_actual: decimalToPercentInput(row.availability_actual),
+            availability_target: decimalToPercentInput(row.availability_target),
+            leadtime_actual: decimalToPercentInput(row.leadtime_actual),
+            leadtime_target: decimalToPercentInput(row.leadtime_target),
+        });
+        setResult(null);
+    };
+
+    const handleDelete = async (row) => {
+        const monthLabel = getMonthLabel(row.period_month);
+        const confirmed = window.confirm(
+            `Yakin ingin menghapus data KPI ${row.site_code} periode ${monthLabel} ${row.period_year}?`
+        );
+        if (!confirmed) return;
+
+        setDeletingId(row.id);
+        try {
+            await axiosClient.delete(`/kpi-summary/${row.id}`);
+            setResult({
+                type: 'success',
+                message: `Data KPI ${row.site_code} periode ${monthLabel} ${row.period_year} berhasil dihapus.`,
+            });
+            if (editingId === row.id) resetForm();
+            await fetchList();
+        } catch (err) {
+            const msg = err.response?.data?.message ?? 'Gagal menghapus data KPI Summary';
+            setResult({ type: 'error', message: msg });
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    const PERCENT_FIELDS = [
+        'readyness_actual', 'readyness_target',
+        'availability_actual', 'availability_target',
+        'leadtime_actual', 'leadtime_target',
+    ];
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+
         if (!form.site_id) { setResult({ type: 'error', message: 'Site wajib dipilih' }); return; }
+        if (!form.period_month) { setResult({ type: 'error', message: 'Bulan wajib dipilih' }); return; }
+        if (!form.period_year) { setResult({ type: 'error', message: 'Tahun wajib dipilih' }); return; }
+
+        for (const field of PERCENT_FIELDS) {
+            const raw = form[field];
+            if (raw === '' || raw === null || raw === undefined) continue;
+            const num = Number(raw);
+            if (!Number.isFinite(num) || num < 0 || num > 100) {
+                setResult({ type: 'error', message: 'Nilai persen harus berada di antara 0 sampai 100' });
+                return;
+            }
+        }
 
         const payload = {
             site_id: Number(form.site_id),
@@ -44,18 +173,31 @@ function KpiSummaryForm({ sites }) {
             leadtime_target: form.leadtime_target !== '' ? Number(form.leadtime_target) / 100 : null,
         };
 
+        const siteLabel = sites.find((s) => String(s.id) === String(form.site_id))?.site_code ?? '';
+        const monthLabel = getMonthLabel(form.period_month);
+
         setSaving(true);
         try {
-            await axiosClient.post('/kpi-summary', payload);
-            setResult({ type: 'success', message: 'Data KPI Summary berhasil disimpan!' });
-            setForm((prev) => ({
-                ...prev,
-                readyness_actual: '', readyness_target: '',
-                availability_actual: '', availability_target: '',
-                leadtime_actual: '', leadtime_target: '',
-            }));
+            if (editingId) {
+                await axiosClient.put(`/kpi-summary/${editingId}`, payload);
+                setResult({
+                    type: 'success',
+                    message: `Data KPI ${siteLabel} periode ${monthLabel} ${form.period_year} berhasil diperbarui.`,
+                });
+            } else {
+                await axiosClient.post('/kpi-summary', payload);
+                setResult({
+                    type: 'success',
+                    message: `Data KPI ${siteLabel} periode ${monthLabel} ${form.period_year} berhasil disimpan.`,
+                });
+            }
+            resetForm();
+            await fetchList();
         } catch (err) {
-            const msg = err.response?.data?.message ?? 'Gagal menyimpan data KPI Summary';
+            const fallback = editingId
+                ? 'Gagal memperbarui data KPI Summary'
+                : 'Gagal menyimpan data KPI Summary';
+            const msg = err.response?.data?.message ?? fallback;
             setResult({ type: 'error', message: msg });
         } finally {
             setSaving(false);
@@ -63,125 +205,209 @@ function KpiSummaryForm({ sites }) {
     };
 
     return (
-        <div className="app-card p-4">
-            <div className="fw-semibold mb-3 d-flex align-items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                <i className="bi bi-graph-up-arrow text-primary-custom" />
-                Input KPI Summary Bulanan
+        <>
+            <div className="app-card p-4">
+                <div className="fw-semibold mb-3 d-flex align-items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                    <i className="bi bi-graph-up-arrow text-primary-custom" />
+                    {editingId ? 'Edit KPI Summary Bulanan' : 'Input KPI Summary Bulanan'}
+                </div>
+
+                {result && (
+                    <div className={`alert alert-${result.type === 'success' ? 'success' : 'danger'} py-2 mb-3`} role="alert">
+                        <i className={`bi ${result.type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2`} />
+                        {result.message}
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit}>
+                    {/* Site & Periode */}
+                    <div className="row g-3 mb-3">
+                        <div className="col-12 col-md-4">
+                            <label className="form-label small text-secondary">Site <span className="text-danger">*</span></label>
+                            <select className="form-select" name="site_id" value={form.site_id} onChange={handleChange} required disabled={saving}>
+                                <option value="">Pilih Site</option>
+                                {sites.map((s) => (
+                                    <option key={s.id} value={s.id}>{s.site_code}{s.site_name ? ` - ${s.site_name}` : ''}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="col-6 col-md-4">
+                            <label className="form-label small text-secondary">Bulan <span className="text-danger">*</span></label>
+                            <select className="form-select" name="period_month" value={form.period_month} onChange={handleChange} disabled={saving}>
+                                {MONTHS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                            </select>
+                        </div>
+                        <div className="col-6 col-md-4">
+                            <label className="form-label small text-secondary">Tahun <span className="text-danger">*</span></label>
+                            <select className="form-select" name="period_year" value={form.period_year} onChange={handleChange} disabled={saving}>
+                                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="row g-3 mb-3">
+                        {/* Readiness */}
+                        <div className="col-12">
+                            <div className="small text-secondary fw-semibold mb-2">Readiness (%)</div>
+                        </div>
+                        <div className="col-6 col-md-3">
+                            <label className="form-label small text-secondary">Aktual</label>
+                            <div className="input-group input-group-sm">
+                                <input type="number" className="form-control" name="readyness_actual"
+                                    value={form.readyness_actual} onChange={handleChange}
+                                    min="0" max="100" step="0.1" placeholder="mis. 92.5" disabled={saving} />
+                                <span className="input-group-text">%</span>
+                            </div>
+                        </div>
+                        <div className="col-6 col-md-3">
+                            <label className="form-label small text-secondary">Target</label>
+                            <div className="input-group input-group-sm">
+                                <input type="number" className="form-control" name="readyness_target"
+                                    value={form.readyness_target} onChange={handleChange}
+                                    min="0" max="100" step="0.1" placeholder="mis. 90" disabled={saving} />
+                                <span className="input-group-text">%</span>
+                            </div>
+                        </div>
+
+                        {/* Availability */}
+                        <div className="col-12">
+                            <div className="small text-secondary fw-semibold mb-2">Availability VHS (%)</div>
+                        </div>
+                        <div className="col-6 col-md-3">
+                            <label className="form-label small text-secondary">Aktual</label>
+                            <div className="input-group input-group-sm">
+                                <input type="number" className="form-control" name="availability_actual"
+                                    value={form.availability_actual} onChange={handleChange}
+                                    min="0" max="100" step="0.1" placeholder="mis. 97.8" disabled={saving} />
+                                <span className="input-group-text">%</span>
+                            </div>
+                        </div>
+                        <div className="col-6 col-md-3">
+                            <label className="form-label small text-secondary">Target</label>
+                            <div className="input-group input-group-sm">
+                                <input type="number" className="form-control" name="availability_target"
+                                    value={form.availability_target} onChange={handleChange}
+                                    min="0" max="100" step="0.1" placeholder="mis. 98" disabled={saving} />
+                                <span className="input-group-text">%</span>
+                            </div>
+                        </div>
+
+                        {/* Lead Time Supply */}
+                        <div className="col-12">
+                            <div className="small text-secondary fw-semibold mb-2">Lead Time Supply (%)</div>
+                        </div>
+                        <div className="col-6 col-md-3">
+                            <label className="form-label small text-secondary">Aktual</label>
+                            <div className="input-group input-group-sm">
+                                <input type="number" className="form-control" name="leadtime_actual"
+                                    value={form.leadtime_actual} onChange={handleChange}
+                                    min="0" max="100" step="0.1" placeholder="mis. 94.2" disabled={saving} />
+                                <span className="input-group-text">%</span>
+                            </div>
+                        </div>
+                        <div className="col-6 col-md-3">
+                            <label className="form-label small text-secondary">Target</label>
+                            <div className="input-group input-group-sm">
+                                <input type="number" className="form-control" name="leadtime_target"
+                                    value={form.leadtime_target} onChange={handleChange}
+                                    min="0" max="100" step="0.1" placeholder="mis. 93" disabled={saving} />
+                                <span className="input-group-text">%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="d-flex justify-content-end gap-2">
+                        {editingId && (
+                            <button type="button" className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+                                onClick={handleCancelEdit} disabled={saving}>
+                                <i className="bi bi-x-circle" />
+                                Batal Edit
+                            </button>
+                        )}
+                        <button type="submit" className="btn btn-primary btn-sm d-flex align-items-center gap-2" disabled={saving}>
+                            {saving && <span className="spinner-border spinner-border-sm" />}
+                            <i className="bi bi-save" />
+                            {editingId ? 'Simpan Perubahan' : 'Simpan KPI Summary'}
+                        </button>
+                    </div>
+                </form>
             </div>
 
-            {result && (
-                <div className={`alert alert-${result.type === 'success' ? 'success' : 'danger'} py-2 mb-3`} role="alert">
-                    <i className={`bi ${result.type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2`} />
-                    {result.message}
-                </div>
-            )}
-
-            <form onSubmit={handleSubmit}>
-                {/* Site & Periode */}
-                <div className="row g-3 mb-3">
-                    <div className="col-12 col-md-4">
-                        <label className="form-label small text-secondary">Site <span className="text-danger">*</span></label>
-                        <select className="form-select" name="site_id" value={form.site_id} onChange={handleChange} required>
-                            <option value="">Pilih Site</option>
-                            {sites.map((s) => (
-                                <option key={s.id} value={s.id}>{s.site_code}{s.site_name ? ` - ${s.site_name}` : ''}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="col-6 col-md-4">
-                        <label className="form-label small text-secondary">Bulan <span className="text-danger">*</span></label>
-                        <select className="form-select" name="period_month" value={form.period_month} onChange={handleChange}>
-                            {MONTHS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                        </select>
-                    </div>
-                    <div className="col-6 col-md-4">
-                        <label className="form-label small text-secondary">Tahun <span className="text-danger">*</span></label>
-                        <select className="form-select" name="period_year" value={form.period_year} onChange={handleChange}>
-                            {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-                        </select>
-                    </div>
+            {/* ── Tabel Data KPI Summary ─────────────────────────────────────── */}
+            <div className="app-card p-4 mt-3">
+                <div className="fw-semibold mb-3 d-flex align-items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                    <i className="bi bi-table text-primary-custom" />
+                    Data KPI Summary Terbaru
                 </div>
 
-                <div className="row g-3 mb-3">
-                    {/* Readiness */}
-                    <div className="col-12">
-                        <div className="small text-secondary fw-semibold mb-2">Readiness (%)</div>
+                {loadingList ? (
+                    <div className="d-flex align-items-center gap-2 text-secondary py-3">
+                        <span className="spinner-border spinner-border-sm" role="status" />
+                        <span>Memuat data KPI Summary…</span>
                     </div>
-                    <div className="col-6 col-md-3">
-                        <label className="form-label small text-secondary">Aktual</label>
-                        <div className="input-group input-group-sm">
-                            <input type="number" className="form-control" name="readyness_actual"
-                                value={form.readyness_actual} onChange={handleChange}
-                                min="0" max="100" step="0.1" placeholder="mis. 92.5" />
-                            <span className="input-group-text">%</span>
-                        </div>
+                ) : list.length === 0 ? (
+                    <div className="text-secondary text-center py-3">Belum ada data KPI Summary.</div>
+                ) : (
+                    <div className="table-responsive">
+                        <table className="table table-sm table-hover align-middle mb-0">
+                            <thead>
+                                <tr className="text-secondary" style={{ fontSize: '0.8rem' }}>
+                                    <th>Site</th>
+                                    <th>Bulan</th>
+                                    <th>Tahun</th>
+                                    <th>Readiness Actual</th>
+                                    <th>Readiness Target</th>
+                                    <th>Availability Actual</th>
+                                    <th>Availability Target</th>
+                                    <th>Lead Time Actual</th>
+                                    <th>Lead Time Target</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {list.map((row) => (
+                                    <tr key={row.id}>
+                                        <td>{row.site_code}{row.site_name ? ` - ${row.site_name}` : ''}</td>
+                                        <td>{getMonthLabel(row.period_month)}</td>
+                                        <td>{row.period_year}</td>
+                                        <td>{formatKpiPercent(row.readyness_actual)}</td>
+                                        <td>{formatKpiPercent(row.readyness_target)}</td>
+                                        <td>{formatKpiPercent(row.availability_actual)}</td>
+                                        <td>{formatKpiPercent(row.availability_target)}</td>
+                                        <td>{formatKpiPercent(row.leadtime_actual)}</td>
+                                        <td>{formatKpiPercent(row.leadtime_target)}</td>
+                                        <td>
+                                            <div className="d-flex gap-2">
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-outline-primary btn-sm d-flex align-items-center gap-1"
+                                                    onClick={() => handleEdit(row)}
+                                                    disabled={saving || deletingId === row.id}
+                                                >
+                                                    <i className="bi bi-pencil" />
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-outline-danger btn-sm d-flex align-items-center gap-1"
+                                                    onClick={() => handleDelete(row)}
+                                                    disabled={saving || deletingId === row.id}
+                                                >
+                                                    {deletingId === row.id
+                                                        ? <span className="spinner-border spinner-border-sm" />
+                                                        : <i className="bi bi-trash" />}
+                                                    Hapus
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
-                    <div className="col-6 col-md-3">
-                        <label className="form-label small text-secondary">Target</label>
-                        <div className="input-group input-group-sm">
-                            <input type="number" className="form-control" name="readyness_target"
-                                value={form.readyness_target} onChange={handleChange}
-                                min="0" max="100" step="0.1" placeholder="mis. 90" />
-                            <span className="input-group-text">%</span>
-                        </div>
-                    </div>
-
-                    {/* Availability */}
-                    <div className="col-12">
-                        <div className="small text-secondary fw-semibold mb-2">Availability VHS (%)</div>
-                    </div>
-                    <div className="col-6 col-md-3">
-                        <label className="form-label small text-secondary">Aktual</label>
-                        <div className="input-group input-group-sm">
-                            <input type="number" className="form-control" name="availability_actual"
-                                value={form.availability_actual} onChange={handleChange}
-                                min="0" max="100" step="0.1" placeholder="mis. 97.8" />
-                            <span className="input-group-text">%</span>
-                        </div>
-                    </div>
-                    <div className="col-6 col-md-3">
-                        <label className="form-label small text-secondary">Target</label>
-                        <div className="input-group input-group-sm">
-                            <input type="number" className="form-control" name="availability_target"
-                                value={form.availability_target} onChange={handleChange}
-                                min="0" max="100" step="0.1" placeholder="mis. 98" />
-                            <span className="input-group-text">%</span>
-                        </div>
-                    </div>
-
-                    {/* Lead Time Supply */}
-                    <div className="col-12">
-                        <div className="small text-secondary fw-semibold mb-2">Lead Time Supply (%)</div>
-                    </div>
-                    <div className="col-6 col-md-3">
-                        <label className="form-label small text-secondary">Aktual</label>
-                        <div className="input-group input-group-sm">
-                            <input type="number" className="form-control" name="leadtime_actual"
-                                value={form.leadtime_actual} onChange={handleChange}
-                                min="0" max="100" step="0.1" placeholder="mis. 94.2" />
-                            <span className="input-group-text">%</span>
-                        </div>
-                    </div>
-                    <div className="col-6 col-md-3">
-                        <label className="form-label small text-secondary">Target</label>
-                        <div className="input-group input-group-sm">
-                            <input type="number" className="form-control" name="leadtime_target"
-                                value={form.leadtime_target} onChange={handleChange}
-                                min="0" max="100" step="0.1" placeholder="mis. 93" />
-                            <span className="input-group-text">%</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="d-flex justify-content-end">
-                    <button type="submit" className="btn btn-primary btn-sm d-flex align-items-center gap-2" disabled={saving}>
-                        {saving && <span className="spinner-border spinner-border-sm" />}
-                        <i className="bi bi-save" />
-                        Simpan KPI Summary
-                    </button>
-                </div>
-            </form>
-        </div>
+                )}
+            </div>
+        </>
     );
 }
 
