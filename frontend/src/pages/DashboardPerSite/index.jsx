@@ -4,6 +4,14 @@ import { getSites } from '../../api/site.api';
 import { getKpiSummary } from '../../api/kpiSummary.api';
 import { getUnitPerformances } from '../../api/unitPerformance.api';
 import { getPendingSupply } from '../../api/pendingSupply.api';
+import {
+    dummySites,
+    dummyKpiSummary,
+    dummyUnitPerformances,
+    dummyPendingSupply,
+    filterDummyByPeriod,
+} from '../../data/dummyData';
+
 
 import FilterBar from '../../components/common/FilterBar';
 import KpiCard from '../../components/common/KpiCard';

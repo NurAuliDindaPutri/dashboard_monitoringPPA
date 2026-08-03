@@ -1282,3 +1282,365 @@ body,
         gap: 0.15rem;
     }
 }
+
+/* =========================================================
+   MOBILE BOTTOM NAVIGATION
+   Desktop: tidak tampil
+   Mobile: tampil fixed di bagian bawah
+   ========================================================= */
+
+.mobile-bottom-navigation,
+.mobile-nav-overlay {
+    display: none;
+}
+
+/* Desktop tetap memakai sidebar */
+@media (min-width: 768px) {
+
+    .mobile-bottom-navigation,
+    .mobile-nav-overlay {
+        display: none !important;
+    }
+}
+
+/* Mobile */
+@media (max-width: 767.98px) {
+
+    /*
+     * Sembunyikan sidebar di mobile.
+     * Tambahkan selector sesuai class Sidebar project.
+     */
+    .app-sidebar,
+    .sidebar,
+    aside.app-sidebar {
+        display: none !important;
+    }
+
+    /*
+     * Hilangkan margin desktop karena sidebar tidak tampil.
+     */
+    .app-main-content,
+    .app-main-content.is-collapsed {
+        width: 100% !important;
+        margin-left: 0 !important;
+        padding-left: 0 !important;
+    }
+
+    /*
+     * Isi halaman diberi ruang agar tidak tertutup bottom nav.
+     */
+    .app-page-content {
+        width: 100%;
+        padding-bottom: 96px !important;
+    }
+
+    /*
+     * Hamburger tidak diperlukan lagi karena ada bottom nav.
+     * Sesuaikan selector dengan tombol pada Navbar.
+     */
+    .mobile-sidebar-toggle,
+    .navbar-mobile-toggle,
+    button[aria-label='Buka sidebar'],
+    button[aria-label='Toggle sidebar'] {
+        display: none !important;
+    }
+
+    /*
+     * Footer diberi jarak tambahan.
+     */
+    footer,
+    .app-footer {
+        margin-bottom: 78px;
+    }
+
+    .mobile-bottom-navigation {
+        position: fixed;
+        right: 12px;
+        bottom: calc(10px + env(safe-area-inset-bottom));
+        left: 12px;
+        z-index: 1050;
+
+        display: grid;
+        grid-template-columns:
+            repeat(5, minmax(0, 1fr));
+        align-items: center;
+
+        min-height: 66px;
+        padding: 6px;
+
+        background:
+            linear-gradient(135deg,
+                rgba(102, 88, 238, 0.97),
+                rgba(92, 121, 246, 0.97));
+
+        border:
+            1px solid rgba(255, 255, 255, 0.25);
+
+        border-radius: 22px;
+
+        box-shadow:
+            0 14px 36px rgba(35, 38, 95, 0.35);
+
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter:
+            blur(18px);
+    }
+
+    .mobile-bottom-navigation-item {
+        position: relative;
+
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+
+        min-width: 0;
+        min-height: 54px;
+        padding: 5px 2px;
+
+        color:
+            rgba(255, 255, 255, 0.72);
+
+        background: transparent;
+        border: 0;
+        border-radius: 16px;
+
+        font-family: inherit;
+        cursor: pointer;
+
+        transition:
+            color 0.18s ease,
+            background-color 0.18s ease,
+            transform 0.18s ease;
+    }
+
+    .mobile-bottom-navigation-item:active {
+        transform: scale(0.94);
+    }
+
+    .mobile-bottom-navigation-item.active {
+        color: #ffffff;
+
+        background:
+            rgba(255, 255, 255, 0.18);
+
+        box-shadow:
+            inset 0 0 0 1px rgba(255, 255, 255, 0.13);
+    }
+
+    .mobile-bottom-navigation-item.active::before {
+        position: absolute;
+        top: 3px;
+        left: 50%;
+
+        width: 22px;
+        height: 3px;
+
+        content: '';
+        transform:
+            translateX(-50%);
+
+        background: #ffffff;
+        border-radius: 999px;
+    }
+
+    .mobile-bottom-navigation-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 26px;
+        height: 25px;
+    }
+
+    .mobile-bottom-navigation-icon i {
+        font-size: 1rem;
+        line-height: 1;
+    }
+
+    .mobile-bottom-navigation-label {
+        display: block;
+
+        width: 100%;
+
+        overflow: hidden;
+
+        font-size: 0.58rem;
+        font-weight: 600;
+        line-height: 1.1;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Overlay menu Lainnya */
+    .mobile-nav-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1060;
+
+        display: flex;
+        align-items: flex-end;
+
+        padding:
+            12px 12px calc(88px + env(safe-area-inset-bottom));
+
+        background:
+            rgba(9, 12, 32, 0.58);
+
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter:
+            blur(5px);
+    }
+
+    .mobile-nav-sheet {
+        width: 100%;
+        padding: 10px 14px 18px;
+
+        color:
+            var(--text-primary,
+                #ffffff);
+
+        background:
+            var(--card-bg,
+                #18213f);
+
+        border:
+            1px solid rgba(255, 255, 255, 0.14);
+
+        border-radius: 24px;
+
+        box-shadow:
+            0 -16px 45px rgba(0, 0, 0, 0.35);
+    }
+
+    .mobile-nav-handle {
+        width: 42px;
+        height: 4px;
+        margin:
+            0 auto 14px;
+
+        background:
+            rgba(255, 255, 255, 0.24);
+
+        border-radius: 999px;
+    }
+
+    .mobile-nav-sheet-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+
+        margin-bottom: 14px;
+    }
+
+    .mobile-nav-sheet-header h6 {
+        margin: 0;
+
+        color:
+            var(--text-primary,
+                #ffffff);
+
+        font-size: 0.95rem;
+        font-weight: 700;
+    }
+
+    .mobile-nav-sheet-header small {
+        color:
+            var(--text-secondary,
+                #aeb6d3);
+
+        font-size: 0.7rem;
+    }
+
+    .mobile-nav-close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 34px;
+        height: 34px;
+
+        color:
+            var(--text-primary,
+                #ffffff);
+
+        background:
+            rgba(255, 255, 255, 0.06);
+
+        border:
+            1px solid rgba(255, 255, 255, 0.12);
+
+        border-radius: 10px;
+    }
+
+    .mobile-nav-more-grid {
+        display: grid;
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .mobile-nav-more-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
+        min-width: 0;
+        min-height: 70px;
+        padding: 12px;
+
+        color:
+            var(--text-secondary,
+                #c1c8df);
+
+        background:
+            rgba(255, 255, 255, 0.045);
+
+        border:
+            1px solid rgba(255, 255, 255, 0.1);
+
+        border-radius: 15px;
+
+        font-family: inherit;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-align: left;
+    }
+
+    .mobile-nav-more-item.active {
+        color: #ffffff;
+
+        background:
+            rgba(112, 91, 245, 0.25);
+
+        border-color:
+            rgba(132, 107, 255, 0.65);
+    }
+
+    .mobile-nav-more-icon {
+        display: flex;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+
+        width: 36px;
+        height: 36px;
+
+        color: #ffffff;
+
+        background:
+            linear-gradient(135deg,
+                #795cff,
+                #5b74ef);
+
+        border-radius: 11px;
+    }
+
+    .mobile-nav-more-item span:last-child {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+}

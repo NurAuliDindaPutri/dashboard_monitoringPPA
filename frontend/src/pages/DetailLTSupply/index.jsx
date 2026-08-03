@@ -12,6 +12,13 @@ import FilterBar from '../../components/common/FilterBar';
 import KpiCard from '../../components/common/KpiCard';
 import GaugeCard from '../../components/common/GaugeCard';
 import ChartCard from '../../components/common/ChartCard';
+import {
+    dummySites,
+    dummyKpiSummary,
+    dummyUnitPerformances,
+    dummyPendingSupply,
+    filterDummyByPeriod,
+} from '../../data/dummyData';
 
 import { MONTHS } from '../../utils/constants';
 import { formatPercent } from '../../utils/kpiStatus';
@@ -828,9 +835,9 @@ function DetailLTSupply() {
                                     <ul className="pagination pagination-sm mb-0">
                                         <li
                                             className={`page-item ${currentPage ===
-                                                    1
-                                                    ? 'disabled'
-                                                    : ''
+                                                1
+                                                ? 'disabled'
+                                                : ''
                                                 }`}
                                         >
                                             <button
@@ -876,9 +883,9 @@ function DetailLTSupply() {
                                                         pageNumber
                                                     }
                                                     className={`page-item ${currentPage ===
-                                                            pageNumber
-                                                            ? 'active'
-                                                            : ''
+                                                        pageNumber
+                                                        ? 'active'
+                                                        : ''
                                                         }`}
                                                 >
                                                     <button
@@ -900,9 +907,9 @@ function DetailLTSupply() {
 
                                         <li
                                             className={`page-item ${currentPage ===
-                                                    totalPages
-                                                    ? 'disabled'
-                                                    : ''
+                                                totalPages
+                                                ? 'disabled'
+                                                : ''
                                                 }`}
                                         >
                                             <button

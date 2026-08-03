@@ -3,6 +3,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { addNotification } from '../../utils/notification';
 import { getSites } from '../../api/site.api';
 import {
+    dummySites,
+    dummyCriticalItems,
+    filterDummyByPeriod,
+} from '../../data/dummyData';
+import {
     getCriticalItems,
     createCriticalItem,
     updateCriticalItem,
@@ -18,6 +23,7 @@ const EMPTY_FORM = {
     no_po: '',
     estimasi: '',
 };
+
 
 
 function createActivityNotification(notification) {
@@ -588,8 +594,8 @@ function CriticalItem() {
                                 <ul className="pagination pagination-sm mb-0">
                                     <li
                                         className={`page-item ${currentPage === 1
-                                                ? 'disabled'
-                                                : ''
+                                            ? 'disabled'
+                                            : ''
                                             }`}
                                     >
                                         <button
@@ -614,8 +620,8 @@ function CriticalItem() {
                                         <li
                                             key={pageNumber}
                                             className={`page-item ${currentPage === pageNumber
-                                                    ? 'active'
-                                                    : ''
+                                                ? 'active'
+                                                : ''
                                                 }`}
                                         >
                                             <button
@@ -632,8 +638,8 @@ function CriticalItem() {
 
                                     <li
                                         className={`page-item ${currentPage === totalPages
-                                                ? 'disabled'
-                                                : ''
+                                            ? 'disabled'
+                                            : ''
                                             }`}
                                     >
                                         <button
