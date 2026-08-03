@@ -2,3 +2,37 @@
     width: 100%;
     min-height: 100vh;
 }
+
+/* Pagination — Dark Mode */
+[data-theme='dark'] .pagination .page-link,
+.dark .pagination .page-link,
+body.dark-mode .pagination .page-link {
+    background-color: var(--card-bg, #1e2749);
+    border-color: var(--border-color, #3a466d);
+    color: var(--text-primary, #e8ecf7);
+}
+
+[data-theme='dark'] .pagination .page-link:hover,
+.dark .pagination .page-link:hover,
+body.dark-mode .pagination .page-link:hover {
+    background-color: var(--navy-700, #29365f);
+    border-color: var(--primary-color, #4f7cff);
+    color: #ffffff;
+}
+
+[data-theme='dark'] .pagination .page-item.active .page-link,
+.dark .pagination .page-item.active .page-link,
+body.dark-mode .pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: #ffffff;
+}
+
+[data-theme='dark'] .pagination .page-item.disabled .page-link,
+.dark .pagination .page-item.disabled .page-link,
+body.dark-mode .pagination .page-item.disabled .page-link {
+    background-color: var(--card-bg, #1e2749);
+    border-color: var(--border-color, #3a466d);
+    color: var(--text-secondary, #7782a5);
+    opacity: 0.6;
+}

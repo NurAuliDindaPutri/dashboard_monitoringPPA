@@ -704,6 +704,55 @@ a {
 }
 
 /* ============================================================
+   DARK MODE — INPUT GROUP & DISABLED FORM
+   ============================================================ */
+
+:root[data-theme='dark'] .input-group-text {
+    background-color: var(--navy-750);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .form-control:disabled,
+:root[data-theme='dark'] .form-select:disabled {
+    background-color: var(--navy-850);
+    border-color: var(--border-color);
+    color: var(--text-muted);
+    opacity: 1;
+}
+
+:root[data-theme='dark'] .form-control:read-only {
+    background-color: var(--navy-850);
+    border-color: var(--border-color);
+    color: var(--text-muted);
+}
+
+:root[data-theme='dark'] .input-group .form-control,
+:root[data-theme='dark'] .input-group .form-select,
+:root[data-theme='dark'] .input-group-text {
+    border-color: var(--border-color);
+}
+
+:root[data-theme='dark'] .form-select:disabled {
+    background-image: var(--bs-form-select-bg-img);
+}
+
+/* LIGHT MODE */
+:root[data-theme='light'] .input-group-text {
+    background-color: var(--navy-750);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+:root[data-theme='light'] .form-control:disabled,
+:root[data-theme='light'] .form-select:disabled {
+    background-color: var(--navy-800);
+    border-color: var(--border-color);
+    color: var(--text-muted);
+    opacity: 1;
+}
+
+/* ============================================================
    CARD
    ============================================================ */
 

@@ -54,6 +54,10 @@ function KpiSummaryForm({ sites }) {
     const [loadingList, setLoadingList] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
 
+    // Pagination KPI Summary
+    const [currentPage, setCurrentPage] = useState(1);
+    const rowsPerPage = 20;
+
     // Notifikasi otomatis hilang setelah beberapa detik
     useEffect(() => {
         if (!result) return undefined;
@@ -71,7 +75,7 @@ function KpiSummaryForm({ sites }) {
                 if (b.period_month !== a.period_month) return b.period_month - a.period_month;
                 return b.id - a.id;
             });
-            setList(sorted.slice(0, 20));
+            setList(sorted);
         } catch (err) {
             setResult({ type: 'error', message: 'Gagal memuat data KPI Summary' });
         } finally {
@@ -203,6 +207,21 @@ function KpiSummaryForm({ sites }) {
             setSaving(false);
         }
     };
+
+    const totalPages = Math.max(
+        1,
+        Math.ceil(list.length / rowsPerPage)
+    );
+
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    const paginatedList = list.slice(startIndex, endIndex);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
 
     return (
         <>
@@ -365,7 +384,7 @@ function KpiSummaryForm({ sites }) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {list.map((row) => (
+                                {paginatedList.map((row) => (
                                     <tr key={row.id}>
                                         <td>{row.site_code}{row.site_name ? ` - ${row.site_name}` : ''}</td>
                                         <td>{getMonthLabel(row.period_month)}</td>
@@ -404,6 +423,93 @@ function KpiSummaryForm({ sites }) {
                                 ))}
                             </tbody>
                         </table>
+
+                        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 mt-3">
+                            <small className="text-secondary">
+                                Menampilkan{' '}
+                                {list.length === 0
+                                    ? 0
+                                    : startIndex + 1}
+                                {' - '}
+                                {Math.min(endIndex, list.length)}
+                                {' dari '}
+                                {list.length} data
+                            </small>
+
+                            <nav aria-label="Pagination KPI Summary">
+                                <ul className="pagination pagination-sm mb-0">
+                                    <li
+                                        className={`page-item ${currentPage === 1
+                                                ? 'disabled'
+                                                : ''
+                                            }`}
+                                    >
+                                        <button
+                                            type="button"
+                                            className="page-link"
+                                            onClick={() =>
+                                                setCurrentPage((page) =>
+                                                    Math.max(1, page - 1)
+                                                )
+                                            }
+                                            disabled={currentPage === 1}
+                                            aria-label="Halaman sebelumnya"
+                                        >
+                                            <i className="bi bi-chevron-left" />
+                                        </button>
+                                    </li>
+
+                                    {Array.from(
+                                        { length: totalPages },
+                                        (_, index) => index + 1
+                                    ).map((pageNumber) => (
+                                        <li
+                                            key={pageNumber}
+                                            className={`page-item ${currentPage === pageNumber
+                                                    ? 'active'
+                                                    : ''
+                                                }`}
+                                        >
+                                            <button
+                                                type="button"
+                                                className="page-link"
+                                                onClick={() =>
+                                                    setCurrentPage(pageNumber)
+                                                }
+                                            >
+                                                {pageNumber}
+                                            </button>
+                                        </li>
+                                    ))}
+
+                                    <li
+                                        className={`page-item ${currentPage === totalPages
+                                                ? 'disabled'
+                                                : ''
+                                            }`}
+                                    >
+                                        <button
+                                            type="button"
+                                            className="page-link"
+                                            onClick={() =>
+                                                setCurrentPage((page) =>
+                                                    Math.min(
+                                                        totalPages,
+                                                        page + 1
+                                                    )
+                                                )
+                                            }
+                                            disabled={
+                                                currentPage === totalPages
+                                            }
+                                            aria-label="Halaman berikutnya"
+                                        >
+                                            <i className="bi bi-chevron-right" />
+                                        </button>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
                     </div>
                 )}
             </div>
@@ -438,6 +544,20 @@ function UnitPerformanceForm({ sites }) {
     const [editingId, setEditingId] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
 
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const rowsPerPage = 20;
+
+    useEffect(() => {
+        if (!result) return undefined;
+
+        const timer = setTimeout(() => {
+            setResult(null);
+        }, 4000);
+
+        return () => clearTimeout(timer);
+    }, [result]);
+
     const fetchUnitPerformances = async () => {
         try {
             setLoadingData(true);
@@ -447,11 +567,23 @@ function UnitPerformanceForm({ sites }) {
                 '/monthly-unit-performance'
             );
 
-            setUnitPerformances(
-                Array.isArray(response.data?.data)
-                    ? response.data.data
-                    : []
-            );
+            const rows = Array.isArray(response.data?.data)
+                ? response.data.data
+                : [];
+
+            const sortedRows = [...rows].sort((a, b) => {
+                if (Number(b.period_year) !== Number(a.period_year)) {
+                    return Number(b.period_year) - Number(a.period_year);
+                }
+
+                if (Number(b.period_month) !== Number(a.period_month)) {
+                    return Number(b.period_month) - Number(a.period_month);
+                }
+
+                return Number(b.id) - Number(a.id);
+            });
+
+            setUnitPerformances(sortedRows);
         } catch (err) {
             console.error(
                 'Gagal mengambil data performa unit:',
@@ -508,6 +640,7 @@ function UnitPerformanceForm({ sites }) {
             productivity: '',
             fuel_consumption: '',
         });
+
         setEditingId(null);
     };
 
@@ -536,12 +669,22 @@ function UnitPerformanceForm({ sites }) {
             physical_availability:
                 item.physical_availability !== null &&
                     item.physical_availability !== undefined
-                    ? Number(item.physical_availability) * 100
+                    ? String(
+                        Math.round(
+                            Number(item.physical_availability) *
+                            10000
+                        ) / 100
+                    )
                     : '',
             unit_availability:
                 item.unit_availability !== null &&
                     item.unit_availability !== undefined
-                    ? Number(item.unit_availability) * 100
+                    ? String(
+                        Math.round(
+                            Number(item.unit_availability) *
+                            10000
+                        ) / 100
+                    )
                     : '',
             mtbf: item.mtbf ?? '',
             mttr: item.mttr ?? '',
@@ -549,10 +692,7 @@ function UnitPerformanceForm({ sites }) {
             fuel_consumption: item.fuel_consumption ?? '',
         });
 
-        setResult({
-            type: 'success',
-            message: `Mode edit aktif untuk ${item.model_name ?? 'unit'} periode ${item.period_month}/${item.period_year}`,
-        });
+        setResult(null);
 
         window.scrollTo({
             top: 0,
@@ -566,13 +706,13 @@ function UnitPerformanceForm({ sites }) {
     };
 
     const handleDelete = async (item) => {
+        const monthLabel = getMonthLabel(item.period_month);
+
         const confirmed = window.confirm(
-            `Yakin ingin menghapus data ${item.model_name ?? 'unit'} periode ${item.period_month}/${item.period_year}?`
+            `Yakin ingin menghapus data ${item.model_name ?? 'unit'} site ${item.site_code ?? '-'} periode ${monthLabel} ${item.period_year}?`
         );
 
-        if (!confirmed) {
-            return;
-        }
+        if (!confirmed) return;
 
         try {
             setDeletingId(item.id);
@@ -587,7 +727,7 @@ function UnitPerformanceForm({ sites }) {
 
             setResult({
                 type: 'success',
-                message: `Data ${item.model_name ?? 'unit'} berhasil dihapus.`,
+                message: `Data ${item.model_name ?? 'unit'} periode ${monthLabel} ${item.period_year} berhasil dihapus.`,
             });
 
             await fetchUnitPerformances();
@@ -622,6 +762,32 @@ function UnitPerformanceForm({ sites }) {
             return;
         }
 
+        const percentageFields = [
+            form.physical_availability,
+            form.unit_availability,
+        ];
+
+        const invalidPercentage = percentageFields.some((value) => {
+            if (value === '') return false;
+
+            const numberValue = Number(value);
+
+            return (
+                !Number.isFinite(numberValue) ||
+                numberValue < 0 ||
+                numberValue > 100
+            );
+        });
+
+        if (invalidPercentage) {
+            setResult({
+                type: 'error',
+                message:
+                    'Physical Availability dan Unit Availability harus berada di antara 0 sampai 100.',
+            });
+            return;
+        }
+
         const payload = {
             unit_model_id: Number(form.unit_model_id),
             period_year: Number(form.period_year),
@@ -652,6 +818,16 @@ function UnitPerformanceForm({ sites }) {
                     : null,
         };
 
+        const selectedModel = unitModels.find(
+            (unit) =>
+                String(unit.id) ===
+                String(form.unit_model_id)
+        );
+
+        const modelLabel =
+            selectedModel?.model_name ?? 'unit';
+        const monthLabel = getMonthLabel(form.period_month);
+
         setSaving(true);
 
         try {
@@ -660,19 +836,22 @@ function UnitPerformanceForm({ sites }) {
                     `/monthly-unit-performance/${editingId}`,
                     payload
                 );
+
+                setResult({
+                    type: 'success',
+                    message: `Data ${modelLabel} periode ${monthLabel} ${form.period_year} berhasil diperbarui.`,
+                });
             } else {
                 await axiosClient.post(
                     '/monthly-unit-performance',
                     payload
                 );
-            }
 
-            setResult({
-                type: 'success',
-                message: editingId
-                    ? 'Data Unit Performance berhasil diperbarui!'
-                    : 'Data Unit Performance berhasil disimpan!',
-            });
+                setResult({
+                    type: 'success',
+                    message: `Data ${modelLabel} periode ${monthLabel} ${form.period_year} berhasil disimpan.`,
+                });
+            }
 
             resetForm();
             await fetchUnitPerformances();
@@ -690,491 +869,636 @@ function UnitPerformanceForm({ sites }) {
         }
     };
 
+    const totalPages = Math.max(
+        1,
+        Math.ceil(unitPerformances.length / rowsPerPage)
+    );
+
+    const startIndex =
+        (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+
+    const paginatedUnitPerformances =
+        unitPerformances.slice(startIndex, endIndex);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
     return (
-        <div className="app-card p-4">
-            <div
-                className="fw-semibold mb-3 d-flex align-items-center gap-2"
-                style={{ color: 'var(--text-primary)' }}
-            >
-                <i className="bi bi-truck text-primary-custom" />
-                Input Data Performa Unit Bulanan
-            </div>
-
-            {result && (
+        <>
+            <div className="app-card p-4">
                 <div
-                    className={`alert alert-${result.type === 'success' ? 'success' : 'danger'} py-2 mb-3`}
-                    role="alert"
+                    className="fw-semibold mb-3 d-flex align-items-center gap-2"
+                    style={{ color: 'var(--text-primary)' }}
                 >
-                    <i
-                        className={`bi ${result.type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2`}
-                    />
-                    {result.message}
-                </div>
-            )}
-
-            {editingId && (
-                <div className="alert alert-warning py-2 mb-3">
-                    <i className="bi bi-pencil-square me-2" />
-                    Kamu sedang mengedit data ID {editingId}.
-                </div>
-            )}
-
-            <form onSubmit={handleSubmit}>
-                <div className="row g-3 mb-3">
-                    <div className="col-12 col-md-4">
-                        <label className="form-label small text-secondary">
-                            Site <span className="text-danger">*</span>
-                        </label>
-
-                        <select
-                            className="form-select"
-                            name="site_id"
-                            value={form.site_id}
-                            onChange={handleChange}
-                            required
-                        >
-                            <option value="">Pilih Site</option>
-
-                            {sites.map((site) => (
-                                <option
-                                    key={site.id}
-                                    value={site.id}
-                                >
-                                    {site.site_code}
-                                    {site.site_name
-                                        ? ` - ${site.site_name}`
-                                        : ''}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="col-12 col-md-4">
-                        <label className="form-label small text-secondary">
-                            Model Unit <span className="text-danger">*</span>
-                        </label>
-
-                        <select
-                            className="form-select"
-                            name="unit_model_id"
-                            value={form.unit_model_id}
-                            onChange={handleChange}
-                            disabled={
-                                !form.site_id ||
-                                loadingModels
-                            }
-                            required
-                        >
-                            <option value="">
-                                {!form.site_id
-                                    ? 'Pilih site dahulu'
-                                    : loadingModels
-                                        ? 'Memuat…'
-                                        : 'Pilih Model Unit'}
-                            </option>
-
-                            {unitModels.map((unit) => (
-                                <option
-                                    key={unit.id}
-                                    value={unit.id}
-                                >
-                                    {unit.model_name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="col-6 col-md-2">
-                        <label className="form-label small text-secondary">
-                            Bulan <span className="text-danger">*</span>
-                        </label>
-
-                        <select
-                            className="form-select"
-                            name="period_month"
-                            value={form.period_month}
-                            onChange={handleChange}
-                        >
-                            {MONTHS.map((monthItem) => (
-                                <option
-                                    key={monthItem.value}
-                                    value={monthItem.value}
-                                >
-                                    {monthItem.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="col-6 col-md-2">
-                        <label className="form-label small text-secondary">
-                            Tahun <span className="text-danger">*</span>
-                        </label>
-
-                        <select
-                            className="form-select"
-                            name="period_year"
-                            value={form.period_year}
-                            onChange={handleChange}
-                        >
-                            {YEARS.map((yearItem) => (
-                                <option
-                                    key={yearItem}
-                                    value={yearItem}
-                                >
-                                    {yearItem}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    <i className="bi bi-truck text-primary-custom" />
+                    {editingId
+                        ? 'Edit Data Performa Unit Bulanan'
+                        : 'Input Data Performa Unit Bulanan'}
                 </div>
 
-                <div className="row g-3 mb-3">
-                    <div className="col-12">
-                        <div className="small text-secondary fw-semibold mb-2">
-                            Availability (%)
-                        </div>
-                    </div>
-
-                    <div className="col-6 col-md-3">
-                        <label className="form-label small text-secondary">
-                            Physical Availability
-                        </label>
-
-                        <div className="input-group input-group-sm">
-                            <input
-                                type="number"
-                                className="form-control"
-                                name="physical_availability"
-                                value={form.physical_availability}
-                                onChange={handleChange}
-                                min="0"
-                                max="100"
-                                step="0.01"
-                                placeholder="mis. 97.5"
-                            />
-                            <span className="input-group-text">%</span>
-                        </div>
-                    </div>
-
-                    <div className="col-6 col-md-3">
-                        <label className="form-label small text-secondary">
-                            Unit Availability
-                        </label>
-
-                        <div className="input-group input-group-sm">
-                            <input
-                                type="number"
-                                className="form-control"
-                                name="unit_availability"
-                                value={form.unit_availability}
-                                onChange={handleChange}
-                                min="0"
-                                max="100"
-                                step="0.01"
-                                placeholder="mis. 96.8"
-                            />
-                            <span className="input-group-text">%</span>
-                        </div>
-                    </div>
-
-                    <div className="col-12">
-                        <div className="small text-secondary fw-semibold mb-2">
-                            MTBF & MTTR (jam)
-                        </div>
-                    </div>
-
-                    <div className="col-6 col-md-3">
-                        <label className="form-label small text-secondary">
-                            MTBF
-                        </label>
-
-                        <div className="input-group input-group-sm">
-                            <input
-                                type="number"
-                                className="form-control"
-                                name="mtbf"
-                                value={form.mtbf}
-                                onChange={handleChange}
-                                min="0"
-                                step="0.1"
-                                placeholder="mis. 250"
-                            />
-                            <span className="input-group-text">jam</span>
-                        </div>
-                    </div>
-
-                    <div className="col-6 col-md-3">
-                        <label className="form-label small text-secondary">
-                            MTTR
-                        </label>
-
-                        <div className="input-group input-group-sm">
-                            <input
-                                type="number"
-                                className="form-control"
-                                name="mttr"
-                                value={form.mttr}
-                                onChange={handleChange}
-                                min="0"
-                                step="0.1"
-                                placeholder="mis. 4.5"
-                            />
-                            <span className="input-group-text">jam</span>
-                        </div>
-                    </div>
-
-                    <div className="col-12">
-                        <div className="small text-secondary fw-semibold mb-2">
-                            Produktivitas & Fuel
-                        </div>
-                    </div>
-
-                    <div className="col-6 col-md-3">
-                        <label className="form-label small text-secondary">
-                            Produktivitas
-                        </label>
-
-                        <input
-                            type="number"
-                            className="form-control form-control-sm"
-                            name="productivity"
-                            value={form.productivity}
-                            onChange={handleChange}
-                            min="0"
-                            step="0.01"
-                            placeholder="mis. 85.3"
-                        />
-                    </div>
-
-                    <div className="col-6 col-md-3">
-                        <label className="form-label small text-secondary">
-                            Fuel Consumption
-                        </label>
-
-                        <div className="input-group input-group-sm">
-                            <input
-                                type="number"
-                                className="form-control"
-                                name="fuel_consumption"
-                                value={form.fuel_consumption}
-                                onChange={handleChange}
-                                min="0"
-                                step="1"
-                                placeholder="mis. 12500"
-                            />
-                            <span className="input-group-text">L</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="d-flex justify-content-end gap-2">
-                    {editingId && (
-                        <button
-                            type="button"
-                            className="btn btn-outline-secondary btn-sm"
-                            onClick={handleCancelEdit}
-                            disabled={saving}
-                        >
-                            <i className="bi bi-x-circle me-1" />
-                            Batal Edit
-                        </button>
-                    )}
-
-                    <button
-                        type="submit"
-                        className="btn btn-primary btn-sm d-flex align-items-center gap-2"
-                        disabled={saving}
+                {result && (
+                    <div
+                        className={`alert alert-${result.type === 'success' ? 'success' : 'danger'} py-2 mb-3`}
+                        role="alert"
                     >
-                        {saving && (
-                            <span className="spinner-border spinner-border-sm" />
+                        <i
+                            className={`bi ${result.type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2`}
+                        />
+                        {result.message}
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit}>
+                    <div className="row g-3 mb-3">
+                        <div className="col-12 col-md-4">
+                            <label className="form-label small text-secondary">
+                                Site <span className="text-danger">*</span>
+                            </label>
+
+                            <select
+                                className="form-select"
+                                name="site_id"
+                                value={form.site_id}
+                                onChange={handleChange}
+                                required
+                                disabled={saving}
+                            >
+                                <option value="">Pilih Site</option>
+
+                                {sites.map((site) => (
+                                    <option
+                                        key={site.id}
+                                        value={site.id}
+                                    >
+                                        {site.site_code}
+                                        {site.site_name
+                                            ? ` - ${site.site_name}`
+                                            : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="col-12 col-md-4">
+                            <label className="form-label small text-secondary">
+                                Model Unit <span className="text-danger">*</span>
+                            </label>
+
+                            <select
+                                className="form-select"
+                                name="unit_model_id"
+                                value={form.unit_model_id}
+                                onChange={handleChange}
+                                disabled={
+                                    !form.site_id ||
+                                    loadingModels ||
+                                    saving
+                                }
+                                required
+                            >
+                                <option value="">
+                                    {!form.site_id
+                                        ? 'Pilih site dahulu'
+                                        : loadingModels
+                                            ? 'Memuat…'
+                                            : 'Pilih Model Unit'}
+                                </option>
+
+                                {unitModels.map((unit) => (
+                                    <option
+                                        key={unit.id}
+                                        value={unit.id}
+                                    >
+                                        {unit.model_name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="col-6 col-md-2">
+                            <label className="form-label small text-secondary">
+                                Bulan <span className="text-danger">*</span>
+                            </label>
+
+                            <select
+                                className="form-select"
+                                name="period_month"
+                                value={form.period_month}
+                                onChange={handleChange}
+                                disabled={saving}
+                            >
+                                {MONTHS.map((monthItem) => (
+                                    <option
+                                        key={monthItem.value}
+                                        value={monthItem.value}
+                                    >
+                                        {monthItem.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="col-6 col-md-2">
+                            <label className="form-label small text-secondary">
+                                Tahun <span className="text-danger">*</span>
+                            </label>
+
+                            <select
+                                className="form-select"
+                                name="period_year"
+                                value={form.period_year}
+                                onChange={handleChange}
+                                disabled={saving}
+                            >
+                                {YEARS.map((yearItem) => (
+                                    <option
+                                        key={yearItem}
+                                        value={yearItem}
+                                    >
+                                        {yearItem}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="row g-3 mb-3">
+                        <div className="col-12">
+                            <div className="small text-secondary fw-semibold mb-2">
+                                Availability (%)
+                            </div>
+                        </div>
+
+                        <div className="col-6 col-md-3">
+                            <label className="form-label small text-secondary">
+                                Physical Availability
+                            </label>
+
+                            <div className="input-group input-group-sm">
+                                <input
+                                    type="number"
+                                    className="form-control"
+                                    name="physical_availability"
+                                    value={form.physical_availability}
+                                    onChange={handleChange}
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    placeholder="mis. 97.5"
+                                    disabled={saving}
+                                />
+                                <span className="input-group-text">%</span>
+                            </div>
+                        </div>
+
+                        <div className="col-6 col-md-3">
+                            <label className="form-label small text-secondary">
+                                Unit Availability
+                            </label>
+
+                            <div className="input-group input-group-sm">
+                                <input
+                                    type="number"
+                                    className="form-control"
+                                    name="unit_availability"
+                                    value={form.unit_availability}
+                                    onChange={handleChange}
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    placeholder="mis. 96.8"
+                                    disabled={saving}
+                                />
+                                <span className="input-group-text">%</span>
+                            </div>
+                        </div>
+
+                        <div className="col-12">
+                            <div className="small text-secondary fw-semibold mb-2">
+                                MTBF & MTTR (jam)
+                            </div>
+                        </div>
+
+                        <div className="col-6 col-md-3">
+                            <label className="form-label small text-secondary">
+                                MTBF
+                            </label>
+
+                            <div className="input-group input-group-sm">
+                                <input
+                                    type="number"
+                                    className="form-control"
+                                    name="mtbf"
+                                    value={form.mtbf}
+                                    onChange={handleChange}
+                                    min="0"
+                                    step="0.1"
+                                    placeholder="mis. 250"
+                                    disabled={saving}
+                                />
+                                <span className="input-group-text">jam</span>
+                            </div>
+                        </div>
+
+                        <div className="col-6 col-md-3">
+                            <label className="form-label small text-secondary">
+                                MTTR
+                            </label>
+
+                            <div className="input-group input-group-sm">
+                                <input
+                                    type="number"
+                                    className="form-control"
+                                    name="mttr"
+                                    value={form.mttr}
+                                    onChange={handleChange}
+                                    min="0"
+                                    step="0.1"
+                                    placeholder="mis. 4.5"
+                                    disabled={saving}
+                                />
+                                <span className="input-group-text">jam</span>
+                            </div>
+                        </div>
+
+                        <div className="col-12">
+                            <div className="small text-secondary fw-semibold mb-2">
+                                Produktivitas & Fuel
+                            </div>
+                        </div>
+
+                        <div className="col-6 col-md-3">
+                            <label className="form-label small text-secondary">
+                                Produktivitas
+                            </label>
+
+                            <input
+                                type="number"
+                                className="form-control form-control-sm"
+                                name="productivity"
+                                value={form.productivity}
+                                onChange={handleChange}
+                                min="0"
+                                step="0.01"
+                                placeholder="mis. 85.3"
+                                disabled={saving}
+                            />
+                        </div>
+
+                        <div className="col-6 col-md-3">
+                            <label className="form-label small text-secondary">
+                                Fuel Consumption
+                            </label>
+
+                            <div className="input-group input-group-sm">
+                                <input
+                                    type="number"
+                                    className="form-control"
+                                    name="fuel_consumption"
+                                    value={form.fuel_consumption}
+                                    onChange={handleChange}
+                                    min="0"
+                                    step="1"
+                                    placeholder="mis. 12500"
+                                    disabled={saving}
+                                />
+                                <span className="input-group-text">L</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="d-flex justify-content-end gap-2">
+                        {editingId && (
+                            <button
+                                type="button"
+                                className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+                                onClick={handleCancelEdit}
+                                disabled={saving}
+                            >
+                                <i className="bi bi-x-circle" />
+                                Batal Edit
+                            </button>
                         )}
 
-                        <i className="bi bi-save" />
+                        <button
+                            type="submit"
+                            className="btn btn-primary btn-sm d-flex align-items-center gap-2"
+                            disabled={saving}
+                        >
+                            {saving && (
+                                <span className="spinner-border spinner-border-sm" />
+                            )}
 
-                        {saving
-                            ? 'Menyimpan...'
-                            : editingId
+                            <i className="bi bi-save" />
+
+                            {editingId
                                 ? 'Simpan Perubahan'
                                 : 'Simpan Data Unit'}
-                    </button>
-                </div>
-            </form>
-
-            <hr className="my-4" />
-
-            <div className="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                    <div
-                        className="fw-semibold"
-                        style={{
-                            color: 'var(--text-primary)',
-                        }}
-                    >
-                        Data Performa Unit
+                        </button>
                     </div>
-
-                    <div className="small text-secondary">
-                        Menampilkan 20 data terbaru
-                    </div>
-                </div>
-
-                <button
-                    type="button"
-                    className="btn btn-outline-primary btn-sm"
-                    onClick={fetchUnitPerformances}
-                    disabled={loadingData}
-                >
-                    {loadingData ? (
-                        <span className="spinner-border spinner-border-sm me-2" />
-                    ) : (
-                        <i className="bi bi-arrow-clockwise me-2" />
-                    )}
-
-                    Refresh
-                </button>
+                </form>
             </div>
 
-            {dataError && (
-                <div className="alert alert-danger py-2">
-                    <i className="bi bi-exclamation-triangle me-2" />
-                    {dataError}
-                </div>
-            )}
+            <div className="app-card p-4 mt-3">
+                <div className="d-flex justify-content-between align-items-start gap-3 mb-3">
+                    <div>
+                        <div
+                            className="fw-semibold d-flex align-items-center gap-2"
+                            style={{
+                                color: 'var(--text-primary)',
+                            }}
+                        >
+                            <i className="bi bi-table text-primary-custom" />
+                            Data Performa Unit
+                        </div>
 
-            {loadingData ? (
-                <div className="text-center py-4">
-                    <span className="spinner-border spinner-border-sm me-2" />
-                    Memuat data performa unit...
-                </div>
-            ) : (
-                <div className="table-responsive">
-                    <table className="table table-sm table-hover align-middle">
-                        <thead>
-                            <tr>
-                                <th>Site</th>
-                                <th>Model Unit</th>
-                                <th>Periode</th>
-                                <th>PA</th>
-                                <th>UA</th>
-                                <th>MTBF</th>
-                                <th>MTTR</th>
-                                <th>Produktivitas</th>
-                                <th>Fuel</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            {unitPerformances
-                                .slice(0, 20)
-                                .map((item) => {
-                                    const monthLabel =
-                                        MONTHS.find(
-                                            (monthItem) =>
-                                                Number(monthItem.value) ===
-                                                Number(item.period_month)
-                                        )?.label ??
-                                        item.period_month;
-
-                                    return (
-                                        <tr key={item.id}>
-                                            <td>
-                                                {item.site_code ?? '-'}
-                                            </td>
-
-                                            <td>
-                                                {item.model_name ?? '-'}
-                                            </td>
-
-                                            <td>
-                                                {monthLabel}{' '}
-                                                {item.period_year}
-                                            </td>
-
-                                            <td>
-                                                {item.physical_availability !== null &&
-                                                    item.physical_availability !== undefined
-                                                    ? `${(
-                                                        Number(
-                                                            item.physical_availability
-                                                        ) * 100
-                                                    ).toFixed(2)}%`
-                                                    : '-'}
-                                            </td>
-
-                                            <td>
-                                                {item.unit_availability !== null &&
-                                                    item.unit_availability !== undefined
-                                                    ? `${(
-                                                        Number(
-                                                            item.unit_availability
-                                                        ) * 100
-                                                    ).toFixed(2)}%`
-                                                    : '-'}
-                                            </td>
-
-                                            <td>{item.mtbf ?? '-'}</td>
-                                            <td>{item.mttr ?? '-'}</td>
-                                            <td>{item.productivity ?? '-'}</td>
-                                            <td>{item.fuel_consumption ?? '-'}</td>
-
-                                            <td>
-                                                <div className="d-flex gap-1">
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-warning btn-sm"
-                                                        title="Edit"
-                                                        onClick={() =>
-                                                            handleEdit(item)
-                                                        }
-                                                        disabled={
-                                                            deletingId ===
-                                                            item.id
-                                                        }
-                                                    >
-                                                        <i className="bi bi-pencil" />
-                                                    </button>
-
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-danger btn-sm"
-                                                        title="Hapus"
-                                                        onClick={() =>
-                                                            handleDelete(item)
-                                                        }
-                                                        disabled={
-                                                            deletingId ===
-                                                            item.id
-                                                        }
-                                                    >
-                                                        {deletingId === item.id ? (
-                                                            <span className="spinner-border spinner-border-sm" />
-                                                        ) : (
-                                                            <i className="bi bi-trash" />
-                                                        )}
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-
-                            {unitPerformances.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan="10"
-                                        className="text-center text-secondary py-4"
-                                    >
-                                        Belum ada data performa unit.
-                                    </td>
-                                </tr>
+                        <div className="small text-secondary mt-1">
+                            Menampilkan{' '}
+                            {unitPerformances.length === 0
+                                ? 0
+                                : startIndex + 1}
+                            {' - '}
+                            {Math.min(
+                                endIndex,
+                                unitPerformances.length
                             )}
-                        </tbody>
-                    </table>
+                            {' dari '}
+                            {unitPerformances.length} data
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        className="btn btn-outline-primary btn-sm"
+                        onClick={fetchUnitPerformances}
+                        disabled={loadingData}
+                    >
+                        {loadingData ? (
+                            <span className="spinner-border spinner-border-sm me-2" />
+                        ) : (
+                            <i className="bi bi-arrow-clockwise me-2" />
+                        )}
+
+                        Refresh
+                    </button>
                 </div>
-            )}
-        </div>
+
+                {dataError && (
+                    <div className="alert alert-danger py-2">
+                        <i className="bi bi-exclamation-triangle me-2" />
+                        {dataError}
+                    </div>
+                )}
+
+                {loadingData ? (
+                    <div className="d-flex align-items-center gap-2 text-secondary py-3">
+                        <span className="spinner-border spinner-border-sm" />
+                        <span>Memuat data performa unit…</span>
+                    </div>
+                ) : unitPerformances.length === 0 ? (
+                    <div className="text-secondary text-center py-3">
+                        Belum ada data performa unit.
+                    </div>
+                ) : (
+                    <div className="table-responsive">
+                        <table className="table table-sm table-hover align-middle mb-0">
+                            <thead>
+                                <tr
+                                    className="text-secondary"
+                                    style={{ fontSize: '0.8rem' }}
+                                >
+                                    <th>Site</th>
+                                    <th>Model Unit</th>
+                                    <th>Periode</th>
+                                    <th>PA</th>
+                                    <th>UA</th>
+                                    <th>MTBF</th>
+                                    <th>MTTR</th>
+                                    <th>Produktivitas</th>
+                                    <th>Fuel</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {paginatedUnitPerformances.map(
+                                    (item) => {
+                                        const monthLabel =
+                                            getMonthLabel(
+                                                item.period_month
+                                            );
+
+                                        return (
+                                            <tr key={item.id}>
+                                                <td>
+                                                    {item.site_code ?? '-'}
+                                                </td>
+
+                                                <td>
+                                                    {item.model_name ?? '-'}
+                                                </td>
+
+                                                <td>
+                                                    {monthLabel}{' '}
+                                                    {item.period_year}
+                                                </td>
+
+                                                <td>
+                                                    {item.physical_availability !==
+                                                        null &&
+                                                        item.physical_availability !==
+                                                        undefined
+                                                        ? `${(
+                                                            Number(
+                                                                item.physical_availability
+                                                            ) * 100
+                                                        ).toFixed(2)}%`
+                                                        : '-'}
+                                                </td>
+
+                                                <td>
+                                                    {item.unit_availability !==
+                                                        null &&
+                                                        item.unit_availability !==
+                                                        undefined
+                                                        ? `${(
+                                                            Number(
+                                                                item.unit_availability
+                                                            ) * 100
+                                                        ).toFixed(2)}%`
+                                                        : '-'}
+                                                </td>
+
+                                                <td>
+                                                    {item.mtbf ?? '-'}
+                                                </td>
+
+                                                <td>
+                                                    {item.mttr ?? '-'}
+                                                </td>
+
+                                                <td>
+                                                    {item.productivity ??
+                                                        '-'}
+                                                </td>
+
+                                                <td>
+                                                    {item.fuel_consumption ??
+                                                        '-'}
+                                                </td>
+
+                                                <td>
+                                                    <div className="d-flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-outline-primary btn-sm d-flex align-items-center gap-1"
+                                                            onClick={() =>
+                                                                handleEdit(
+                                                                    item
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                saving ||
+                                                                deletingId ===
+                                                                item.id
+                                                            }
+                                                        >
+                                                            <i className="bi bi-pencil" />
+                                                            Edit
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-outline-danger btn-sm d-flex align-items-center gap-1"
+                                                            onClick={() =>
+                                                                handleDelete(
+                                                                    item
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                saving ||
+                                                                deletingId ===
+                                                                item.id
+                                                            }
+                                                        >
+                                                            {deletingId ===
+                                                                item.id ? (
+                                                                <span className="spinner-border spinner-border-sm" />
+                                                            ) : (
+                                                                <i className="bi bi-trash" />
+                                                            )}
+                                                            Hapus
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+                                )}
+                            </tbody>
+                        </table>
+
+                        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 mt-3">
+                            <small className="text-secondary">
+                                Halaman {currentPage} dari {totalPages}
+                            </small>
+
+                            <nav aria-label="Pagination data performa unit">
+                                <ul className="pagination pagination-sm mb-0">
+                                    <li
+                                        className={`page-item ${currentPage === 1
+                                                ? 'disabled'
+                                                : ''
+                                            }`}
+                                    >
+                                        <button
+                                            type="button"
+                                            className="page-link"
+                                            onClick={() =>
+                                                setCurrentPage(
+                                                    (page) =>
+                                                        Math.max(
+                                                            1,
+                                                            page - 1
+                                                        )
+                                                )
+                                            }
+                                            disabled={
+                                                currentPage === 1
+                                            }
+                                            aria-label="Halaman sebelumnya"
+                                        >
+                                            <i className="bi bi-chevron-left" />
+                                        </button>
+                                    </li>
+
+                                    {Array.from(
+                                        {
+                                            length: totalPages,
+                                        },
+                                        (_, index) => index + 1
+                                    ).map((pageNumber) => (
+                                        <li
+                                            key={pageNumber}
+                                            className={`page-item ${currentPage ===
+                                                    pageNumber
+                                                    ? 'active'
+                                                    : ''
+                                                }`}
+                                        >
+                                            <button
+                                                type="button"
+                                                className="page-link"
+                                                onClick={() =>
+                                                    setCurrentPage(
+                                                        pageNumber
+                                                    )
+                                                }
+                                            >
+                                                {pageNumber}
+                                            </button>
+                                        </li>
+                                    ))}
+
+                                    <li
+                                        className={`page-item ${currentPage ===
+                                                totalPages
+                                                ? 'disabled'
+                                                : ''
+                                            }`}
+                                    >
+                                        <button
+                                            type="button"
+                                            className="page-link"
+                                            onClick={() =>
+                                                setCurrentPage(
+                                                    (page) =>
+                                                        Math.min(
+                                                            totalPages,
+                                                            page + 1
+                                                        )
+                                                )
+                                            }
+                                            disabled={
+                                                currentPage ===
+                                                totalPages
+                                            }
+                                            aria-label="Halaman berikutnya"
+                                        >
+                                            <i className="bi bi-chevron-right" />
+                                        </button>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </>
     );
 }
 
