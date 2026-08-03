@@ -5,6 +5,7 @@ const SHEET_LABELS = {
     kpi_summary: 'KPI Summary',
     unit_performance: 'Unit Performance',
     pending_supply: 'Pending Supply',
+    critical_items: 'Critical Items',
 };
 
 function ImportMasterData() {

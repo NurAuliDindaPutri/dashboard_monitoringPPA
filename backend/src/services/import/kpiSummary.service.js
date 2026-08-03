@@ -51,13 +51,16 @@ function toInteger(value) {
     return Number.isInteger(number) ? number : null;
 }
 
+function isValidPercentage(value) {
+    return value === null || (value >= 0 && value <= 1);
+}
+
 async function importKpiSummarySheet(matrix) {
     const headerIndex = findHeaderIndex(matrix);
 
     if (headerIndex === -1) {
         return {
-            summary:
-                'Header template KPI Summary tidak ditemukan',
+            summary: 'Header template KPI Summary tidak ditemukan',
             skippedDetails: [],
         };
     }
@@ -65,7 +68,8 @@ async function importKpiSummarySheet(matrix) {
     const columns = buildColumnMap(matrix[headerIndex]);
     const skippedDetails = [];
 
-    let successCount = 0;
+    let insertedCount = 0;
+    let updatedCount = 0;
 
     for (
         let rowIndex = headerIndex + 1;
@@ -73,6 +77,17 @@ async function importKpiSummarySheet(matrix) {
         rowIndex += 1
     ) {
         const row = matrix[rowIndex] || [];
+
+        const rowIsEmpty = row.every(
+            (value) =>
+                value === null ||
+                value === undefined ||
+                String(value).trim() === ''
+        );
+
+        if (rowIsEmpty) {
+            continue;
+        }
 
         const siteCode = String(
             getCell(row, columns, 'site_code') ?? ''
@@ -88,23 +103,13 @@ async function importKpiSummarySheet(matrix) {
             getCell(row, columns, 'period_month')
         );
 
-        const rowIsEmpty = row.every(
-            (value) =>
-                value === null ||
-                value === undefined ||
-                String(value).trim() === ''
-        );
-
-        if (rowIsEmpty) {
-            continue;
-        }
-
         if (!siteCode) {
             skippedDetails.push({
                 sheet: 'KPI Summary',
                 row: rowIndex + 1,
-                reason: 'site_code kosong',
+                reason: 'site_code wajib diisi',
             });
+
             continue;
         }
 
@@ -112,8 +117,9 @@ async function importKpiSummarySheet(matrix) {
             skippedDetails.push({
                 sheet: 'KPI Summary',
                 row: rowIndex + 1,
-                reason: 'period_year tidak valid',
+                reason: 'period_year harus bernilai 2000-2100',
             });
+
             continue;
         }
 
@@ -123,31 +129,55 @@ async function importKpiSummarySheet(matrix) {
                 row: rowIndex + 1,
                 reason: 'period_month harus bernilai 1-12',
             });
+
+            continue;
+        }
+
+        const values = {
+            readynessActual: toDecimalOrNull(
+                getCell(row, columns, 'readyness_actual')
+            ),
+            readynessTarget: toDecimalOrNull(
+                getCell(row, columns, 'readyness_target')
+            ),
+            availabilityActual: toDecimalOrNull(
+                getCell(row, columns, 'availability_actual')
+            ),
+            availabilityTarget: toDecimalOrNull(
+                getCell(row, columns, 'availability_target')
+            ),
+            leadtimeActual: toDecimalOrNull(
+                getCell(row, columns, 'leadtime_actual')
+            ),
+            leadtimeTarget: toDecimalOrNull(
+                getCell(row, columns, 'leadtime_target')
+            ),
+        };
+
+        const percentageFields = [
+            ['readyness_actual', values.readynessActual],
+            ['readyness_target', values.readynessTarget],
+            ['availability_actual', values.availabilityActual],
+            ['availability_target', values.availabilityTarget],
+            ['leadtime_actual', values.leadtimeActual],
+            ['leadtime_target', values.leadtimeTarget],
+        ];
+
+        const invalidField = percentageFields.find(
+            ([, value]) => !isValidPercentage(value)
+        );
+
+        if (invalidField) {
+            skippedDetails.push({
+                sheet: 'KPI Summary',
+                row: rowIndex + 1,
+                reason: `${invalidField[0]} harus bernilai antara 0 dan 1`,
+            });
+
             continue;
         }
 
         const siteId = await ensureSiteId(siteCode);
-
-        const values = [
-            toDecimalOrNull(
-                getCell(row, columns, 'readyness_actual')
-            ),
-            toDecimalOrNull(
-                getCell(row, columns, 'readyness_target')
-            ),
-            toDecimalOrNull(
-                getCell(row, columns, 'availability_actual')
-            ),
-            toDecimalOrNull(
-                getCell(row, columns, 'availability_target')
-            ),
-            toDecimalOrNull(
-                getCell(row, columns, 'leadtime_actual')
-            ),
-            toDecimalOrNull(
-                getCell(row, columns, 'leadtime_target')
-            ),
-        ];
 
         const [existingRows] = await pool.query(
             `SELECT id
@@ -159,6 +189,15 @@ async function importKpiSummarySheet(matrix) {
             [siteId, year, month]
         );
 
+        const queryValues = [
+            values.readynessActual,
+            values.readynessTarget,
+            values.availabilityActual,
+            values.availabilityTarget,
+            values.leadtimeActual,
+            values.leadtimeTarget,
+        ];
+
         if (existingRows[0]) {
             await pool.query(
                 `UPDATE monthly_kpi_summary
@@ -169,8 +208,10 @@ async function importKpiSummarySheet(matrix) {
                      leadtime_actual = ?,
                      leadtime_target = ?
                  WHERE id = ?`,
-                [...values, existingRows[0].id]
+                [...queryValues, existingRows[0].id]
             );
+
+            updatedCount += 1;
         } else {
             await pool.query(
                 `INSERT INTO monthly_kpi_summary
@@ -186,15 +227,18 @@ async function importKpiSummarySheet(matrix) {
                     leadtime_target
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [siteId, year, month, ...values]
+                [siteId, year, month, ...queryValues]
             );
-        }
 
-        successCount += 1;
+            insertedCount += 1;
+        }
     }
 
     return {
-        summary: `${successCount} baris KPI berhasil diproses`,
+        summary:
+            `${insertedCount} ditambahkan, ` +
+            `${updatedCount} diperbarui, ` +
+            `${skippedDetails.length} dilewati`,
         skippedDetails,
     };
 }

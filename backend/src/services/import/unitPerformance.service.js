@@ -60,6 +60,14 @@ function toInteger(value) {
     return Number.isInteger(number) ? number : null;
 }
 
+function isValidPercentage(value) {
+    return value === null || (value >= 0 && value <= 1);
+}
+
+function isValidNonNegativeNumber(value) {
+    return value === null || value >= 0;
+}
+
 async function importUnitPerformanceSheet(matrix) {
     const headerIndex = findHeaderIndex(matrix);
 
@@ -74,7 +82,8 @@ async function importUnitPerformanceSheet(matrix) {
     const columns = buildColumnMap(matrix[headerIndex]);
     const skippedDetails = [];
 
-    let successCount = 0;
+    let insertedCount = 0;
+    let updatedCount = 0;
 
     for (
         let rowIndex = headerIndex + 1;
@@ -112,12 +121,23 @@ async function importUnitPerformanceSheet(matrix) {
             getCell(row, columns, 'period_month')
         );
 
-        if (!siteCode || !modelName) {
+        if (!siteCode) {
             skippedDetails.push({
                 sheet: 'Unit Performance',
                 row: rowIndex + 1,
-                reason: 'site_code atau model_name kosong',
+                reason: 'site_code wajib diisi',
             });
+
+            continue;
+        }
+
+        if (!modelName) {
+            skippedDetails.push({
+                sheet: 'Unit Performance',
+                row: rowIndex + 1,
+                reason: 'model_name wajib diisi',
+            });
+
             continue;
         }
 
@@ -125,8 +145,9 @@ async function importUnitPerformanceSheet(matrix) {
             skippedDetails.push({
                 sheet: 'Unit Performance',
                 row: rowIndex + 1,
-                reason: 'period_year tidak valid',
+                reason: 'period_year harus bernilai 2000-2100',
             });
+
             continue;
         }
 
@@ -136,6 +157,103 @@ async function importUnitPerformanceSheet(matrix) {
                 row: rowIndex + 1,
                 reason: 'period_month harus bernilai 1-12',
             });
+
+            continue;
+        }
+
+        const physicalAvailability = toDecimalOrNull(
+            getCell(
+                row,
+                columns,
+                'physical_availability'
+            )
+        );
+
+        const unitAvailability = toDecimalOrNull(
+            getCell(
+                row,
+                columns,
+                'unit_availability'
+            )
+        );
+
+        const mtbf = toNumberOrNull(
+            getCell(row, columns, 'mtbf')
+        );
+
+        const mttr = toNumberOrNull(
+            getCell(row, columns, 'mttr')
+        );
+
+        const productivity = toNumberOrNull(
+            getCell(row, columns, 'productivity')
+        );
+
+        const fuelConsumption = toNumberOrNull(
+            getCell(row, columns, 'fuel_consumption')
+        );
+
+        if (!isValidPercentage(physicalAvailability)) {
+            skippedDetails.push({
+                sheet: 'Unit Performance',
+                row: rowIndex + 1,
+                reason:
+                    'physical_availability harus bernilai antara 0 dan 1',
+            });
+
+            continue;
+        }
+
+        if (!isValidPercentage(unitAvailability)) {
+            skippedDetails.push({
+                sheet: 'Unit Performance',
+                row: rowIndex + 1,
+                reason:
+                    'unit_availability harus bernilai antara 0 dan 1',
+            });
+
+            continue;
+        }
+
+        if (!isValidNonNegativeNumber(mtbf)) {
+            skippedDetails.push({
+                sheet: 'Unit Performance',
+                row: rowIndex + 1,
+                reason: 'mtbf tidak boleh bernilai negatif',
+            });
+
+            continue;
+        }
+
+        if (!isValidNonNegativeNumber(mttr)) {
+            skippedDetails.push({
+                sheet: 'Unit Performance',
+                row: rowIndex + 1,
+                reason: 'mttr tidak boleh bernilai negatif',
+            });
+
+            continue;
+        }
+
+        if (!isValidNonNegativeNumber(productivity)) {
+            skippedDetails.push({
+                sheet: 'Unit Performance',
+                row: rowIndex + 1,
+                reason:
+                    'productivity tidak boleh bernilai negatif',
+            });
+
+            continue;
+        }
+
+        if (!isValidNonNegativeNumber(fuelConsumption)) {
+            skippedDetails.push({
+                sheet: 'Unit Performance',
+                row: rowIndex + 1,
+                reason:
+                    'fuel_consumption tidak boleh bernilai negatif',
+            });
+
             continue;
         }
 
@@ -145,31 +263,6 @@ async function importUnitPerformanceSheet(matrix) {
             siteId,
             modelName
         );
-
-        const values = [
-            toDecimalOrNull(
-                getCell(
-                    row,
-                    columns,
-                    'physical_availability'
-                )
-            ),
-            toDecimalOrNull(
-                getCell(row, columns, 'unit_availability')
-            ),
-            toNumberOrNull(
-                getCell(row, columns, 'mtbf')
-            ),
-            toNumberOrNull(
-                getCell(row, columns, 'mttr')
-            ),
-            toNumberOrNull(
-                getCell(row, columns, 'productivity')
-            ),
-            toNumberOrNull(
-                getCell(row, columns, 'fuel_consumption')
-            ),
-        ];
 
         const [existingRows] = await pool.query(
             `SELECT id
@@ -181,6 +274,15 @@ async function importUnitPerformanceSheet(matrix) {
             [unitModelId, year, month]
         );
 
+        const queryValues = [
+            physicalAvailability,
+            unitAvailability,
+            mtbf,
+            mttr,
+            productivity,
+            fuelConsumption,
+        ];
+
         if (existingRows[0]) {
             await pool.query(
                 `UPDATE monthly_unit_performance
@@ -191,8 +293,10 @@ async function importUnitPerformanceSheet(matrix) {
                      productivity = ?,
                      fuel_consumption = ?
                  WHERE id = ?`,
-                [...values, existingRows[0].id]
+                [...queryValues, existingRows[0].id]
             );
+
+            updatedCount += 1;
         } else {
             await pool.query(
                 `INSERT INTO monthly_unit_performance
@@ -208,15 +312,23 @@ async function importUnitPerformanceSheet(matrix) {
                     fuel_consumption
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [unitModelId, year, month, ...values]
+                [
+                    unitModelId,
+                    year,
+                    month,
+                    ...queryValues,
+                ]
             );
-        }
 
-        successCount += 1;
+            insertedCount += 1;
+        }
     }
 
     return {
-        summary: `${successCount} baris performa unit berhasil diproses`,
+        summary:
+            `${insertedCount} ditambahkan, ` +
+            `${updatedCount} diperbarui, ` +
+            `${skippedDetails.length} dilewati`,
         skippedDetails,
     };
 }
