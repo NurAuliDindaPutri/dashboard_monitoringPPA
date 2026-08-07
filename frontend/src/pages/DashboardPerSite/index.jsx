@@ -16,7 +16,6 @@ import DataTable from '../../components/common/DataTable';
 
 import {
     aggregateKpiSummary,
-    aggregatePerfByUnit,
     countUnits,
     countPendingSupply,
     sumPendingQty,
@@ -27,7 +26,12 @@ import {
     formatNumber,
     normalizePercentage,
 } from '../../utils/kpiStatus';
-import { buildUnitOptions } from '../../utils/unitFilter';
+import {
+    buildUnitOptions,
+    groupRowsByUnit,
+    filterRowsByUnitGroup,
+    getUnitGroupOrder,
+} from '../../utils/unitFilter';
 
 const NOW = new Date();
 const DEFAULT_YEAR = NOW.getFullYear();
@@ -121,12 +125,18 @@ function DashboardPerSite() {
     const fetchData = useCallback(() => {
         if (!siteId) return;
 
-        // Data untuk bulan yang sedang dipilih (+ filter unit jika dipilih)
+        // Data untuk bulan yang sedang dipilih.
+        // Catatan: unit_model_id SENGAJA tidak dikirim ke backend di sini.
+        // Backend hanya mendukung filter 1 unit_model_id (integer tunggal),
+        // sedangkan pilihan Unit di dropdown sekarang mewakili GRUP (bisa >1
+        // unit_model_id sekaligus, mis. grup "PC1250" = gabungan varian
+        // PC1250-8, PC1250-8R, PC1250SP-8, dst). Jadi kita selalu ambil semua
+        // data performa unit utk site ini, lalu grouping & filter grup
+        // dilakukan di frontend (lihat unitFilter.js).
         const periodParams = {
             site_id: siteId,
             period_year: year,
             period_month: month,
-            ...(unitId ? { unit_model_id: unitId } : {}),
         };
 
         setError(null);
@@ -199,11 +209,34 @@ function DashboardPerSite() {
 
     // ── Derived ──────────────────────────────────────────────────────────
     const safeKpiRows = Array.isArray(kpiRows) ? kpiRows : [];
-    const safePerfRows = Array.isArray(perfRows) ? perfRows : [];
+    const rawPerfRows = Array.isArray(perfRows) ? perfRows : [];
     const safeSupplyRows = Array.isArray(supplyRows) ? supplyRows : [];
     const safeCriticalRows = Array.isArray(criticalRows) ? criticalRows : [];
 
     const kpiSummary = aggregateKpiSummary(safeKpiRows);
+
+    // Info site & unit terpilih.
+    const selectedSite = sites.find((s) => String(s.id) === String(siteId));
+    // `unitId` sekarang menyimpan KEY GRUP unit (mis. "PC1250"), bukan
+    // unit_model_id asli — karena satu grup bisa mewakili beberapa varian
+    // (id) sekaligus. Lihat unitFilter.js untuk detail.
+    const selectedUnit = unitId ? { id: unitId, label: unitId } : null;
+
+    // Opsi dropdown Unit — SATU opsi per grup unit (PC2000/PC1250/HD785,
+    // ditambah PC3400 khusus site BIB). Semua varian nama untuk grup yang
+    // sama (mis. "PC1250-8", "PC1250-8R", "PC1250SP-8", "PC1250SP-11R")
+    // digabung jadi 1 opsi saja, tidak muncul dobel.
+    const unitOptions = buildUnitOptions(units, selectedSite?.site_code);
+
+    // Baris performa unit yang sudah disaring ke grup yang diizinkan untuk
+    // site ini, dan — kalau user memilih 1 unit di dropdown — disaring lagi
+    // ke grup terpilih saja. Filter ini murni berdasarkan hasil normalisasi
+    // model_name (lihat groupRowsByUnit/filterRowsByUnitGroup di
+    // unitFilter.js), BUKAN dari backend, karena satu grup bisa terdiri
+    // dari banyak unit_model_id berbeda yang tidak bisa difilter backend
+    // sekaligus.
+    const safePerfRows = filterRowsByUnitGroup(rawPerfRows, selectedSite?.site_code, unitId);
+
     const totalUnits = countUnits(safePerfRows);
 
     const totalPendingSupply = countPendingSupply(safeSupplyRows);
@@ -212,13 +245,6 @@ function DashboardPerSite() {
     const totalCriticalQty = sumPendingQty(safeCriticalRows);
     const totalCombinedItems = totalPendingSupply + totalCriticalItems;
     const totalCombinedQty = totalPendingQty + totalCriticalQty;
-
-    // Info site & unit terpilih
-    const selectedSite = sites.find((s) => String(s.id) === String(siteId));
-    const selectedUnit = units.find((u) => String(u.id) === String(unitId));
-
-    // Opsi dropdown Unit (khusus BIB otomatis dibatasi 4 unit + label HD785)
-    const unitOptions = buildUnitOptions(units, selectedSite?.site_code);
 
     // ── Ringkasan PA / UA / MTBF / MTTR (mengikuti filter site+unit+periode) ──
     const overallPerf = {
@@ -260,33 +286,44 @@ function DashboardPerSite() {
     ];
 
     // Performa unit per model (site ini saja) - relokasi dari Dashboard All Site,
-    // di sini sumbu X adalah model_name karena konteksnya sudah 1 site.
-    const unitByModel = aggregatePerfByUnit(safePerfRows).map((u) => ({
-        model_name: u.model_name,
+    // di sini sumbu X adalah nama GRUP unit karena konteksnya sudah 1 site.
+    //
+    // Seluruh varian nama unit (mis. "PC2000-8" & "PC2000-11R" di site IPT)
+    // DIGABUNG jadi satu grup ("PC2000") SEBELUM dihitung rata-ratanya, jadi
+    // hasilnya adalah agregat dari semua baris mentah anggota grup itu — bukan
+    // rata-rata dari rata-rata masing-masing varian. Ini yang membuat chart
+    // menampilkan satu bar per grup, bukan satu bar per varian/id.
+    const perfGroups = groupRowsByUnit(safePerfRows, selectedSite?.site_code);
+    const unitByModel = getUnitGroupOrder(selectedSite?.site_code)
+        .filter((groupLabel) => perfGroups.has(groupLabel))
+        .map((groupLabel) => {
+            const rows = perfGroups.get(groupLabel);
 
-        physical_availability: toPct(u.physical_availability),
-        unit_availability: toPct(u.unit_availability),
+            const mtbf = safeAvg(rows.map((r) => r.mtbf));
+            const mttr = safeAvg(rows.map((r) => r.mttr));
+            const productivity = safeAvg(rows.map((r) => r.productivity));
+            const fuel_consumption = safeAvg(rows.map((r) => r.fuel_consumption));
 
-        mtbf:
-            u.mtbf !== null && u.mtbf !== undefined
-                ? Number(Number(u.mtbf).toFixed(1))
-                : null,
+            return {
+                model_name: groupLabel,
 
-        mttr:
-            u.mttr !== null && u.mttr !== undefined
-                ? Number(Number(u.mttr).toFixed(1))
-                : null,
+                physical_availability: toPct(safeAvg(rows.map((r) => r.physical_availability))),
+                unit_availability: toPct(safeAvg(rows.map((r) => r.unit_availability))),
 
-        productivity:
-            u.productivity !== null && u.productivity !== undefined
-                ? Number(Number(u.productivity).toFixed(1))
-                : null,
+                mtbf: mtbf !== null && mtbf !== undefined ? Number(Number(mtbf).toFixed(1)) : null,
+                mttr: mttr !== null && mttr !== undefined ? Number(Number(mttr).toFixed(1)) : null,
 
-        fuel_consumption:
-            u.fuel_consumption !== null && u.fuel_consumption !== undefined
-                ? Number(Number(u.fuel_consumption).toFixed(1))
-                : null,
-    }));
+                productivity:
+                    productivity !== null && productivity !== undefined
+                        ? Number(Number(productivity).toFixed(1))
+                        : null,
+
+                fuel_consumption:
+                    fuel_consumption !== null && fuel_consumption !== undefined
+                        ? Number(Number(fuel_consumption).toFixed(1))
+                        : null,
+            };
+        });
 
     const hasProductivity = unitByModel.some(
         (item) =>
@@ -434,11 +471,11 @@ function DashboardPerSite() {
             <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <div>
                     <h4 className="fw-bold mb-0" style={{ color: 'var(--text-primary)' }}>
-                        Dashboard Per Site
+                        Dashboard Per Site{selectedSite ? ` — ${selectedSite.site_code}` : ''}
                     </h4>
                     <p className="text-secondary mb-0" style={{ fontSize: '0.875rem' }}>
                         {selectedSite
-                            ? `${selectedSite.site_code}${selectedSite.site_name ? ' — ' + selectedSite.site_name : ''}${selectedUnit ? ' — ' + selectedUnit.label : ''}`
+                            ? `${selectedSite.site_name ? selectedSite.site_name : ''}${selectedUnit ? (selectedSite.site_name ? ' — ' : '') + selectedUnit.label : ''}`
                             : 'Pilih site untuk melihat detail performa'}
                     </p>
                 </div>
