@@ -4,6 +4,7 @@ import {
     Line,
     BarChart,
     Bar,
+    ComposedChart,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -12,22 +13,65 @@ import {
 } from 'recharts';
 
 const DEFAULT_COLORS = [
-    '#1a56db',
-    '#16a34a',
-    '#d97706',
-    '#dc2626',
-    '#64748b',
+    'var(--chart-purple)',
+    'var(--chart-cyan)',
+    'var(--chart-orange)',
+    'var(--chart-pink)',
+    'var(--chart-blue)',
 ];
 
-/**
- * @param {string} title Judul chart
- * @param {'line'|'bar'} type Tipe chart
- * @param {Array<object>} data Data array untuk Recharts
- * @param {string} xKey Key sumbu X
- * @param {Array<{ key: string, label: string, color?: string }>} series
- * @param {boolean} loading Status loading
- * @param {number} height Tinggi chart dalam px
- */
+function CustomTooltip({
+    active,
+    payload,
+    label,
+}) {
+    if (
+        !active ||
+        !payload ||
+        payload.length === 0
+    ) {
+        return null;
+    }
+
+    return (
+        <div className="ppa-chart-tooltip">
+            <div className="ppa-chart-tooltip-label">
+                {label}
+            </div>
+
+            <div className="ppa-chart-tooltip-items">
+                {payload.map((item) => (
+                    <div
+                        key={item.dataKey}
+                        className="ppa-chart-tooltip-row"
+                    >
+                        <span
+                            className="ppa-chart-tooltip-dot"
+                            style={{
+                                background:
+                                    item.color,
+                            }}
+                        />
+
+                        <span className="ppa-chart-tooltip-name">
+                            {item.name}
+                        </span>
+
+                        <strong className="ppa-chart-tooltip-value">
+                            {item.value ===
+                                null ||
+                                item.value ===
+                                undefined
+                                ? '-'
+                                : item.value}
+                        </strong>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 function ChartCard({
     title,
     type = 'line',
@@ -37,44 +81,57 @@ function ChartCard({
     loading = false,
     height = 280,
 }) {
-    const ChartComponent =
-        type === 'bar' ? BarChart : LineChart;
+    const hasMixedSeries =
+        series.some(
+            (item) =>
+                item.renderAs
+        );
 
-    const SeriesComponent =
-        type === 'bar' ? Bar : Line;
+    let ChartComponent;
+
+    if (hasMixedSeries) {
+        ChartComponent =
+            ComposedChart;
+    } else if (
+        type === 'bar'
+    ) {
+        ChartComponent =
+            BarChart;
+    } else {
+        ChartComponent =
+            LineChart;
+    }
 
     return (
-        <div className="app-card chart-card p-3">
-            <div
-                className="fw-semibold mb-3"
-                style={{
-                    color: 'var(--text-primary)',
-                }}
-            >
-                {title}
+        <div className="ppa-chart-card">
+            <div className="ppa-chart-header">
+                <div className="ppa-chart-title">
+                    {title}
+                </div>
             </div>
 
             {loading ? (
                 <div
                     className="placeholder-glow w-100"
-                    style={{ height }}
+                    style={{
+                        height,
+                    }}
                 >
                     <span className="placeholder w-100 h-100 rounded" />
                 </div>
-            ) : data.length === 0 ? (
+            ) : data.length ===
+                0 ? (
                 <div
-                    className="d-flex flex-column align-items-center justify-content-center text-center"
-                    style={{ height }}
+                    className="ppa-chart-empty"
+                    style={{
+                        height,
+                    }}
                 >
-                    <i
-                        className="bi bi-bar-chart"
-                        style={{
-                            fontSize: '1.75rem',
-                            color: 'var(--text-muted)',
-                        }}
-                    />
+                    <div className="ppa-chart-empty-icon">
+                        <i className="bi bi-bar-chart-line" />
+                    </div>
 
-                    <small className="text-muted mt-2">
+                    <small>
                         Data belum tersedia
                     </small>
                 </div>
@@ -86,111 +143,162 @@ function ChartCard({
                     <ChartComponent
                         data={data}
                         margin={{
-                            top: 5,
-                            right: 10,
-                            left: -10,
+                            top: 15,
+                            right: 18,
+                            left: -3,
                             bottom: 5,
                         }}
                     >
                         <CartesianGrid
-                            strokeDasharray="3 3"
+                            strokeDasharray="4 5"
                             stroke="var(--chart-grid)"
                         />
 
                         <XAxis
                             dataKey={xKey}
+                            axisLine={false}
+                            tickLine={false}
                             tick={{
-                                fontSize: 12,
-                                fill: 'var(--text-secondary)',
+                                fontSize: 11,
+                                fill:
+                                    'var(--chart-axis-text)',
+                                fontWeight:
+                                    500,
                             }}
-                            axisLine={{
-                                stroke: 'var(--border-color)',
-                            }}
-                            tickLine={{
-                                stroke: 'var(--border-color)',
-                            }}
+                            dy={7}
                         />
 
                         <YAxis
+                            axisLine={false}
+                            tickLine={false}
                             tick={{
-                                fontSize: 12,
-                                fill: 'var(--text-secondary)',
+                                fontSize: 11,
+                                fill:
+                                    'var(--chart-axis-text)',
+                                fontWeight:
+                                    500,
                             }}
-                            axisLine={{
-                                stroke: 'var(--border-color)',
-                            }}
-                            tickLine={{
-                                stroke: 'var(--border-color)',
-                            }}
+                            width={38}
                         />
 
                         <Tooltip
-                            contentStyle={{
-                                backgroundColor: 'var(--card-bg)',
-                                border:
-                                    '1px solid var(--border-color)',
-                                borderRadius: '10px',
-                                color: 'var(--text-primary)',
-                                boxShadow: 'var(--shadow-soft)',
-                            }}
-                            labelStyle={{
-                                color: 'var(--text-primary)',
-                                fontWeight: 600,
-                            }}
-                            itemStyle={{
-                                color: 'var(--text-secondary)',
+                            content={
+                                <CustomTooltip />
+                            }
+                            cursor={{
+                                fill:
+                                    'var(--chart-hover)',
                             }}
                         />
 
                         <Legend
+                            iconType="circle"
+                            iconSize={8}
                             wrapperStyle={{
-                                fontSize: 12,
-                                color: 'var(--text-secondary)',
+                                fontSize: 11,
+                                color:
+                                    'var(--chart-axis-text)',
+                                paddingTop: 14,
                             }}
                         />
 
-                        {series.map((item, index) => {
-                            const chartColor =
-                                item.color ||
-                                DEFAULT_COLORS[
-                                index %
-                                DEFAULT_COLORS.length
-                                ];
+                        {series.map(
+                            (
+                                item,
+                                index
+                            ) => {
+                                const color =
+                                    item.color ||
+                                    DEFAULT_COLORS[
+                                    index %
+                                    DEFAULT_COLORS.length
+                                    ];
 
-                            return (
-                                <SeriesComponent
-                                    key={item.key}
-                                    type="monotone"
-                                    dataKey={item.key}
-                                    name={item.label}
-                                    stroke={chartColor}
-                                    fill={chartColor}
-                                    strokeWidth={2}
-                                    dot={
-                                        type === 'line'
-                                            ? {
+                                const renderType =
+                                    item.renderAs ||
+                                    type;
+
+                                if (
+                                    renderType ===
+                                    'line'
+                                ) {
+                                    return (
+                                        <Line
+                                            key={
+                                                item.key
+                                            }
+                                            type="monotone"
+                                            dataKey={
+                                                item.key
+                                            }
+                                            name={
+                                                item.label
+                                            }
+                                            stroke={
+                                                color
+                                            }
+                                            strokeWidth={
+                                                item.dashed
+                                                    ? 2
+                                                    : 3
+                                            }
+                                            strokeDasharray={
+                                                item.dashed
+                                                    ? '7 6'
+                                                    : undefined
+                                            }
+                                            dot={{
                                                 r: 3,
-                                                strokeWidth: 2,
-                                                fill: 'var(--card-bg)',
-                                            }
-                                            : false
-                                    }
-                                    activeDot={
-                                        type === 'line'
-                                            ? {
+                                                fill:
+                                                    'var(--chart-dot-bg)',
+                                                stroke:
+                                                    color,
+                                                strokeWidth:
+                                                    2,
+                                            }}
+                                            activeDot={{
                                                 r: 5,
+                                                fill:
+                                                    color,
+                                                stroke:
+                                                    'var(--chart-dot-bg)',
+                                                strokeWidth:
+                                                    2,
+                                            }}
+                                            connectNulls={
+                                                false
                                             }
-                                            : undefined
-                                    }
-                                    connectNulls={false}
-                                    radius={
-                                        type === 'bar'
-                                            ? [4, 4, 0, 0]
-                                            : undefined
-                                    }
-                                />
-                            );
-                        })}
+                                        />
+                                    );
+                                }
+
+                                return (
+                                    <Bar
+                                        key={
+                                            item.key
+                                        }
+                                        dataKey={
+                                            item.key
+                                        }
+                                        name={
+                                            item.label
+                                        }
+                                        fill={
+                                            color
+                                        }
+                                        radius={[
+                                            7,
+                                            7,
+                                            2,
+                                            2,
+                                        ]}
+                                        maxBarSize={
+                                            34
+                                        }
+                                    />
+                                );
+                            }
+                        )}
                     </ChartComponent>
                 </ResponsiveContainer>
             )}
