@@ -1,963 +1,2684 @@
-import { useEffect, useState } from 'react';
+import {
+    useEffect,
+    useState,
+} from 'react';
+
 import axiosClient from '../../api/axiosClient';
 import { getSites } from '../../api/site.api';
-import { MONTHS, YEARS } from '../../utils/constants';
-import { addNotification } from '../../utils/notification';
+import {
+    MONTHS,
+    YEARS,
+} from '../../utils/constants';
+
+import {
+    addNotification,
+} from '../../utils/notification';
 
 const NOW = new Date();
-const DEFAULT_YEAR = NOW.getFullYear();
-const DEFAULT_MONTH = NOW.getMonth() + 1;
 
-// ── Sub-form: Input KPI Summary ─────────────────────────────────────────────
+const DEFAULT_YEAR =
+    NOW.getFullYear();
+
+const DEFAULT_MONTH =
+    NOW.getMonth() + 1;
+
+// ============================================================================
+// NORMALISASI MASTER SITE
+// ============================================================================
+//
+// Disamakan dengan Dashboard All Site / Dashboard Per Site.
+//
+// Site final:
+// AMC, BA, BGE, BIB, DMP, IPT, MHU, MIFA, MIP, MLP, PIK, SBS, SKS, VALE, WARA
+//
+// Penggabungan:
+// - AMC / AMC-LAC / AMC-MAC / LAC -> AMC
+//   Untuk record yang dipakai, AMC-LAC / LAC diprioritaskan.
+// - PTBA -> BA
+// - ADRW -> WARA
+// - Site lain di luar daftar final tidak ditampilkan.
+//
+const DASHBOARD_SITE_ORDER = [
+    'AMC',
+    'BA',
+    'BGE',
+    'BIB',
+    'DMP',
+    'IPT',
+    'MHU',
+    'MIFA',
+    'MIP',
+    'MLP',
+    'PIK',
+    'SBS',
+    'SKS',
+    'VALE',
+    'WARA',
+];
+
+function normalizeSiteCode(siteCode) {
+    const code = String(siteCode ?? '')
+        .trim()
+        .toUpperCase();
+
+    if (
+        code === 'AMC' ||
+        code === 'AMC-LAC' ||
+        code === 'AMC-MAC' ||
+        code === 'LAC'
+    ) {
+        return 'AMC';
+    }
+
+    if (
+        code === 'PTBA' ||
+        code === 'BA'
+    ) {
+        return 'BA';
+    }
+
+    if (
+        code === 'ADRW' ||
+        code === 'WARA'
+    ) {
+        return 'WARA';
+    }
+
+    return code;
+}
+
+function getSitePriority(siteCode) {
+    const code = String(siteCode ?? '')
+        .trim()
+        .toUpperCase();
+
+    // AMC memakai data LAC / AMC-LAC jika tersedia.
+    if (
+        code === 'AMC-LAC' ||
+        code === 'LAC'
+    ) {
+        return 1;
+    }
+
+    if (code === 'AMC-MAC') {
+        return 2;
+    }
+
+    if (code === 'AMC') {
+        return 3;
+    }
+
+    // BA lebih diprioritaskan daripada PTBA.
+    if (code === 'BA') {
+        return 1;
+    }
+
+    if (code === 'PTBA') {
+        return 2;
+    }
+
+    // WARA lebih diprioritaskan daripada ADRW.
+    if (code === 'WARA') {
+        return 1;
+    }
+
+    if (code === 'ADRW') {
+        return 2;
+    }
+
+    return 1;
+}
+
+function normalizeInputSites(rawSites = []) {
+    const grouped = new Map();
+
+    rawSites.forEach((site) => {
+        const normalizedCode =
+            normalizeSiteCode(
+                site.site_code
+            );
+
+        if (
+            !DASHBOARD_SITE_ORDER.includes(
+                normalizedCode
+            )
+        ) {
+            return;
+        }
+
+        const candidate = {
+            ...site,
+            site_code:
+                normalizedCode,
+            original_site_code:
+                site.site_code,
+        };
+
+        const existing =
+            grouped.get(
+                normalizedCode
+            );
+
+        if (!existing) {
+            grouped.set(
+                normalizedCode,
+                candidate
+            );
+            return;
+        }
+
+        const candidatePriority =
+            getSitePriority(
+                site.site_code
+            );
+
+        const existingPriority =
+            getSitePriority(
+                existing.original_site_code
+            );
+
+        if (
+            candidatePriority <
+            existingPriority
+        ) {
+            grouped.set(
+                normalizedCode,
+                candidate
+            );
+        }
+    });
+
+    return DASHBOARD_SITE_ORDER
+        .map((siteCode) =>
+            grouped.get(siteCode)
+        )
+        .filter(Boolean);
+}
+
+// ============================================================================
+// FILTER MODEL UNIT SESUAI REVISI
+// ============================================================================
+//
+// Semua site:
+// - PC2000
+// - PC1250 (termasuk PC1250SP dan varian lain)
+// - HD785
+//
+// Khusus site BIB:
+// - PC2000
+// - PC1250
+// - HD785
+// - PC3400
+//
+function getUnitFamily(modelName) {
+    const normalized = String(modelName ?? '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '');
+
+    if (normalized.includes('PC2000')) {
+        return 'PC2000';
+    }
+
+    if (
+        normalized.includes('PC1250') ||
+        normalized.includes('1250SP')
+    ) {
+        return 'PC1250';
+    }
+
+    if (normalized.includes('HD785')) {
+        return 'HD785';
+    }
+
+    if (normalized.includes('PC3400')) {
+        return 'PC3400';
+    }
+
+    return null;
+}
+
+function isAllowedUnitModel(modelName, siteCode) {
+    const family = getUnitFamily(modelName);
+
+    if (!family) {
+        return false;
+    }
+
+    const normalizedSite = String(siteCode ?? '')
+        .trim()
+        .toUpperCase();
+
+    if (normalizedSite === 'BIB') {
+        return [
+            'PC2000',
+            'PC1250',
+            'HD785',
+            'PC3400',
+        ].includes(family);
+    }
+
+    return [
+        'PC2000',
+        'PC1250',
+        'HD785',
+    ].includes(family);
+}
+
+// ============================================================================
+// CONFIRM MODAL
+// ============================================================================
+
+function ConfirmModal({
+    show,
+    title = 'Konfirmasi',
+    message = '',
+    confirmText = 'Hapus',
+    cancelText = 'Batal',
+    loading = false,
+    onConfirm,
+    onCancel,
+}) {
+    if (!show) {
+        return null;
+    }
+
+    return (
+        <div
+            className="confirm-modal-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+                if (
+                    event.target ===
+                    event.currentTarget &&
+                    !loading
+                ) {
+                    onCancel();
+                }
+            }}
+        >
+            <div
+                className="confirm-modal-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="confirm-modal-title"
+            >
+                <button
+                    type="button"
+                    className="confirm-modal-close"
+                    onClick={onCancel}
+                    disabled={loading}
+                    aria-label="Tutup"
+                >
+                    <i className="bi bi-x-lg" />
+                </button>
+
+                <div className="confirm-modal-icon confirm-modal-icon-danger">
+                    <i className="bi bi-trash3" />
+                </div>
+
+                <div className="confirm-modal-content">
+                    <h5
+                        id="confirm-modal-title"
+                        className="confirm-modal-title"
+                    >
+                        {title}
+                    </h5>
+
+                    <p className="confirm-modal-message">
+                        {message}
+                    </p>
+                </div>
+
+                <div className="confirm-modal-actions">
+                    <button
+                        type="button"
+                        className="btn btn-light confirm-modal-btn"
+                        onClick={onCancel}
+                        disabled={loading}
+                    >
+                        {cancelText}
+                    </button>
+
+                    <button
+                        type="button"
+                        className="btn btn-danger confirm-modal-btn"
+                        onClick={onConfirm}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <>
+                                <span className="spinner-border spinner-border-sm me-2" />
+                                Menghapus...
+                            </>
+                        ) : (
+                            <>
+                                <i className="bi bi-trash3 me-2" />
+                                {confirmText}
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ============================================================================
+// HELPER
+// ============================================================================
+
+function getMonthLabel(
+    monthValue
+) {
+    const found =
+        MONTHS.find(
+            (month) =>
+                Number(
+                    month.value
+                ) ===
+                Number(
+                    monthValue
+                )
+        );
+
+    return found
+        ? found.label
+        : monthValue;
+}
+
+function formatKpiPercent(
+    value
+) {
+    if (
+        value === null ||
+        value === undefined ||
+        value === ''
+    ) {
+        return '-';
+    }
+
+    const number =
+        Number(value) * 100;
+
+    if (
+        !Number.isFinite(
+            number
+        )
+    ) {
+        return '-';
+    }
+
+    const rounded =
+        Math.round(
+            number * 100
+        ) / 100;
+
+    return `${rounded}%`;
+}
+
+function decimalToPercentInput(
+    value
+) {
+    if (
+        value === null ||
+        value === undefined ||
+        value === ''
+    ) {
+        return '';
+    }
+
+    const number =
+        Number(value) * 100;
+
+    if (
+        !Number.isFinite(
+            number
+        )
+    ) {
+        return '';
+    }
+
+    return String(
+        Math.round(
+            number * 100
+        ) / 100
+    );
+}
+
+function displayOrDash(
+    value
+) {
+    if (
+        value === null ||
+        value === undefined ||
+        value === ''
+    ) {
+        return '-';
+    }
+
+    return value;
+}
+
+const ID_MONTH_NAMES = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+];
+
+function formatEtaIndonesia(
+    value
+) {
+    if (!value) {
+        return '-';
+    }
+
+    const dateOnly =
+        String(value).slice(
+            0,
+            10
+        );
+
+    const parts =
+        dateOnly
+            .split('-')
+            .map(Number);
+
+    const [
+        year,
+        month,
+        day,
+    ] = parts;
+
+    if (
+        !year ||
+        !month ||
+        !day ||
+        !ID_MONTH_NAMES[
+        month - 1
+        ]
+    ) {
+        return '-';
+    }
+
+    return `${day} ${ID_MONTH_NAMES[
+        month - 1
+    ]
+        } ${year}`;
+}
+
+// ============================================================================
+// PAGINATION
+// ============================================================================
+
+function Pagination({
+    currentPage,
+    totalPages,
+    onChange,
+}) {
+    if (
+        totalPages <= 1
+    ) {
+        return null;
+    }
+
+    return (
+        <nav aria-label="Pagination">
+            <ul className="pagination pagination-sm mb-0">
+                <li
+                    className={`page-item ${currentPage === 1
+                        ? 'disabled'
+                        : ''
+                        }`}
+                >
+                    <button
+                        type="button"
+                        className="page-link"
+                        onClick={() =>
+                            onChange(
+                                Math.max(
+                                    1,
+                                    currentPage -
+                                    1
+                                )
+                            )
+                        }
+                        disabled={
+                            currentPage ===
+                            1
+                        }
+                    >
+                        <i className="bi bi-chevron-left" />
+                    </button>
+                </li>
+
+                {Array.from(
+                    {
+                        length:
+                            totalPages,
+                    },
+                    (
+                        _,
+                        index
+                    ) =>
+                        index + 1
+                ).map(
+                    (
+                        pageNumber
+                    ) => (
+                        <li
+                            key={
+                                pageNumber
+                            }
+                            className={`page-item ${currentPage ===
+                                pageNumber
+                                ? 'active'
+                                : ''
+                                }`}
+                        >
+                            <button
+                                type="button"
+                                className="page-link"
+                                onClick={() =>
+                                    onChange(
+                                        pageNumber
+                                    )
+                                }
+                            >
+                                {
+                                    pageNumber
+                                }
+                            </button>
+                        </li>
+                    )
+                )}
+
+                <li
+                    className={`page-item ${currentPage ===
+                        totalPages
+                        ? 'disabled'
+                        : ''
+                        }`}
+                >
+                    <button
+                        type="button"
+                        className="page-link"
+                        onClick={() =>
+                            onChange(
+                                Math.min(
+                                    totalPages,
+                                    currentPage +
+                                    1
+                                )
+                            )
+                        }
+                        disabled={
+                            currentPage ===
+                            totalPages
+                        }
+                    >
+                        <i className="bi bi-chevron-right" />
+                    </button>
+                </li>
+            </ul>
+        </nav>
+    );
+}
+
+// ============================================================================
+// KPI SUMMARY
+// ============================================================================
+
 const EMPTY_KPI_FORM = {
     site_id: '',
-    period_year: DEFAULT_YEAR,
-    period_month: DEFAULT_MONTH,
+    period_year:
+        DEFAULT_YEAR,
+    period_month:
+        DEFAULT_MONTH,
+
     readyness_actual: '',
     readyness_target: '',
-    availability_actual: '',
-    availability_target: '',
+
+    availability_actual:
+        '',
+    availability_target:
+        '',
+
     leadtime_actual: '',
     leadtime_target: '',
 };
 
-// Konversi nilai desimal database (0-1) menjadi teks persen untuk tabel.
-// 0.928 -> "92.8%", 0.98 -> "98%", null -> "-"
-function formatKpiPercent(value) {
-    if (value === null || value === undefined || value === '') return '-';
-    const num = Number(value) * 100;
-    if (!Number.isFinite(num)) return '-';
-    const rounded = Math.round(num * 100) / 100;
-    return `${rounded}%`;
-}
+function KpiSummaryForm({
+    sites,
+}) {
+    const [
+        form,
+        setForm,
+    ] = useState({
+        ...EMPTY_KPI_FORM,
+    });
 
-// Konversi nilai desimal database (0-1) menjadi angka persen untuk form edit.
-// 0.928 -> "92.8", null -> ""
-function decimalToPercentInput(value) {
-    if (value === null || value === undefined || value === '') return '';
-    const num = Number(value) * 100;
-    if (!Number.isFinite(num)) return '';
-    return String(Math.round(num * 100) / 100);
-}
+    const [
+        saving,
+        setSaving,
+    ] = useState(false);
 
-function getMonthLabel(monthValue) {
-    const found = MONTHS.find((m) => m.value === Number(monthValue));
-    return found ? found.label : monthValue;
-}
+    const [
+        result,
+        setResult,
+    ] = useState(null);
 
-function KpiSummaryForm({ sites }) {
-    const [form, setForm] = useState({ ...EMPTY_KPI_FORM });
-    const [saving, setSaving] = useState(false);
-    const [result, setResult] = useState(null); // { type: 'success'|'error', message }
-    const [editingId, setEditingId] = useState(null);
+    const [
+        editingId,
+        setEditingId,
+    ] = useState(null);
 
-    const [list, setList] = useState([]);
-    const [loadingList, setLoadingList] = useState(false);
-    const [deletingId, setDeletingId] = useState(null);
+    const [
+        list,
+        setList,
+    ] = useState([]);
 
-    // Pagination KPI Summary
-    const [currentPage, setCurrentPage] = useState(1);
+    const [
+        loadingList,
+        setLoadingList,
+    ] = useState(false);
+
+    const [
+        deletingId,
+        setDeletingId,
+    ] = useState(null);
+
+    const [
+        deleteTarget,
+        setDeleteTarget,
+    ] = useState(null);
+
+    const [
+        currentPage,
+        setCurrentPage,
+    ] = useState(1);
+
     const rowsPerPage = 20;
 
-    // Notifikasi otomatis hilang setelah beberapa detik
     useEffect(() => {
-        if (!result) return undefined;
-        const timer = setTimeout(() => setResult(null), 4000);
-        return () => clearTimeout(timer);
+        if (!result) {
+            return undefined;
+        }
+
+        const timer =
+            setTimeout(() => {
+                setResult(
+                    null
+                );
+            }, 4000);
+
+        return () =>
+            clearTimeout(
+                timer
+            );
     }, [result]);
 
-    const fetchList = async () => {
-        setLoadingList(true);
-        try {
-            const res = await axiosClient.get('/kpi-summary');
-            const data = res.data?.data ?? [];
-            const sorted = [...data].sort((a, b) => {
-                if (b.period_year !== a.period_year) return b.period_year - a.period_year;
-                if (b.period_month !== a.period_month) return b.period_month - a.period_month;
-                return b.id - a.id;
-            });
-            setList(sorted);
-        } catch (err) {
-            setResult({ type: 'error', message: 'Gagal memuat data KPI Summary' });
-        } finally {
-            setLoadingList(false);
-        }
-    };
+    const fetchList =
+        async () => {
+            setLoadingList(
+                true
+            );
+
+            try {
+                const response =
+                    await axiosClient.get(
+                        '/kpi-summary'
+                    );
+
+                const data =
+                    response.data
+                        ?.data ??
+                    [];
+
+                const sorted =
+                    [...data].sort(
+                        (
+                            a,
+                            b
+                        ) => {
+                            if (
+                                Number(
+                                    b.period_year
+                                ) !==
+                                Number(
+                                    a.period_year
+                                )
+                            ) {
+                                return (
+                                    Number(
+                                        b.period_year
+                                    ) -
+                                    Number(
+                                        a.period_year
+                                    )
+                                );
+                            }
+
+                            if (
+                                Number(
+                                    b.period_month
+                                ) !==
+                                Number(
+                                    a.period_month
+                                )
+                            ) {
+                                return (
+                                    Number(
+                                        b.period_month
+                                    ) -
+                                    Number(
+                                        a.period_month
+                                    )
+                                );
+                            }
+
+                            return (
+                                Number(
+                                    b.id
+                                ) -
+                                Number(
+                                    a.id
+                                )
+                            );
+                        }
+                    );
+
+                setList(
+                    sorted
+                );
+            } catch {
+                setResult({
+                    type: 'error',
+                    message:
+                        'Gagal memuat data KPI Summary',
+                });
+            } finally {
+                setLoadingList(
+                    false
+                );
+            }
+        };
 
     useEffect(() => {
         fetchList();
     }, []);
 
-    const handleChange = (e) => {
-        setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-        setResult(null);
-    };
+    const handleChange = (
+        event
+    ) => {
+        const {
+            name,
+            value,
+        } = event.target;
 
-    const resetForm = () => {
-        setForm({ ...EMPTY_KPI_FORM });
-        setEditingId(null);
-    };
-
-    const handleCancelEdit = () => {
-        resetForm();
-        setResult(null);
-    };
-
-    const handleEdit = (row) => {
-        setEditingId(row.id);
-        setForm({
-            site_id: String(row.site_id),
-            period_year: row.period_year,
-            period_month: row.period_month,
-            readyness_actual: decimalToPercentInput(row.readyness_actual),
-            readyness_target: decimalToPercentInput(row.readyness_target),
-            availability_actual: decimalToPercentInput(row.availability_actual),
-            availability_target: decimalToPercentInput(row.availability_target),
-            leadtime_actual: decimalToPercentInput(row.leadtime_actual),
-            leadtime_target: decimalToPercentInput(row.leadtime_target),
-        });
-        setResult(null);
-    };
-
-    const handleDelete = async (row) => {
-        const monthLabel = getMonthLabel(row.period_month);
-        const confirmed = window.confirm(
-            `Yakin ingin menghapus data KPI ${row.site_code} periode ${monthLabel} ${row.period_year}?`
+        setForm(
+            (
+                previous
+            ) => ({
+                ...previous,
+                [name]:
+                    value,
+            })
         );
-        if (!confirmed) return;
 
-        setDeletingId(row.id);
-        try {
-            await axiosClient.delete(`/kpi-summary/${row.id}`);
-            setResult({
-                type: 'success',
-                message: `Data KPI ${row.site_code} periode ${monthLabel} ${row.period_year} berhasil dihapus.`,
-            });
-
-            addNotification({
-                title: 'KPI Summary dihapus',
-                message: `Data KPI site ${row.site_code} periode ${monthLabel} ${row.period_year} berhasil dihapus.`,
-                type: 'danger',
-                link: '/input-data',
-            });
-
-            window.dispatchEvent(
-                new CustomEvent('dashboard-data-changed')
-            );
-
-            if (editingId === row.id) resetForm();
-            await fetchList();
-        } catch (err) {
-            const msg = err.response?.data?.message ?? 'Gagal menghapus data KPI Summary';
-            setResult({ type: 'error', message: msg });
-        } finally {
-            setDeletingId(null);
-        }
+        setResult(null);
     };
 
-    const PERCENT_FIELDS = [
-        'readyness_actual', 'readyness_target',
-        'availability_actual', 'availability_target',
-        'leadtime_actual', 'leadtime_target',
-    ];
+    const resetForm =
+        () => {
+            setForm({
+                ...EMPTY_KPI_FORM,
+            });
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        if (!form.site_id) { setResult({ type: 'error', message: 'Site wajib dipilih' }); return; }
-        if (!form.period_month) { setResult({ type: 'error', message: 'Bulan wajib dipilih' }); return; }
-        if (!form.period_year) { setResult({ type: 'error', message: 'Tahun wajib dipilih' }); return; }
-
-        for (const field of PERCENT_FIELDS) {
-            const raw = form[field];
-            if (raw === '' || raw === null || raw === undefined) continue;
-            const num = Number(raw);
-            if (!Number.isFinite(num) || num < 0 || num > 100) {
-                setResult({ type: 'error', message: 'Nilai persen harus berada di antara 0 sampai 100' });
-                return;
-            }
-        }
-
-        const payload = {
-            site_id: Number(form.site_id),
-            period_year: Number(form.period_year),
-            period_month: Number(form.period_month),
-            readyness_actual: form.readyness_actual !== '' ? Number(form.readyness_actual) / 100 : null,
-            readyness_target: form.readyness_target !== '' ? Number(form.readyness_target) / 100 : null,
-            availability_actual: form.availability_actual !== '' ? Number(form.availability_actual) / 100 : null,
-            availability_target: form.availability_target !== '' ? Number(form.availability_target) / 100 : null,
-            leadtime_actual: form.leadtime_actual !== '' ? Number(form.leadtime_actual) / 100 : null,
-            leadtime_target: form.leadtime_target !== '' ? Number(form.leadtime_target) / 100 : null,
+            setEditingId(
+                null
+            );
         };
 
-        const siteLabel = sites.find((s) => String(s.id) === String(form.site_id))?.site_code ?? '';
-        const monthLabel = getMonthLabel(form.period_month);
-
-        setSaving(true);
-        try {
-            if (editingId) {
-                await axiosClient.put(`/kpi-summary/${editingId}`, payload);
-
-                setResult({
-                    type: 'success',
-                    message: `Data KPI ${siteLabel} periode ${monthLabel} ${form.period_year} berhasil diperbarui.`,
-                });
-
-                addNotification({
-                    title: 'KPI Summary diperbarui',
-                    message: `Data KPI site ${siteLabel} periode ${monthLabel} ${form.period_year} berhasil diperbarui.`,
-                    type: 'warning',
-                    link: '/input-data',
-                });
-            } else {
-                await axiosClient.post('/kpi-summary', payload);
-
-                setResult({
-                    type: 'success',
-                    message: `Data KPI ${siteLabel} periode ${monthLabel} ${form.period_year} berhasil disimpan.`,
-                });
-
-                addNotification({
-                    title: 'KPI Summary ditambahkan',
-                    message: `Data KPI site ${siteLabel} periode ${monthLabel} ${form.period_year} berhasil disimpan.`,
-                    type: 'success',
-                    link: '/input-data',
-                });
-            }
-
-            window.dispatchEvent(
-                new CustomEvent('dashboard-data-changed')
-            );
-
+    const handleCancelEdit =
+        () => {
             resetForm();
-            await fetchList();
-        } catch (err) {
-            const fallback = editingId
-                ? 'Gagal memperbarui data KPI Summary'
-                : 'Gagal menyimpan data KPI Summary';
-            const msg = err.response?.data?.message ?? fallback;
-            setResult({ type: 'error', message: msg });
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const totalPages = Math.max(
-        1,
-        Math.ceil(list.length / rowsPerPage)
-    );
-
-    const startIndex = (currentPage - 1) * rowsPerPage;
-    const endIndex = startIndex + rowsPerPage;
-    const paginatedList = list.slice(startIndex, endIndex);
-
-    useEffect(() => {
-        if (currentPage > totalPages) {
-            setCurrentPage(totalPages);
-        }
-    }, [currentPage, totalPages]);
-
-    return (
-        <>
-            <div className="app-card p-4">
-                <div className="fw-semibold mb-3 d-flex align-items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                    <i className="bi bi-graph-up-arrow text-primary-custom" />
-                    {editingId ? 'Edit KPI Summary Bulanan' : 'Input KPI Summary Bulanan'}
-                </div>
-
-                {result && (
-                    <div className={`alert alert-${result.type === 'success' ? 'success' : 'danger'} py-2 mb-3`} role="alert">
-                        <i className={`bi ${result.type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2`} />
-                        {result.message}
-                    </div>
-                )}
-
-                <form onSubmit={handleSubmit}>
-                    {/* Site & Periode */}
-                    <div className="row g-3 mb-3">
-                        <div className="col-12 col-md-4">
-                            <label className="form-label small text-secondary">Site <span className="text-danger">*</span></label>
-                            <select className="form-select" name="site_id" value={form.site_id} onChange={handleChange} required disabled={saving}>
-                                <option value="">Pilih Site</option>
-                                {sites.map((s) => (
-                                    <option key={s.id} value={s.id}>{s.site_code}{s.site_name ? ` - ${s.site_name}` : ''}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="col-6 col-md-4">
-                            <label className="form-label small text-secondary">Bulan <span className="text-danger">*</span></label>
-                            <select className="form-select" name="period_month" value={form.period_month} onChange={handleChange} disabled={saving}>
-                                {MONTHS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                            </select>
-                        </div>
-                        <div className="col-6 col-md-4">
-                            <label className="form-label small text-secondary">Tahun <span className="text-danger">*</span></label>
-                            <select className="form-select" name="period_year" value={form.period_year} onChange={handleChange} disabled={saving}>
-                                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="row g-3 mb-3">
-                        {/* Readiness */}
-                        <div className="col-12">
-                            <div className="small text-secondary fw-semibold mb-2">Readiness (%)</div>
-                        </div>
-                        <div className="col-6 col-md-3">
-                            <label className="form-label small text-secondary">Aktual</label>
-                            <div className="input-group input-group-sm">
-                                <input type="number" className="form-control" name="readyness_actual"
-                                    value={form.readyness_actual} onChange={handleChange}
-                                    min="0" max="100" step="0.1" placeholder="mis. 92.5" disabled={saving} />
-                                <span className="input-group-text">%</span>
-                            </div>
-                        </div>
-                        <div className="col-6 col-md-3">
-                            <label className="form-label small text-secondary">Target</label>
-                            <div className="input-group input-group-sm">
-                                <input type="number" className="form-control" name="readyness_target"
-                                    value={form.readyness_target} onChange={handleChange}
-                                    min="0" max="100" step="0.1" placeholder="mis. 90" disabled={saving} />
-                                <span className="input-group-text">%</span>
-                            </div>
-                        </div>
-
-                        {/* Availability */}
-                        <div className="col-12">
-                            <div className="small text-secondary fw-semibold mb-2">Availability VHS (%)</div>
-                        </div>
-                        <div className="col-6 col-md-3">
-                            <label className="form-label small text-secondary">Aktual</label>
-                            <div className="input-group input-group-sm">
-                                <input type="number" className="form-control" name="availability_actual"
-                                    value={form.availability_actual} onChange={handleChange}
-                                    min="0" max="100" step="0.1" placeholder="mis. 97.8" disabled={saving} />
-                                <span className="input-group-text">%</span>
-                            </div>
-                        </div>
-                        <div className="col-6 col-md-3">
-                            <label className="form-label small text-secondary">Target</label>
-                            <div className="input-group input-group-sm">
-                                <input type="number" className="form-control" name="availability_target"
-                                    value={form.availability_target} onChange={handleChange}
-                                    min="0" max="100" step="0.1" placeholder="mis. 98" disabled={saving} />
-                                <span className="input-group-text">%</span>
-                            </div>
-                        </div>
-
-                        {/* Lead Time Supply */}
-                        <div className="col-12">
-                            <div className="small text-secondary fw-semibold mb-2">Lead Time Supply (%)</div>
-                        </div>
-                        <div className="col-6 col-md-3">
-                            <label className="form-label small text-secondary">Aktual</label>
-                            <div className="input-group input-group-sm">
-                                <input type="number" className="form-control" name="leadtime_actual"
-                                    value={form.leadtime_actual} onChange={handleChange}
-                                    min="0" max="100" step="0.1" placeholder="mis. 94.2" disabled={saving} />
-                                <span className="input-group-text">%</span>
-                            </div>
-                        </div>
-                        <div className="col-6 col-md-3">
-                            <label className="form-label small text-secondary">Target</label>
-                            <div className="input-group input-group-sm">
-                                <input type="number" className="form-control" name="leadtime_target"
-                                    value={form.leadtime_target} onChange={handleChange}
-                                    min="0" max="100" step="0.1" placeholder="mis. 93" disabled={saving} />
-                                <span className="input-group-text">%</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="d-flex justify-content-end gap-2">
-                        {editingId && (
-                            <button type="button" className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
-                                onClick={handleCancelEdit} disabled={saving}>
-                                <i className="bi bi-x-circle" />
-                                Batal Edit
-                            </button>
-                        )}
-                        <button type="submit" className="btn btn-primary btn-sm d-flex align-items-center gap-2" disabled={saving}>
-                            {saving && <span className="spinner-border spinner-border-sm" />}
-                            <i className="bi bi-save" />
-                            {editingId ? 'Simpan Perubahan' : 'Simpan KPI Summary'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            {/* ── Tabel Data KPI Summary ─────────────────────────────────────── */}
-            <div className="app-card p-4 mt-3">
-                <div className="fw-semibold mb-3 d-flex align-items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                    <i className="bi bi-table text-primary-custom" />
-                    Data KPI Summary Terbaru
-                </div>
-
-                {loadingList ? (
-                    <div className="d-flex align-items-center gap-2 text-secondary py-3">
-                        <span className="spinner-border spinner-border-sm" role="status" />
-                        <span>Memuat data KPI Summary…</span>
-                    </div>
-                ) : list.length === 0 ? (
-                    <div className="text-secondary text-center py-3">Belum ada data KPI Summary.</div>
-                ) : (
-                    <div className="table-responsive">
-                        <table className="table table-sm table-hover align-middle mb-0">
-                            <thead>
-                                <tr className="text-secondary" style={{ fontSize: '0.8rem' }}>
-                                    <th>Site</th>
-                                    <th>Bulan</th>
-                                    <th>Tahun</th>
-                                    <th>Readiness Actual</th>
-                                    <th>Readiness Target</th>
-                                    <th>Availability Actual</th>
-                                    <th>Availability Target</th>
-                                    <th>Lead Time Actual</th>
-                                    <th>Lead Time Target</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {paginatedList.map((row) => (
-                                    <tr key={row.id}>
-                                        <td>{row.site_code}{row.site_name ? ` - ${row.site_name}` : ''}</td>
-                                        <td>{getMonthLabel(row.period_month)}</td>
-                                        <td>{row.period_year}</td>
-                                        <td>{formatKpiPercent(row.readyness_actual)}</td>
-                                        <td>{formatKpiPercent(row.readyness_target)}</td>
-                                        <td>{formatKpiPercent(row.availability_actual)}</td>
-                                        <td>{formatKpiPercent(row.availability_target)}</td>
-                                        <td>{formatKpiPercent(row.leadtime_actual)}</td>
-                                        <td>{formatKpiPercent(row.leadtime_target)}</td>
-                                        <td>
-                                            <div className="d-flex gap-2">
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-outline-primary btn-sm d-flex align-items-center gap-1"
-                                                    onClick={() => handleEdit(row)}
-                                                    disabled={saving || deletingId === row.id}
-                                                >
-                                                    <i className="bi bi-pencil" />
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-outline-danger btn-sm d-flex align-items-center gap-1"
-                                                    onClick={() => handleDelete(row)}
-                                                    disabled={saving || deletingId === row.id}
-                                                >
-                                                    {deletingId === row.id
-                                                        ? <span className="spinner-border spinner-border-sm" />
-                                                        : <i className="bi bi-trash" />}
-                                                    Hapus
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-
-                        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 mt-3">
-                            <small className="text-secondary">
-                                Menampilkan{' '}
-                                {list.length === 0
-                                    ? 0
-                                    : startIndex + 1}
-                                {' - '}
-                                {Math.min(endIndex, list.length)}
-                                {' dari '}
-                                {list.length} data
-                            </small>
-
-                            <nav aria-label="Pagination KPI Summary">
-                                <ul className="pagination pagination-sm mb-0">
-                                    <li
-                                        className={`page-item ${currentPage === 1
-                                            ? 'disabled'
-                                            : ''
-                                            }`}
-                                    >
-                                        <button
-                                            type="button"
-                                            className="page-link"
-                                            onClick={() =>
-                                                setCurrentPage((page) =>
-                                                    Math.max(1, page - 1)
-                                                )
-                                            }
-                                            disabled={currentPage === 1}
-                                            aria-label="Halaman sebelumnya"
-                                        >
-                                            <i className="bi bi-chevron-left" />
-                                        </button>
-                                    </li>
-
-                                    {Array.from(
-                                        { length: totalPages },
-                                        (_, index) => index + 1
-                                    ).map((pageNumber) => (
-                                        <li
-                                            key={pageNumber}
-                                            className={`page-item ${currentPage === pageNumber
-                                                ? 'active'
-                                                : ''
-                                                }`}
-                                        >
-                                            <button
-                                                type="button"
-                                                className="page-link"
-                                                onClick={() =>
-                                                    setCurrentPage(pageNumber)
-                                                }
-                                            >
-                                                {pageNumber}
-                                            </button>
-                                        </li>
-                                    ))}
-
-                                    <li
-                                        className={`page-item ${currentPage === totalPages
-                                            ? 'disabled'
-                                            : ''
-                                            }`}
-                                    >
-                                        <button
-                                            type="button"
-                                            className="page-link"
-                                            onClick={() =>
-                                                setCurrentPage((page) =>
-                                                    Math.min(
-                                                        totalPages,
-                                                        page + 1
-                                                    )
-                                                )
-                                            }
-                                            disabled={
-                                                currentPage === totalPages
-                                            }
-                                            aria-label="Halaman berikutnya"
-                                        >
-                                            <i className="bi bi-chevron-right" />
-                                        </button>
-                                    </li>
-                                </ul>
-                            </nav>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </>
-    );
-}
-
-// ── Sub-form: Input Unit Performance ────────────────────────────────────────
-function UnitPerformanceForm({ sites }) {
-    const [unitModels, setUnitModels] = useState([]);
-    const [loadingModels, setLoadingModels] = useState(false);
-
-    const [unitPerformances, setUnitPerformances] = useState([]);
-    const [loadingData, setLoadingData] = useState(false);
-    const [dataError, setDataError] = useState('');
-
-    const [form, setForm] = useState({
-        site_id: '',
-        unit_model_id: '',
-        period_year: DEFAULT_YEAR,
-        period_month: DEFAULT_MONTH,
-        physical_availability: '',
-        unit_availability: '',
-        mtbf: '',
-        mttr: '',
-        productivity: '',
-        fuel_consumption: '',
-    });
-
-    const [saving, setSaving] = useState(false);
-    const [result, setResult] = useState(null);
-    const [editingId, setEditingId] = useState(null);
-    const [deletingId, setDeletingId] = useState(null);
-
-    // Pagination
-    const [currentPage, setCurrentPage] = useState(1);
-    const rowsPerPage = 20;
-
-    useEffect(() => {
-        if (!result) return undefined;
-
-        const timer = setTimeout(() => {
             setResult(null);
-        }, 4000);
+        };
 
-        return () => clearTimeout(timer);
-    }, [result]);
-
-    const fetchUnitPerformances = async () => {
-        try {
-            setLoadingData(true);
-            setDataError('');
-
-            const response = await axiosClient.get(
-                '/monthly-unit-performance'
-            );
-
-            const rows = Array.isArray(response.data?.data)
-                ? response.data.data
-                : [];
-
-            const sortedRows = [...rows].sort((a, b) => {
-                if (Number(b.period_year) !== Number(a.period_year)) {
-                    return Number(b.period_year) - Number(a.period_year);
-                }
-
-                if (Number(b.period_month) !== Number(a.period_month)) {
-                    return Number(b.period_month) - Number(a.period_month);
-                }
-
-                return Number(b.id) - Number(a.id);
-            });
-
-            setUnitPerformances(sortedRows);
-        } catch (err) {
-            console.error(
-                'Gagal mengambil data performa unit:',
-                err
-            );
-
-            setUnitPerformances([]);
-            setDataError(
-                err.response?.data?.message ??
-                'Gagal mengambil data performa unit'
-            );
-        } finally {
-            setLoadingData(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchUnitPerformances();
-    }, []);
-
-    useEffect(() => {
-        if (!form.site_id) {
-            setUnitModels([]);
-            return;
-        }
-
-        setLoadingModels(true);
-
-        axiosClient
-            .get('/unit-models', {
-                params: { site_id: form.site_id },
-            })
-            .then((response) => {
-                setUnitModels(
-                    Array.isArray(response.data?.data)
-                        ? response.data.data
-                        : []
-                );
-            })
-            .catch(() => setUnitModels([]))
-            .finally(() => setLoadingModels(false));
-    }, [form.site_id]);
-
-    const resetForm = () => {
-        setForm({
-            site_id: '',
-            unit_model_id: '',
-            period_year: DEFAULT_YEAR,
-            period_month: DEFAULT_MONTH,
-            physical_availability: '',
-            unit_availability: '',
-            mtbf: '',
-            mttr: '',
-            productivity: '',
-            fuel_consumption: '',
-        });
-
-        setEditingId(null);
-    };
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-
-        setForm((prev) => ({
-            ...prev,
-            [name]: value,
-            ...(name === 'site_id'
-                ? { unit_model_id: '' }
-                : {}),
-        }));
-
-        setResult(null);
-    };
-
-    const handleEdit = (item) => {
-        setEditingId(item.id);
+    const handleEdit = (
+        row
+    ) => {
+        setEditingId(
+            row.id
+        );
 
         setForm({
-            site_id: String(item.site_id ?? ''),
-            unit_model_id: String(item.unit_model_id ?? ''),
-            period_year: Number(item.period_year),
-            period_month: Number(item.period_month),
-            physical_availability:
-                item.physical_availability !== null &&
-                    item.physical_availability !== undefined
-                    ? String(
-                        Math.round(
-                            Number(item.physical_availability) *
-                            10000
-                        ) / 100
-                    )
-                    : '',
-            unit_availability:
-                item.unit_availability !== null &&
-                    item.unit_availability !== undefined
-                    ? String(
-                        Math.round(
-                            Number(item.unit_availability) *
-                            10000
-                        ) / 100
-                    )
-                    : '',
-            mtbf: item.mtbf ?? '',
-            mttr: item.mttr ?? '',
-            productivity: item.productivity ?? '',
-            fuel_consumption: item.fuel_consumption ?? '',
+            site_id:
+                String(
+                    row.site_id ??
+                    ''
+                ),
+
+            period_year:
+                row.period_year,
+
+            period_month:
+                row.period_month,
+
+            readyness_actual:
+                decimalToPercentInput(
+                    row.readyness_actual
+                ),
+
+            readyness_target:
+                decimalToPercentInput(
+                    row.readyness_target
+                ),
+
+            availability_actual:
+                decimalToPercentInput(
+                    row.availability_actual
+                ),
+
+            availability_target:
+                decimalToPercentInput(
+                    row.availability_target
+                ),
+
+            leadtime_actual:
+                decimalToPercentInput(
+                    row.leadtime_actual
+                ),
+
+            leadtime_target:
+                decimalToPercentInput(
+                    row.leadtime_target
+                ),
         });
 
         setResult(null);
 
         window.scrollTo({
             top: 0,
-            behavior: 'smooth',
+            behavior:
+                'smooth',
         });
     };
 
-    const handleCancelEdit = () => {
-        resetForm();
-        setResult(null);
-    };
+    // ============================================================
+    // BUKA MODAL DELETE KPI
+    // ============================================================
 
-    const handleDelete = async (item) => {
-        const monthLabel = getMonthLabel(item.period_month);
-
-        const confirmed = window.confirm(
-            `Yakin ingin menghapus data ${item.model_name ?? 'unit'} site ${item.site_code ?? '-'} periode ${monthLabel} ${item.period_year}?`
-        );
-
-        if (!confirmed) return;
-
-        try {
-            setDeletingId(item.id);
-
-            await axiosClient.delete(
-                `/monthly-unit-performance/${item.id}`
+    const handleDelete = (
+        row
+    ) => {
+        const monthLabel =
+            getMonthLabel(
+                row.period_month
             );
 
-            if (editingId === item.id) {
-                resetForm();
+        setDeleteTarget({
+            ...row,
+
+            deleteMessage:
+                `Data KPI site ${row.site_code ?? '-'} periode ${monthLabel} ${row.period_year} akan dihapus permanen.`,
+        });
+    };
+
+    // ============================================================
+    // KONFIRMASI DELETE KPI
+    // ============================================================
+
+    const handleConfirmDelete =
+        async () => {
+            if (
+                !deleteTarget
+            ) {
+                return;
             }
 
-            setResult({
-                type: 'success',
-                message: `Data ${item.model_name ?? 'unit'} periode ${monthLabel} ${item.period_year} berhasil dihapus.`,
-            });
+            const row =
+                deleteTarget;
 
-            addNotification({
-                title: 'Performa Unit dihapus',
-                message: `Data ${item.model_name ?? 'unit'} site ${item.site_code ?? '-'} periode ${monthLabel} ${item.period_year} berhasil dihapus.`,
-                type: 'danger',
-                link: '/input-data',
-            });
+            const monthLabel =
+                getMonthLabel(
+                    row.period_month
+                );
 
-            window.dispatchEvent(
-                new CustomEvent('dashboard-data-changed')
+            setDeletingId(
+                row.id
             );
 
-            await fetchUnitPerformances();
-        } catch (err) {
-            setResult({
-                type: 'error',
-                message:
-                    err.response?.data?.message ??
-                    'Gagal menghapus data performa unit',
-            });
-        } finally {
-            setDeletingId(null);
-        }
-    };
+            try {
+                await axiosClient.delete(
+                    `/kpi-summary/${row.id}`
+                );
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+                setResult({
+                    type: 'success',
 
-        if (!form.site_id) {
-            setResult({
-                type: 'error',
-                message: 'Site wajib dipilih',
-            });
-            return;
-        }
+                    message:
+                        `Data KPI ${row.site_code} periode ${monthLabel} ${row.period_year} berhasil dihapus.`,
+                });
 
-        if (!form.unit_model_id) {
-            setResult({
-                type: 'error',
-                message: 'Model unit wajib dipilih',
-            });
-            return;
-        }
+                addNotification({
+                    title:
+                        'KPI Summary dihapus',
 
-        const percentageFields = [
-            form.physical_availability,
-            form.unit_availability,
-        ];
+                    message:
+                        `Data KPI site ${row.site_code} periode ${monthLabel} ${row.period_year} berhasil dihapus.`,
 
-        const invalidPercentage = percentageFields.some((value) => {
-            if (value === '') return false;
+                    type:
+                        'danger',
 
-            const numberValue = Number(value);
+                    link:
+                        '/input-data',
+                });
 
-            return (
-                !Number.isFinite(numberValue) ||
-                numberValue < 0 ||
-                numberValue > 100
-            );
-        });
+                window.dispatchEvent(
+                    new CustomEvent(
+                        'dashboard-data-changed'
+                    )
+                );
 
-        if (invalidPercentage) {
-            setResult({
-                type: 'error',
-                message:
-                    'Physical Availability dan Unit Availability harus berada di antara 0 sampai 100.',
-            });
-            return;
-        }
+                if (
+                    editingId ===
+                    row.id
+                ) {
+                    resetForm();
+                }
 
-        const payload = {
-            unit_model_id: Number(form.unit_model_id),
-            period_year: Number(form.period_year),
-            period_month: Number(form.period_month),
-            physical_availability:
-                form.physical_availability !== ''
-                    ? Number(form.physical_availability) / 100
-                    : null,
-            unit_availability:
-                form.unit_availability !== ''
-                    ? Number(form.unit_availability) / 100
-                    : null,
-            mtbf:
-                form.mtbf !== ''
-                    ? Number(form.mtbf)
-                    : null,
-            mttr:
-                form.mttr !== ''
-                    ? Number(form.mttr)
-                    : null,
-            productivity:
-                form.productivity !== ''
-                    ? Number(form.productivity)
-                    : null,
-            fuel_consumption:
-                form.fuel_consumption !== ''
-                    ? Number(form.fuel_consumption)
-                    : null,
+                setDeleteTarget(
+                    null
+                );
+
+                await fetchList();
+            } catch (
+            error
+            ) {
+                const message =
+                    error.response
+                        ?.data
+                        ?.message ??
+                    'Gagal menghapus data KPI Summary';
+
+                setResult({
+                    type: 'error',
+                    message,
+                });
+            } finally {
+                setDeletingId(
+                    null
+                );
+            }
         };
 
-        const selectedModel = unitModels.find(
-            (unit) =>
-                String(unit.id) ===
-                String(form.unit_model_id)
-        );
+    const PERCENT_FIELDS = [
+        'readyness_actual',
+        'readyness_target',
+        'availability_actual',
+        'availability_target',
+        'leadtime_actual',
+        'leadtime_target',
+    ];
 
-        const modelLabel =
-            selectedModel?.model_name ?? 'unit';
-        const monthLabel = getMonthLabel(form.period_month);
+    const handleSubmit =
+        async (
+            event
+        ) => {
+            event.preventDefault();
 
-        setSaving(true);
-
-        try {
-            if (editingId) {
-                await axiosClient.put(
-                    `/monthly-unit-performance/${editingId}`,
-                    payload
-                );
-
+            if (
+                !form.site_id
+            ) {
                 setResult({
-                    type: 'success',
-                    message: `Data ${modelLabel} periode ${monthLabel} ${form.period_year} berhasil diperbarui.`,
+                    type: 'error',
+                    message:
+                        'Site wajib dipilih',
                 });
 
-                addNotification({
-                    title: 'Performa Unit diperbarui',
-                    message: `Data ${modelLabel} periode ${monthLabel} ${form.period_year} berhasil diperbarui.`,
-                    type: 'warning',
-                    link: '/input-data',
-                });
-            } else {
-                await axiosClient.post(
-                    '/monthly-unit-performance',
-                    payload
-                );
-
-                setResult({
-                    type: 'success',
-                    message: `Data ${modelLabel} periode ${monthLabel} ${form.period_year} berhasil disimpan.`,
-                });
-
-                addNotification({
-                    title: 'Performa Unit ditambahkan',
-                    message: `Data ${modelLabel} periode ${monthLabel} ${form.period_year} berhasil disimpan.`,
-                    type: 'success',
-                    link: '/input-data',
-                });
+                return;
             }
 
-            window.dispatchEvent(
-                new CustomEvent('dashboard-data-changed')
-            );
+            for (
+                const field of
+                PERCENT_FIELDS
+            ) {
+                const raw =
+                    form[field];
 
-            resetForm();
-            await fetchUnitPerformances();
-        } catch (err) {
-            setResult({
-                type: 'error',
-                message:
-                    err.response?.data?.message ??
-                    (editingId
-                        ? 'Gagal memperbarui data Unit Performance'
-                        : 'Gagal menyimpan data Unit Performance'),
-            });
-        } finally {
-            setSaving(false);
-        }
-    };
+                if (
+                    raw === '' ||
+                    raw === null ||
+                    raw ===
+                    undefined
+                ) {
+                    continue;
+                }
 
-    const totalPages = Math.max(
-        1,
-        Math.ceil(unitPerformances.length / rowsPerPage)
-    );
+                const number =
+                    Number(raw);
+
+                if (
+                    !Number.isFinite(
+                        number
+                    ) ||
+                    number <
+                    0 ||
+                    number >
+                    100
+                ) {
+                    setResult({
+                        type: 'error',
+
+                        message:
+                            'Nilai persen harus berada di antara 0 sampai 100',
+                    });
+
+                    return;
+                }
+            }
+
+            const payload = {
+                site_id:
+                    Number(
+                        form.site_id
+                    ),
+
+                period_year:
+                    Number(
+                        form.period_year
+                    ),
+
+                period_month:
+                    Number(
+                        form.period_month
+                    ),
+
+                readyness_actual:
+                    form.readyness_actual !==
+                        ''
+                        ? Number(
+                            form.readyness_actual
+                        ) /
+                        100
+                        : null,
+
+                readyness_target:
+                    form.readyness_target !==
+                        ''
+                        ? Number(
+                            form.readyness_target
+                        ) /
+                        100
+                        : null,
+
+                availability_actual:
+                    form.availability_actual !==
+                        ''
+                        ? Number(
+                            form.availability_actual
+                        ) /
+                        100
+                        : null,
+
+                availability_target:
+                    form.availability_target !==
+                        ''
+                        ? Number(
+                            form.availability_target
+                        ) /
+                        100
+                        : null,
+
+                leadtime_actual:
+                    form.leadtime_actual !==
+                        ''
+                        ? Number(
+                            form.leadtime_actual
+                        ) /
+                        100
+                        : null,
+
+                leadtime_target:
+                    form.leadtime_target !==
+                        ''
+                        ? Number(
+                            form.leadtime_target
+                        ) /
+                        100
+                        : null,
+            };
+
+            const selectedSite =
+                sites.find(
+                    (
+                        site
+                    ) =>
+                        String(
+                            site.id
+                        ) ===
+                        String(
+                            form.site_id
+                        )
+                );
+
+            const siteLabel =
+                selectedSite
+                    ?.site_code ??
+                '';
+
+            const monthLabel =
+                getMonthLabel(
+                    form.period_month
+                );
+
+            setSaving(true);
+
+            try {
+                if (
+                    editingId
+                ) {
+                    await axiosClient.put(
+                        `/kpi-summary/${editingId}`,
+                        payload
+                    );
+
+                    setResult({
+                        type:
+                            'success',
+
+                        message:
+                            `Data KPI ${siteLabel} periode ${monthLabel} ${form.period_year} berhasil diperbarui.`,
+                    });
+
+                    addNotification({
+                        title:
+                            'KPI Summary diperbarui',
+
+                        message:
+                            `Data KPI site ${siteLabel} periode ${monthLabel} ${form.period_year} berhasil diperbarui.`,
+
+                        type:
+                            'warning',
+
+                        link:
+                            '/input-data',
+                    });
+                } else {
+                    await axiosClient.post(
+                        '/kpi-summary',
+                        payload
+                    );
+
+                    setResult({
+                        type:
+                            'success',
+
+                        message:
+                            `Data KPI ${siteLabel} periode ${monthLabel} ${form.period_year} berhasil disimpan.`,
+                    });
+
+                    addNotification({
+                        title:
+                            'KPI Summary ditambahkan',
+
+                        message:
+                            `Data KPI site ${siteLabel} periode ${monthLabel} ${form.period_year} berhasil disimpan.`,
+
+                        type:
+                            'success',
+
+                        link:
+                            '/input-data',
+                    });
+                }
+
+                window.dispatchEvent(
+                    new CustomEvent(
+                        'dashboard-data-changed'
+                    )
+                );
+
+                resetForm();
+
+                await fetchList();
+            } catch (
+            error
+            ) {
+                const fallback =
+                    editingId
+                        ? 'Gagal memperbarui data KPI Summary'
+                        : 'Gagal menyimpan data KPI Summary';
+
+                setResult({
+                    type: 'error',
+
+                    message:
+                        error.response
+                            ?.data
+                            ?.message ??
+                        fallback,
+                });
+            } finally {
+                setSaving(false);
+            }
+        };
+
+    const totalPages =
+        Math.max(
+            1,
+            Math.ceil(
+                list.length /
+                rowsPerPage
+            )
+        );
 
     const startIndex =
-        (currentPage - 1) * rowsPerPage;
-    const endIndex = startIndex + rowsPerPage;
+        (
+            currentPage -
+            1
+        ) *
+        rowsPerPage;
 
-    const paginatedUnitPerformances =
-        unitPerformances.slice(startIndex, endIndex);
+    const endIndex =
+        startIndex +
+        rowsPerPage;
+
+    const paginatedList =
+        list.slice(
+            startIndex,
+            endIndex
+        );
 
     useEffect(() => {
-        if (currentPage > totalPages) {
-            setCurrentPage(totalPages);
+        if (
+            currentPage >
+            totalPages
+        ) {
+            setCurrentPage(
+                totalPages
+            );
         }
-    }, [currentPage, totalPages]);
+    }, [
+        currentPage,
+        totalPages,
+    ]);
 
     return (
         <>
             <div className="app-card p-4">
                 <div
                     className="fw-semibold mb-3 d-flex align-items-center gap-2"
-                    style={{ color: 'var(--text-primary)' }}
+                    style={{
+                        color:
+                            'var(--text-primary)',
+                    }}
                 >
-                    <i className="bi bi-truck text-primary-custom" />
+                    <i className="bi bi-graph-up-arrow text-primary-custom" />
+
+                    {editingId
+                        ? 'Edit KPI Summary Bulanan'
+                        : 'Input KPI Summary Bulanan'}
+                </div>
+
+                {result && (
+                    <div
+                        className={`alert alert-${result.type ===
+                            'success'
+                            ? 'success'
+                            : 'danger'
+                            } py-2 mb-3`}
+                    >
+                        <i
+                            className={`bi ${result.type ===
+                                'success'
+                                ? 'bi-check-circle'
+                                : 'bi-exclamation-triangle'
+                                } me-2`}
+                        />
+
+                        {
+                            result.message
+                        }
+                    </div>
+                )}
+
+                <form
+                    onSubmit={
+                        handleSubmit
+                    }
+                >
+                    <div className="row g-3 mb-3">
+                        <div className="col-12 col-md-4">
+                            <label className="form-label small text-secondary">
+                                Site{' '}
+                                <span className="text-danger">
+                                    *
+                                </span>
+                            </label>
+
+                            <select
+                                className="form-select"
+                                name="site_id"
+                                value={
+                                    form.site_id
+                                }
+                                onChange={
+                                    handleChange
+                                }
+                                required
+                                disabled={
+                                    saving
+                                }
+                            >
+                                <option value="">
+                                    Pilih Site
+                                </option>
+
+                                {sites.map(
+                                    (
+                                        site
+                                    ) => (
+                                        <option
+                                            key={
+                                                site.id
+                                            }
+                                            value={
+                                                site.id
+                                            }
+                                        >
+                                            {
+                                                site.site_code
+                                            }
+
+                                            {site.site_name
+                                                ? ` - ${site.site_name}`
+                                                : ''}
+                                        </option>
+                                    )
+                                )}
+                            </select>
+                        </div>
+
+                        <div className="col-6 col-md-4">
+                            <label className="form-label small text-secondary">
+                                Bulan
+                            </label>
+
+                            <select
+                                className="form-select"
+                                name="period_month"
+                                value={
+                                    form.period_month
+                                }
+                                onChange={
+                                    handleChange
+                                }
+                                disabled={
+                                    saving
+                                }
+                            >
+                                {MONTHS.map(
+                                    (
+                                        month
+                                    ) => (
+                                        <option
+                                            key={
+                                                month.value
+                                            }
+                                            value={
+                                                month.value
+                                            }
+                                        >
+                                            {
+                                                month.label
+                                            }
+                                        </option>
+                                    )
+                                )}
+                            </select>
+                        </div>
+
+                        <div className="col-6 col-md-4">
+                            <label className="form-label small text-secondary">
+                                Tahun
+                            </label>
+
+                            <select
+                                className="form-select"
+                                name="period_year"
+                                value={
+                                    form.period_year
+                                }
+                                onChange={
+                                    handleChange
+                                }
+                                disabled={
+                                    saving
+                                }
+                            >
+                                {YEARS.map(
+                                    (
+                                        year
+                                    ) => (
+                                        <option
+                                            key={
+                                                year
+                                            }
+                                            value={
+                                                year
+                                            }
+                                        >
+                                            {
+                                                year
+                                            }
+                                        </option>
+                                    )
+                                )}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="row g-3 mb-3">
+                        {[
+                            [
+                                'Readiness',
+                                'readyness_actual',
+                                'readyness_target',
+                            ],
+
+                            [
+                                'Availability VHS',
+                                'availability_actual',
+                                'availability_target',
+                            ],
+
+                            [
+                                'Lead Time Supply',
+                                'leadtime_actual',
+                                'leadtime_target',
+                            ],
+                        ].map(
+                            ([
+                                label,
+                                actualName,
+                                targetName,
+                            ]) => (
+                                <div
+                                    className="col-12"
+                                    key={
+                                        label
+                                    }
+                                >
+                                    <div className="small text-secondary fw-semibold mb-2">
+                                        {
+                                            label
+                                        }{' '}
+                                        (%)
+                                    </div>
+
+                                    <div className="row g-2">
+                                        <div className="col-6 col-md-3">
+                                            <label className="form-label small text-secondary">
+                                                Aktual
+                                            </label>
+
+                                            <div className="input-group input-group-sm">
+                                                <input
+                                                    type="number"
+                                                    className="form-control"
+                                                    name={
+                                                        actualName
+                                                    }
+                                                    value={
+                                                        form[
+                                                        actualName
+                                                        ]
+                                                    }
+                                                    onChange={
+                                                        handleChange
+                                                    }
+                                                    min="0"
+                                                    max="100"
+                                                    step="0.1"
+                                                    disabled={
+                                                        saving
+                                                    }
+                                                />
+
+                                                <span className="input-group-text">
+                                                    %
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="col-6 col-md-3">
+                                            <label className="form-label small text-secondary">
+                                                Target
+                                            </label>
+
+                                            <div className="input-group input-group-sm">
+                                                <input
+                                                    type="number"
+                                                    className="form-control"
+                                                    name={
+                                                        targetName
+                                                    }
+                                                    value={
+                                                        form[
+                                                        targetName
+                                                        ]
+                                                    }
+                                                    onChange={
+                                                        handleChange
+                                                    }
+                                                    min="0"
+                                                    max="100"
+                                                    step="0.1"
+                                                    disabled={
+                                                        saving
+                                                    }
+                                                />
+
+                                                <span className="input-group-text">
+                                                    %
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        )}
+                    </div>
+
+                    <div className="d-flex justify-content-end gap-2">
+                        {editingId && (
+                            <button
+                                type="button"
+                                className="btn btn-outline-secondary btn-sm"
+                                onClick={
+                                    handleCancelEdit
+                                }
+                                disabled={
+                                    saving
+                                }
+                            >
+                                <i className="bi bi-x-circle me-2" />
+                                Batal Edit
+                            </button>
+                        )}
+
+                        <button
+                            type="submit"
+                            className="btn btn-primary btn-sm"
+                            disabled={
+                                saving
+                            }
+                        >
+                            {saving && (
+                                <span className="spinner-border spinner-border-sm me-2" />
+                            )}
+
+                            <i className="bi bi-save me-2" />
+
+                            {editingId
+                                ? 'Simpan Perubahan'
+                                : 'Simpan KPI Summary'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div className="app-card p-4 mt-3">
+                <div className="fw-semibold mb-3">
+                    <i className="bi bi-table text-primary-custom me-2" />
+                    Data KPI Summary Terbaru
+                </div>
+
+                {loadingList ? (
+                    <div className="text-secondary py-3">
+                        <span className="spinner-border spinner-border-sm me-2" />
+                        Memuat data...
+                    </div>
+                ) : (
+                    <>
+                        <div className="table-responsive">
+                            <table className="table table-sm table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>
+                                            Site
+                                        </th>
+
+                                        <th>
+                                            Bulan
+                                        </th>
+
+                                        <th>
+                                            Tahun
+                                        </th>
+
+                                        <th>
+                                            Readiness Actual
+                                        </th>
+
+                                        <th>
+                                            Readiness Target
+                                        </th>
+
+                                        <th>
+                                            Availability Actual
+                                        </th>
+
+                                        <th>
+                                            Availability Target
+                                        </th>
+
+                                        <th>
+                                            Lead Time Actual
+                                        </th>
+
+                                        <th>
+                                            Lead Time Target
+                                        </th>
+
+                                        <th>
+                                            Aksi
+                                        </th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {paginatedList.map(
+                                        (
+                                            row
+                                        ) => (
+                                            <tr
+                                                key={
+                                                    row.id
+                                                }
+                                            >
+                                                <td>
+                                                    {
+                                                        row.site_code
+                                                    }
+                                                </td>
+
+                                                <td>
+                                                    {getMonthLabel(
+                                                        row.period_month
+                                                    )}
+                                                </td>
+
+                                                <td>
+                                                    {
+                                                        row.period_year
+                                                    }
+                                                </td>
+
+                                                <td>
+                                                    {formatKpiPercent(
+                                                        row.readyness_actual
+                                                    )}
+                                                </td>
+
+                                                <td>
+                                                    {formatKpiPercent(
+                                                        row.readyness_target
+                                                    )}
+                                                </td>
+
+                                                <td>
+                                                    {formatKpiPercent(
+                                                        row.availability_actual
+                                                    )}
+                                                </td>
+
+                                                <td>
+                                                    {formatKpiPercent(
+                                                        row.availability_target
+                                                    )}
+                                                </td>
+
+                                                <td>
+                                                    {formatKpiPercent(
+                                                        row.leadtime_actual
+                                                    )}
+                                                </td>
+
+                                                <td>
+                                                    {formatKpiPercent(
+                                                        row.leadtime_target
+                                                    )}
+                                                </td>
+
+                                                <td>
+                                                    <div className="d-flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-outline-primary btn-sm"
+                                                            onClick={() =>
+                                                                handleEdit(
+                                                                    row
+                                                                )
+                                                            }
+                                                        >
+                                                            <i className="bi bi-pencil me-1" />
+                                                            Edit
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-outline-danger btn-sm"
+                                                            onClick={() =>
+                                                                handleDelete(
+                                                                    row
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                deletingId ===
+                                                                row.id
+                                                            }
+                                                        >
+                                                            <i className="bi bi-trash me-1" />
+                                                            Hapus
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                            <small className="text-secondary">
+                                {list.length ===
+                                    0
+                                    ? 0
+                                    : startIndex +
+                                    1}{' '}
+                                -{' '}
+                                {Math.min(
+                                    endIndex,
+                                    list.length
+                                )}{' '}
+                                dari{' '}
+                                {
+                                    list.length
+                                }{' '}
+                                data
+                            </small>
+
+                            <Pagination
+                                currentPage={
+                                    currentPage
+                                }
+                                totalPages={
+                                    totalPages
+                                }
+                                onChange={
+                                    setCurrentPage
+                                }
+                            />
+                        </div>
+                    </>
+                )}
+            </div>
+
+            <ConfirmModal
+                show={
+                    !!deleteTarget
+                }
+                title="Hapus data KPI?"
+                message={
+                    deleteTarget
+                        ?.deleteMessage
+                }
+                confirmText="Hapus"
+                cancelText="Batal"
+                loading={
+                    deletingId !==
+                    null
+                }
+                onCancel={() => {
+                    if (
+                        deletingId ===
+                        null
+                    ) {
+                        setDeleteTarget(
+                            null
+                        );
+                    }
+                }}
+                onConfirm={
+                    handleConfirmDelete
+                }
+            />
+        </>
+    );
+}
+
+// ============================================================================
+// UNIT PERFORMANCE
+// ============================================================================
+
+function UnitPerformanceForm({
+    sites,
+}) {
+    const [
+        unitModels,
+        setUnitModels,
+    ] = useState([]);
+
+    const [
+        loadingModels,
+        setLoadingModels,
+    ] = useState(false);
+
+    const [
+        unitPerformances,
+        setUnitPerformances,
+    ] = useState([]);
+
+    const [
+        loadingData,
+        setLoadingData,
+    ] = useState(false);
+
+    const [
+        dataError,
+        setDataError,
+    ] = useState('');
+
+    const [
+        form,
+        setForm,
+    ] = useState({
+        site_id: '',
+        unit_model_id: '',
+        period_year:
+            DEFAULT_YEAR,
+        period_month:
+            DEFAULT_MONTH,
+        physical_availability:
+            '',
+        unit_availability:
+            '',
+        mtbf: '',
+        mttr: '',
+        productivity: '',
+        fuel_consumption:
+            '',
+    });
+
+    const [
+        saving,
+        setSaving,
+    ] = useState(false);
+
+    const [
+        result,
+        setResult,
+    ] = useState(null);
+
+    const [
+        editingId,
+        setEditingId,
+    ] = useState(null);
+
+    const [
+        deletingId,
+        setDeletingId,
+    ] = useState(null);
+
+    const [
+        deleteTarget,
+        setDeleteTarget,
+    ] = useState(null);
+
+    const [
+        currentPage,
+        setCurrentPage,
+    ] = useState(1);
+
+    const rowsPerPage = 20;
+
+    // Site yang sedang dipilih pada form Performa Unit.
+    const selectedSite = sites.find(
+        (site) =>
+            String(site.id) ===
+            String(form.site_id)
+    );
+
+    // Filter model unit sesuai keputusan:
+    // - Semua site: PC2000, PC1250, HD785
+    // - BIB: PC2000, PC1250, HD785, PC3400
+    const allowedUnitModels = unitModels.filter(
+        (unit) =>
+            isAllowedUnitModel(
+                unit.model_name,
+                selectedSite?.site_code
+            )
+    );
+
+    useEffect(() => {
+        if (!result) {
+            return undefined;
+        }
+
+        const timer =
+            setTimeout(
+                () =>
+                    setResult(
+                        null
+                    ),
+                4000
+            );
+
+        return () =>
+            clearTimeout(
+                timer
+            );
+    }, [result]);
+
+    const fetchUnitPerformances =
+        async () => {
+            setLoadingData(
+                true
+            );
+
+            setDataError('');
+
+            try {
+                const response =
+                    await axiosClient.get(
+                        '/monthly-unit-performance'
+                    );
+
+                const rows =
+                    Array.isArray(
+                        response
+                            .data
+                            ?.data
+                    )
+                        ? response
+                            .data
+                            .data
+                        : [];
+
+                const sorted =
+                    [...rows].sort(
+                        (
+                            a,
+                            b
+                        ) => {
+                            if (
+                                Number(
+                                    b.period_year
+                                ) !==
+                                Number(
+                                    a.period_year
+                                )
+                            ) {
+                                return (
+                                    Number(
+                                        b.period_year
+                                    ) -
+                                    Number(
+                                        a.period_year
+                                    )
+                                );
+                            }
+
+                            if (
+                                Number(
+                                    b.period_month
+                                ) !==
+                                Number(
+                                    a.period_month
+                                )
+                            ) {
+                                return (
+                                    Number(
+                                        b.period_month
+                                    ) -
+                                    Number(
+                                        a.period_month
+                                    )
+                                );
+                            }
+
+                            return (
+                                Number(
+                                    b.id
+                                ) -
+                                Number(
+                                    a.id
+                                )
+                            );
+                        }
+                    );
+
+                setUnitPerformances(
+                    sorted
+                );
+            } catch (
+            error
+            ) {
+                setDataError(
+                    error.response
+                        ?.data
+                        ?.message ??
+                    'Gagal mengambil data performa unit'
+                );
+            } finally {
+                setLoadingData(
+                    false
+                );
+            }
+        };
+
+    useEffect(() => {
+        fetchUnitPerformances();
+    }, []);
+
+    useEffect(() => {
+        if (
+            !form.site_id
+        ) {
+            setUnitModels([]);
+            return;
+        }
+
+        setLoadingModels(
+            true
+        );
+
+        axiosClient
+            .get(
+                '/unit-models',
+                {
+                    params: {
+                        site_id:
+                            form.site_id,
+                    },
+                }
+            )
+            .then(
+                (
+                    response
+                ) => {
+                    setUnitModels(
+                        Array.isArray(
+                            response
+                                .data
+                                ?.data
+                        )
+                            ? response
+                                .data
+                                .data
+                            : []
+                    );
+                }
+            )
+            .catch(() =>
+                setUnitModels(
+                    []
+                )
+            )
+            .finally(() =>
+                setLoadingModels(
+                    false
+                )
+            );
+    }, [form.site_id]);
+
+    const resetForm =
+        () => {
+            setForm({
+                site_id: '',
+                unit_model_id:
+                    '',
+                period_year:
+                    DEFAULT_YEAR,
+                period_month:
+                    DEFAULT_MONTH,
+                physical_availability:
+                    '',
+                unit_availability:
+                    '',
+                mtbf: '',
+                mttr: '',
+                productivity:
+                    '',
+                fuel_consumption:
+                    '',
+            });
+
+            setEditingId(
+                null
+            );
+        };
+
+    const handleChange = (
+        event
+    ) => {
+        const {
+            name,
+            value,
+        } = event.target;
+
+        setForm(
+            (
+                previous
+            ) => ({
+                ...previous,
+
+                [name]:
+                    value,
+
+                ...(name ===
+                    'site_id'
+                    ? {
+                        unit_model_id:
+                            '',
+                    }
+                    : {}),
+            })
+        );
+
+        setResult(null);
+    };
+
+    const handleEdit = (
+        item
+    ) => {
+        setEditingId(
+            item.id
+        );
+
+        setForm({
+            site_id:
+                String(
+                    item.site_id ??
+                    ''
+                ),
+
+            unit_model_id:
+                String(
+                    item.unit_model_id ??
+                    ''
+                ),
+
+            period_year:
+                Number(
+                    item.period_year
+                ),
+
+            period_month:
+                Number(
+                    item.period_month
+                ),
+
+            physical_availability:
+                item.physical_availability !==
+                    null &&
+                    item.physical_availability !==
+                    undefined
+                    ? String(
+                        Math.round(
+                            Number(
+                                item.physical_availability
+                            ) *
+                            10000
+                        ) / 100
+                    )
+                    : '',
+
+            unit_availability:
+                item.unit_availability !==
+                    null &&
+                    item.unit_availability !==
+                    undefined
+                    ? String(
+                        Math.round(
+                            Number(
+                                item.unit_availability
+                            ) *
+                            10000
+                        ) / 100
+                    )
+                    : '',
+
+            mtbf:
+                item.mtbf ??
+                '',
+
+            mttr:
+                item.mttr ??
+                '',
+
+            productivity:
+                item.productivity ??
+                '',
+
+            fuel_consumption:
+                item.fuel_consumption ??
+                '',
+        });
+
+        window.scrollTo({
+            top: 0,
+            behavior:
+                'smooth',
+        });
+    };
+
+    // ============================================================
+    // BUKA MODAL DELETE UNIT
+    // ============================================================
+
+    const handleDelete = (
+        item
+    ) => {
+        const monthLabel =
+            getMonthLabel(
+                item.period_month
+            );
+
+        setDeleteTarget({
+            ...item,
+
+            deleteMessage:
+                `Data ${item.model_name ?? 'unit'} site ${item.site_code ?? '-'} periode ${monthLabel} ${item.period_year} akan dihapus permanen.`,
+        });
+    };
+
+    // ============================================================
+    // KONFIRMASI DELETE UNIT
+    // ============================================================
+
+    const handleConfirmDelete =
+        async () => {
+            if (
+                !deleteTarget
+            ) {
+                return;
+            }
+
+            const item =
+                deleteTarget;
+
+            const monthLabel =
+                getMonthLabel(
+                    item.period_month
+                );
+
+            setDeletingId(
+                item.id
+            );
+
+            try {
+                await axiosClient.delete(
+                    `/monthly-unit-performance/${item.id}`
+                );
+
+                if (
+                    editingId ===
+                    item.id
+                ) {
+                    resetForm();
+                }
+
+                setResult({
+                    type: 'success',
+
+                    message:
+                        `Data ${item.model_name ?? 'unit'} periode ${monthLabel} ${item.period_year} berhasil dihapus.`,
+                });
+
+                addNotification({
+                    title:
+                        'Performa Unit dihapus',
+
+                    message:
+                        `Data ${item.model_name ?? 'unit'} site ${item.site_code ?? '-'} periode ${monthLabel} ${item.period_year} berhasil dihapus.`,
+
+                    type:
+                        'danger',
+
+                    link:
+                        '/input-data',
+                });
+
+                window.dispatchEvent(
+                    new CustomEvent(
+                        'dashboard-data-changed'
+                    )
+                );
+
+                setDeleteTarget(
+                    null
+                );
+
+                await fetchUnitPerformances();
+            } catch (
+            error
+            ) {
+                setResult({
+                    type: 'error',
+
+                    message:
+                        error.response
+                            ?.data
+                            ?.message ??
+                        'Gagal menghapus data performa unit',
+                });
+            } finally {
+                setDeletingId(
+                    null
+                );
+            }
+        };
+
+    const handleSubmit =
+        async (
+            event
+        ) => {
+            event.preventDefault();
+
+            if (
+                !form.site_id
+            ) {
+                setResult({
+                    type: 'error',
+                    message:
+                        'Site wajib dipilih',
+                });
+
+                return;
+            }
+
+            if (
+                !form.unit_model_id
+            ) {
+                setResult({
+                    type: 'error',
+                    message:
+                        'Model unit wajib dipilih',
+                });
+
+                return;
+            }
+
+            const percentageFields =
+                [
+                    form.physical_availability,
+                    form.unit_availability,
+                ];
+
+            const invalid =
+                percentageFields.some(
+                    (
+                        value
+                    ) => {
+                        if (
+                            value ===
+                            ''
+                        ) {
+                            return false;
+                        }
+
+                        const number =
+                            Number(
+                                value
+                            );
+
+                        return (
+                            !Number.isFinite(
+                                number
+                            ) ||
+                            number <
+                            0 ||
+                            number >
+                            100
+                        );
+                    }
+                );
+
+            if (invalid) {
+                setResult({
+                    type: 'error',
+
+                    message:
+                        'Physical Availability dan Unit Availability harus berada di antara 0 sampai 100.',
+                });
+
+                return;
+            }
+
+            const payload = {
+                unit_model_id:
+                    Number(
+                        form.unit_model_id
+                    ),
+
+                period_year:
+                    Number(
+                        form.period_year
+                    ),
+
+                period_month:
+                    Number(
+                        form.period_month
+                    ),
+
+                physical_availability:
+                    form.physical_availability !==
+                        ''
+                        ? Number(
+                            form.physical_availability
+                        ) /
+                        100
+                        : null,
+
+                unit_availability:
+                    form.unit_availability !==
+                        ''
+                        ? Number(
+                            form.unit_availability
+                        ) /
+                        100
+                        : null,
+
+                mtbf:
+                    form.mtbf !==
+                        ''
+                        ? Number(
+                            form.mtbf
+                        )
+                        : null,
+
+                mttr:
+                    form.mttr !==
+                        ''
+                        ? Number(
+                            form.mttr
+                        )
+                        : null,
+
+                productivity:
+                    form.productivity !==
+                        ''
+                        ? Number(
+                            form.productivity
+                        )
+                        : null,
+
+                fuel_consumption:
+                    form.fuel_consumption !==
+                        ''
+                        ? Number(
+                            form.fuel_consumption
+                        )
+                        : null,
+            };
+
+            const selectedModel =
+                unitModels.find(
+                    (
+                        unit
+                    ) =>
+                        String(
+                            unit.id
+                        ) ===
+                        String(
+                            form.unit_model_id
+                        )
+                );
+
+            const modelLabel =
+                selectedModel
+                    ?.model_name ??
+                'unit';
+
+            const monthLabel =
+                getMonthLabel(
+                    form.period_month
+                );
+
+            setSaving(true);
+
+            try {
+                if (
+                    editingId
+                ) {
+                    await axiosClient.put(
+                        `/monthly-unit-performance/${editingId}`,
+                        payload
+                    );
+
+                    setResult({
+                        type:
+                            'success',
+
+                        message:
+                            `Data ${modelLabel} periode ${monthLabel} ${form.period_year} berhasil diperbarui.`,
+                    });
+
+                    addNotification({
+                        title:
+                            'Performa Unit diperbarui',
+
+                        message:
+                            `Data ${modelLabel} periode ${monthLabel} ${form.period_year} berhasil diperbarui.`,
+
+                        type:
+                            'warning',
+
+                        link:
+                            '/input-data',
+                    });
+                } else {
+                    await axiosClient.post(
+                        '/monthly-unit-performance',
+                        payload
+                    );
+
+                    setResult({
+                        type:
+                            'success',
+
+                        message:
+                            `Data ${modelLabel} periode ${monthLabel} ${form.period_year} berhasil disimpan.`,
+                    });
+
+                    addNotification({
+                        title:
+                            'Performa Unit ditambahkan',
+
+                        message:
+                            `Data ${modelLabel} periode ${monthLabel} ${form.period_year} berhasil disimpan.`,
+
+                        type:
+                            'success',
+
+                        link:
+                            '/input-data',
+                    });
+                }
+
+                window.dispatchEvent(
+                    new CustomEvent(
+                        'dashboard-data-changed'
+                    )
+                );
+
+                resetForm();
+
+                await fetchUnitPerformances();
+            } catch (
+            error
+            ) {
+                setResult({
+                    type: 'error',
+
+                    message:
+                        error.response
+                            ?.data
+                            ?.message ??
+                        'Gagal menyimpan data performa unit',
+                });
+            } finally {
+                setSaving(false);
+            }
+        };
+
+    const totalPages =
+        Math.max(
+            1,
+            Math.ceil(
+                unitPerformances.length /
+                rowsPerPage
+            )
+        );
+
+    const startIndex =
+        (
+            currentPage -
+            1
+        ) *
+        rowsPerPage;
+
+    const endIndex =
+        startIndex +
+        rowsPerPage;
+
+    const paginatedList =
+        unitPerformances.slice(
+            startIndex,
+            endIndex
+        );
+
+    return (
+        <>
+            <div className="app-card p-4">
+                <div className="fw-semibold mb-3">
+                    <i className="bi bi-truck text-primary-custom me-2" />
+
                     {editingId
                         ? 'Edit Data Performa Unit Bulanan'
                         : 'Input Data Performa Unit Bulanan'}
@@ -965,298 +2686,275 @@ function UnitPerformanceForm({ sites }) {
 
                 {result && (
                     <div
-                        className={`alert alert-${result.type === 'success' ? 'success' : 'danger'} py-2 mb-3`}
-                        role="alert"
+                        className={`alert alert-${result.type ===
+                            'success'
+                            ? 'success'
+                            : 'danger'
+                            } py-2`}
                     >
-                        <i
-                            className={`bi ${result.type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2`}
-                        />
-                        {result.message}
+                        {
+                            result.message
+                        }
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit}>
+                <form
+                    onSubmit={
+                        handleSubmit
+                    }
+                >
                     <div className="row g-3 mb-3">
                         <div className="col-12 col-md-4">
                             <label className="form-label small text-secondary">
-                                Site <span className="text-danger">*</span>
+                                Site *
                             </label>
 
                             <select
                                 className="form-select"
                                 name="site_id"
-                                value={form.site_id}
-                                onChange={handleChange}
+                                value={
+                                    form.site_id
+                                }
+                                onChange={
+                                    handleChange
+                                }
                                 required
-                                disabled={saving}
                             >
-                                <option value="">Pilih Site</option>
+                                <option value="">
+                                    Pilih Site
+                                </option>
 
-                                {sites.map((site) => (
-                                    <option
-                                        key={site.id}
-                                        value={site.id}
-                                    >
-                                        {site.site_code}
-                                        {site.site_name
-                                            ? ` - ${site.site_name}`
-                                            : ''}
-                                    </option>
-                                ))}
+                                {sites.map(
+                                    (
+                                        site
+                                    ) => (
+                                        <option
+                                            key={
+                                                site.id
+                                            }
+                                            value={
+                                                site.id
+                                            }
+                                        >
+                                            {
+                                                site.site_code
+                                            }
+                                        </option>
+                                    )
+                                )}
                             </select>
                         </div>
 
                         <div className="col-12 col-md-4">
                             <label className="form-label small text-secondary">
-                                Model Unit <span className="text-danger">*</span>
+                                Model Unit *
                             </label>
 
                             <select
                                 className="form-select"
                                 name="unit_model_id"
-                                value={form.unit_model_id}
-                                onChange={handleChange}
+                                value={
+                                    form.unit_model_id
+                                }
+                                onChange={
+                                    handleChange
+                                }
                                 disabled={
                                     !form.site_id ||
-                                    loadingModels ||
-                                    saving
+                                    loadingModels
                                 }
                                 required
                             >
                                 <option value="">
-                                    {!form.site_id
-                                        ? 'Pilih site dahulu'
-                                        : loadingModels
-                                            ? 'Memuat…'
-                                            : 'Pilih Model Unit'}
+                                    Pilih Model Unit
                                 </option>
 
-                                {unitModels.map((unit) => (
-                                    <option
-                                        key={unit.id}
-                                        value={unit.id}
-                                    >
-                                        {unit.model_name}
-                                    </option>
-                                ))}
+                                {allowedUnitModels.map(
+                                    (
+                                        unit
+                                    ) => (
+                                        <option
+                                            key={
+                                                unit.id
+                                            }
+                                            value={
+                                                unit.id
+                                            }
+                                        >
+                                            {
+                                                unit.model_name
+                                            }
+                                        </option>
+                                    )
+                                )}
                             </select>
                         </div>
 
                         <div className="col-6 col-md-2">
                             <label className="form-label small text-secondary">
-                                Bulan <span className="text-danger">*</span>
+                                Bulan
                             </label>
 
                             <select
                                 className="form-select"
                                 name="period_month"
-                                value={form.period_month}
-                                onChange={handleChange}
-                                disabled={saving}
+                                value={
+                                    form.period_month
+                                }
+                                onChange={
+                                    handleChange
+                                }
                             >
-                                {MONTHS.map((monthItem) => (
-                                    <option
-                                        key={monthItem.value}
-                                        value={monthItem.value}
-                                    >
-                                        {monthItem.label}
-                                    </option>
-                                ))}
+                                {MONTHS.map(
+                                    (
+                                        month
+                                    ) => (
+                                        <option
+                                            key={
+                                                month.value
+                                            }
+                                            value={
+                                                month.value
+                                            }
+                                        >
+                                            {
+                                                month.label
+                                            }
+                                        </option>
+                                    )
+                                )}
                             </select>
                         </div>
 
                         <div className="col-6 col-md-2">
                             <label className="form-label small text-secondary">
-                                Tahun <span className="text-danger">*</span>
+                                Tahun
                             </label>
 
                             <select
                                 className="form-select"
                                 name="period_year"
-                                value={form.period_year}
-                                onChange={handleChange}
-                                disabled={saving}
+                                value={
+                                    form.period_year
+                                }
+                                onChange={
+                                    handleChange
+                                }
                             >
-                                {YEARS.map((yearItem) => (
-                                    <option
-                                        key={yearItem}
-                                        value={yearItem}
-                                    >
-                                        {yearItem}
-                                    </option>
-                                ))}
+                                {YEARS.map(
+                                    (
+                                        year
+                                    ) => (
+                                        <option
+                                            key={
+                                                year
+                                            }
+                                        >
+                                            {
+                                                year
+                                            }
+                                        </option>
+                                    )
+                                )}
                             </select>
                         </div>
                     </div>
 
                     <div className="row g-3 mb-3">
-                        <div className="col-12">
-                            <div className="small text-secondary fw-semibold mb-2">
-                                Availability (%)
-                            </div>
-                        </div>
+                        {[
+                            [
+                                'physical_availability',
+                                'Physical Availability (%)',
+                            ],
 
-                        <div className="col-6 col-md-3">
-                            <label className="form-label small text-secondary">
-                                Physical Availability
-                            </label>
+                            [
+                                'unit_availability',
+                                'Unit Availability (%)',
+                            ],
 
-                            <div className="input-group input-group-sm">
-                                <input
-                                    type="number"
-                                    className="form-control"
-                                    name="physical_availability"
-                                    value={form.physical_availability}
-                                    onChange={handleChange}
-                                    min="0"
-                                    max="100"
-                                    step="0.01"
-                                    placeholder="mis. 97.5"
-                                    disabled={saving}
-                                />
-                                <span className="input-group-text">%</span>
-                            </div>
-                        </div>
+                            [
+                                'mtbf',
+                                'MTBF',
+                            ],
 
-                        <div className="col-6 col-md-3">
-                            <label className="form-label small text-secondary">
-                                Unit Availability
-                            </label>
+                            [
+                                'mttr',
+                                'MTTR',
+                            ],
 
-                            <div className="input-group input-group-sm">
-                                <input
-                                    type="number"
-                                    className="form-control"
-                                    name="unit_availability"
-                                    value={form.unit_availability}
-                                    onChange={handleChange}
-                                    min="0"
-                                    max="100"
-                                    step="0.01"
-                                    placeholder="mis. 96.8"
-                                    disabled={saving}
-                                />
-                                <span className="input-group-text">%</span>
-                            </div>
-                        </div>
+                            [
+                                'productivity',
+                                'Productivity',
+                            ],
 
-                        <div className="col-12">
-                            <div className="small text-secondary fw-semibold mb-2">
-                                MTBF & MTTR (jam)
-                            </div>
-                        </div>
+                            [
+                                'fuel_consumption',
+                                'Fuel Consumption',
+                            ],
+                        ].map(
+                            ([
+                                name,
+                                label,
+                            ]) => (
+                                <div
+                                    key={
+                                        name
+                                    }
+                                    className="col-6 col-md-4"
+                                >
+                                    <label className="form-label small text-secondary">
+                                        {
+                                            label
+                                        }
+                                    </label>
 
-                        <div className="col-6 col-md-3">
-                            <label className="form-label small text-secondary">
-                                MTBF
-                            </label>
-
-                            <div className="input-group input-group-sm">
-                                <input
-                                    type="number"
-                                    className="form-control"
-                                    name="mtbf"
-                                    value={form.mtbf}
-                                    onChange={handleChange}
-                                    min="0"
-                                    step="0.1"
-                                    placeholder="mis. 250"
-                                    disabled={saving}
-                                />
-                                <span className="input-group-text">jam</span>
-                            </div>
-                        </div>
-
-                        <div className="col-6 col-md-3">
-                            <label className="form-label small text-secondary">
-                                MTTR
-                            </label>
-
-                            <div className="input-group input-group-sm">
-                                <input
-                                    type="number"
-                                    className="form-control"
-                                    name="mttr"
-                                    value={form.mttr}
-                                    onChange={handleChange}
-                                    min="0"
-                                    step="0.1"
-                                    placeholder="mis. 4.5"
-                                    disabled={saving}
-                                />
-                                <span className="input-group-text">jam</span>
-                            </div>
-                        </div>
-
-                        <div className="col-12">
-                            <div className="small text-secondary fw-semibold mb-2">
-                                Produktivitas & Fuel
-                            </div>
-                        </div>
-
-                        <div className="col-6 col-md-3">
-                            <label className="form-label small text-secondary">
-                                Produktivitas
-                            </label>
-
-                            <input
-                                type="number"
-                                className="form-control form-control-sm"
-                                name="productivity"
-                                value={form.productivity}
-                                onChange={handleChange}
-                                min="0"
-                                step="0.01"
-                                placeholder="mis. 85.3"
-                                disabled={saving}
-                            />
-                        </div>
-
-                        <div className="col-6 col-md-3">
-                            <label className="form-label small text-secondary">
-                                Fuel Consumption
-                            </label>
-
-                            <div className="input-group input-group-sm">
-                                <input
-                                    type="number"
-                                    className="form-control"
-                                    name="fuel_consumption"
-                                    value={form.fuel_consumption}
-                                    onChange={handleChange}
-                                    min="0"
-                                    step="1"
-                                    placeholder="mis. 12500"
-                                    disabled={saving}
-                                />
-                                <span className="input-group-text">L</span>
-                            </div>
-                        </div>
+                                    <input
+                                        type="number"
+                                        className="form-control"
+                                        name={
+                                            name
+                                        }
+                                        value={
+                                            form[
+                                            name
+                                            ]
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                        min="0"
+                                        step="0.01"
+                                    />
+                                </div>
+                            )
+                        )}
                     </div>
 
                     <div className="d-flex justify-content-end gap-2">
                         {editingId && (
                             <button
                                 type="button"
-                                className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
-                                onClick={handleCancelEdit}
-                                disabled={saving}
+                                className="btn btn-outline-secondary btn-sm"
+                                onClick={
+                                    resetForm
+                                }
                             >
-                                <i className="bi bi-x-circle" />
                                 Batal Edit
                             </button>
                         )}
 
                         <button
                             type="submit"
-                            className="btn btn-primary btn-sm d-flex align-items-center gap-2"
-                            disabled={saving}
+                            className="btn btn-primary btn-sm"
+                            disabled={
+                                saving
+                            }
                         >
                             {saving && (
-                                <span className="spinner-border spinner-border-sm" />
+                                <span className="spinner-border spinner-border-sm me-2" />
                             )}
 
-                            <i className="bi bi-save" />
+                            <i className="bi bi-save me-2" />
 
                             {editingId
                                 ? 'Simpan Perubahan'
@@ -1267,305 +2965,241 @@ function UnitPerformanceForm({ sites }) {
             </div>
 
             <div className="app-card p-4 mt-3">
-                <div className="d-flex justify-content-between align-items-start gap-3 mb-3">
-                    <div>
-                        <div
-                            className="fw-semibold d-flex align-items-center gap-2"
-                            style={{
-                                color: 'var(--text-primary)',
-                            }}
-                        >
-                            <i className="bi bi-table text-primary-custom" />
-                            Data Performa Unit
-                        </div>
-
-                        <div className="small text-secondary mt-1">
-                            Menampilkan{' '}
-                            {unitPerformances.length === 0
-                                ? 0
-                                : startIndex + 1}
-                            {' - '}
-                            {Math.min(
-                                endIndex,
-                                unitPerformances.length
-                            )}
-                            {' dari '}
-                            {unitPerformances.length} data
-                        </div>
+                <div className="d-flex justify-content-between mb-3">
+                    <div className="fw-semibold">
+                        Data Performa Unit
                     </div>
 
                     <button
                         type="button"
                         className="btn btn-outline-primary btn-sm"
-                        onClick={fetchUnitPerformances}
-                        disabled={loadingData}
+                        onClick={
+                            fetchUnitPerformances
+                        }
                     >
-                        {loadingData ? (
-                            <span className="spinner-border spinner-border-sm me-2" />
-                        ) : (
-                            <i className="bi bi-arrow-clockwise me-2" />
-                        )}
-
+                        <i className="bi bi-arrow-clockwise me-2" />
                         Refresh
                     </button>
                 </div>
 
                 {dataError && (
-                    <div className="alert alert-danger py-2">
-                        <i className="bi bi-exclamation-triangle me-2" />
-                        {dataError}
+                    <div className="alert alert-danger">
+                        {
+                            dataError
+                        }
                     </div>
                 )}
 
                 {loadingData ? (
-                    <div className="d-flex align-items-center gap-2 text-secondary py-3">
-                        <span className="spinner-border spinner-border-sm" />
-                        <span>Memuat data performa unit…</span>
-                    </div>
-                ) : unitPerformances.length === 0 ? (
-                    <div className="text-secondary text-center py-3">
-                        Belum ada data performa unit.
+                    <div className="text-secondary">
+                        Memuat data...
                     </div>
                 ) : (
-                    <div className="table-responsive">
-                        <table className="table table-sm table-hover align-middle mb-0">
-                            <thead>
-                                <tr
-                                    className="text-secondary"
-                                    style={{ fontSize: '0.8rem' }}
-                                >
-                                    <th>Site</th>
-                                    <th>Model Unit</th>
-                                    <th>Periode</th>
-                                    <th>PA</th>
-                                    <th>UA</th>
-                                    <th>MTBF</th>
-                                    <th>MTTR</th>
-                                    <th>Produktivitas</th>
-                                    <th>Fuel</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
+                    <>
+                        <div className="table-responsive">
+                            <table className="table table-sm table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>
+                                            Site
+                                        </th>
 
-                            <tbody>
-                                {paginatedUnitPerformances.map(
-                                    (item) => {
-                                        const monthLabel =
-                                            getMonthLabel(
-                                                item.period_month
-                                            );
+                                        <th>
+                                            Model
+                                        </th>
 
-                                        return (
-                                            <tr key={item.id}>
+                                        <th>
+                                            Periode
+                                        </th>
+
+                                        <th>
+                                            PA
+                                        </th>
+
+                                        <th>
+                                            UA
+                                        </th>
+
+                                        <th>
+                                            MTBF
+                                        </th>
+
+                                        <th>
+                                            MTTR
+                                        </th>
+
+                                        <th>
+                                            Productivity
+                                        </th>
+
+                                        <th>
+                                            Fuel
+                                        </th>
+
+                                        <th>
+                                            Aksi
+                                        </th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {paginatedList.map(
+                                        (
+                                            item
+                                        ) => (
+                                            <tr
+                                                key={
+                                                    item.id
+                                                }
+                                            >
                                                 <td>
-                                                    {item.site_code ?? '-'}
+                                                    {
+                                                        item.site_code
+                                                    }
                                                 </td>
 
                                                 <td>
-                                                    {item.model_name ?? '-'}
+                                                    {
+                                                        item.model_name
+                                                    }
                                                 </td>
 
                                                 <td>
-                                                    {monthLabel}{' '}
-                                                    {item.period_year}
+                                                    {getMonthLabel(
+                                                        item.period_month
+                                                    )}{' '}
+                                                    {
+                                                        item.period_year
+                                                    }
                                                 </td>
 
                                                 <td>
-                                                    {item.physical_availability !==
-                                                        null &&
-                                                        item.physical_availability !==
-                                                        undefined
-                                                        ? `${(
-                                                            Number(
-                                                                item.physical_availability
-                                                            ) * 100
-                                                        ).toFixed(2)}%`
-                                                        : '-'}
+                                                    {formatKpiPercent(
+                                                        item.physical_availability
+                                                    )}
                                                 </td>
 
                                                 <td>
-                                                    {item.unit_availability !==
-                                                        null &&
-                                                        item.unit_availability !==
-                                                        undefined
-                                                        ? `${(
-                                                            Number(
-                                                                item.unit_availability
-                                                            ) * 100
-                                                        ).toFixed(2)}%`
-                                                        : '-'}
+                                                    {formatKpiPercent(
+                                                        item.unit_availability
+                                                    )}
                                                 </td>
 
                                                 <td>
-                                                    {item.mtbf ?? '-'}
+                                                    {displayOrDash(
+                                                        item.mtbf
+                                                    )}
                                                 </td>
 
                                                 <td>
-                                                    {item.mttr ?? '-'}
+                                                    {displayOrDash(
+                                                        item.mttr
+                                                    )}
                                                 </td>
 
                                                 <td>
-                                                    {item.productivity ??
-                                                        '-'}
+                                                    {displayOrDash(
+                                                        item.productivity
+                                                    )}
                                                 </td>
 
                                                 <td>
-                                                    {item.fuel_consumption ??
-                                                        '-'}
+                                                    {displayOrDash(
+                                                        item.fuel_consumption
+                                                    )}
                                                 </td>
 
                                                 <td>
                                                     <div className="d-flex gap-2">
                                                         <button
                                                             type="button"
-                                                            className="btn btn-outline-primary btn-sm d-flex align-items-center gap-1"
+                                                            className="btn btn-outline-primary btn-sm"
                                                             onClick={() =>
                                                                 handleEdit(
                                                                     item
                                                                 )
                                                             }
-                                                            disabled={
-                                                                saving ||
-                                                                deletingId ===
-                                                                item.id
-                                                            }
                                                         >
-                                                            <i className="bi bi-pencil" />
                                                             Edit
                                                         </button>
 
                                                         <button
                                                             type="button"
-                                                            className="btn btn-outline-danger btn-sm d-flex align-items-center gap-1"
+                                                            className="btn btn-outline-danger btn-sm"
                                                             onClick={() =>
                                                                 handleDelete(
                                                                     item
                                                                 )
                                                             }
-                                                            disabled={
-                                                                saving ||
-                                                                deletingId ===
-                                                                item.id
-                                                            }
                                                         >
-                                                            {deletingId ===
-                                                                item.id ? (
-                                                                <span className="spinner-border spinner-border-sm" />
-                                                            ) : (
-                                                                <i className="bi bi-trash" />
-                                                            )}
                                                             Hapus
                                                         </button>
                                                     </div>
                                                 </td>
                                             </tr>
-                                        );
-                                    }
-                                )}
-                            </tbody>
-                        </table>
+                                        )
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
 
-                        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 mt-3">
+                        <div className="d-flex justify-content-between mt-3">
                             <small className="text-secondary">
-                                Halaman {currentPage} dari {totalPages}
+                                {unitPerformances.length}{' '}
+                                data
                             </small>
 
-                            <nav aria-label="Pagination data performa unit">
-                                <ul className="pagination pagination-sm mb-0">
-                                    <li
-                                        className={`page-item ${currentPage === 1
-                                            ? 'disabled'
-                                            : ''
-                                            }`}
-                                    >
-                                        <button
-                                            type="button"
-                                            className="page-link"
-                                            onClick={() =>
-                                                setCurrentPage(
-                                                    (page) =>
-                                                        Math.max(
-                                                            1,
-                                                            page - 1
-                                                        )
-                                                )
-                                            }
-                                            disabled={
-                                                currentPage === 1
-                                            }
-                                            aria-label="Halaman sebelumnya"
-                                        >
-                                            <i className="bi bi-chevron-left" />
-                                        </button>
-                                    </li>
-
-                                    {Array.from(
-                                        {
-                                            length: totalPages,
-                                        },
-                                        (_, index) => index + 1
-                                    ).map((pageNumber) => (
-                                        <li
-                                            key={pageNumber}
-                                            className={`page-item ${currentPage ===
-                                                pageNumber
-                                                ? 'active'
-                                                : ''
-                                                }`}
-                                        >
-                                            <button
-                                                type="button"
-                                                className="page-link"
-                                                onClick={() =>
-                                                    setCurrentPage(
-                                                        pageNumber
-                                                    )
-                                                }
-                                            >
-                                                {pageNumber}
-                                            </button>
-                                        </li>
-                                    ))}
-
-                                    <li
-                                        className={`page-item ${currentPage ===
-                                            totalPages
-                                            ? 'disabled'
-                                            : ''
-                                            }`}
-                                    >
-                                        <button
-                                            type="button"
-                                            className="page-link"
-                                            onClick={() =>
-                                                setCurrentPage(
-                                                    (page) =>
-                                                        Math.min(
-                                                            totalPages,
-                                                            page + 1
-                                                        )
-                                                )
-                                            }
-                                            disabled={
-                                                currentPage ===
-                                                totalPages
-                                            }
-                                            aria-label="Halaman berikutnya"
-                                        >
-                                            <i className="bi bi-chevron-right" />
-                                        </button>
-                                    </li>
-                                </ul>
-                            </nav>
+                            <Pagination
+                                currentPage={
+                                    currentPage
+                                }
+                                totalPages={
+                                    totalPages
+                                }
+                                onChange={
+                                    setCurrentPage
+                                }
+                            />
                         </div>
-                    </div>
+                    </>
                 )}
             </div>
+
+            <ConfirmModal
+                show={
+                    !!deleteTarget
+                }
+                title="Hapus data performa unit?"
+                message={
+                    deleteTarget
+                        ?.deleteMessage
+                }
+                loading={
+                    deletingId !==
+                    null
+                }
+                onCancel={() => {
+                    if (
+                        deletingId ===
+                        null
+                    ) {
+                        setDeleteTarget(
+                            null
+                        );
+                    }
+                }}
+                onConfirm={
+                    handleConfirmDelete
+                }
+            />
         </>
     );
 }
 
-// ── Sub-form: Input Pending Supply ──────────────────────────────────────────
+// ============================================================================
+// PENDING SUPPLY
+// ============================================================================
+
 const EMPTY_SUPPLY_FORM = {
     site_id: '',
     parts_number: '',
@@ -1576,532 +3210,1016 @@ const EMPTY_SUPPLY_FORM = {
     remarks: '',
 };
 
-const ID_MONTH_NAMES = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-];
+function PendingSupplyForm({
+    sites,
+}) {
+    const [
+        form,
+        setForm,
+    ] = useState({
+        ...EMPTY_SUPPLY_FORM,
+    });
 
-// Format tanggal (YYYY-MM-DD atau ISO datetime) menjadi format Indonesia.
-// "2026-08-15" -> "15 Agustus 2026", null/'' -> "-"
-function formatEtaIndonesia(value) {
-    if (!value) return '-';
-    const dateOnly = String(value).slice(0, 10);
-    const parts = dateOnly.split('-').map(Number);
-    const [year, month, day] = parts;
-    if (!year || !month || !day || !ID_MONTH_NAMES[month - 1]) return '-';
-    return `${day} ${ID_MONTH_NAMES[month - 1]} ${year}`;
-}
+    const [
+        saving,
+        setSaving,
+    ] = useState(false);
 
-// Tampilkan '-' untuk nilai kosong/null pada kolom teks bebas.
-function displayOrDash(value) {
-    if (value === null || value === undefined || value === '') return '-';
-    return value;
-}
+    const [
+        result,
+        setResult,
+    ] = useState(null);
 
-function PendingSupplyForm({ sites }) {
-    const [form, setForm] = useState({ ...EMPTY_SUPPLY_FORM });
-    const [saving, setSaving] = useState(false);
-    const [result, setResult] = useState(null); // { type: 'success'|'error', message }
-    const [editingId, setEditingId] = useState(null);
+    const [
+        editingId,
+        setEditingId,
+    ] = useState(null);
 
-    const [list, setList] = useState([]);
-    const [loadingList, setLoadingList] = useState(false);
-    const [deletingId, setDeletingId] = useState(null);
+    const [
+        list,
+        setList,
+    ] = useState([]);
 
-    // Pagination Pending Supply
-    const [currentPage, setCurrentPage] = useState(1);
+    const [
+        loadingList,
+        setLoadingList,
+    ] = useState(false);
+
+    const [
+        deletingId,
+        setDeletingId,
+    ] = useState(null);
+
+    const [
+        deleteTarget,
+        setDeleteTarget,
+    ] = useState(null);
+
+    const [
+        currentPage,
+        setCurrentPage,
+    ] = useState(1);
+
     const rowsPerPage = 20;
 
-    // Notifikasi otomatis hilang setelah beberapa detik
-    useEffect(() => {
-        if (!result) return undefined;
-        const timer = setTimeout(() => setResult(null), 4000);
-        return () => clearTimeout(timer);
-    }, [result]);
+    const fetchList =
+        async () => {
+            setLoadingList(
+                true
+            );
 
-    const fetchList = async () => {
-        setLoadingList(true);
-        try {
-            const res = await axiosClient.get('/pending-supply');
-            const data = res.data?.data ?? [];
-            const sorted = [...data].sort((a, b) => {
-                const bUpdated = b.updated_at ? new Date(b.updated_at).getTime() : 0;
-                const aUpdated = a.updated_at ? new Date(a.updated_at).getTime() : 0;
-                if (bUpdated !== aUpdated) return bUpdated - aUpdated;
+            try {
+                const response =
+                    await axiosClient.get(
+                        '/pending-supply'
+                    );
 
-                const bCreated = b.created_at ? new Date(b.created_at).getTime() : 0;
-                const aCreated = a.created_at ? new Date(a.created_at).getTime() : 0;
-                if (bCreated !== aCreated) return bCreated - aCreated;
+                const data =
+                    response.data
+                        ?.data ??
+                    [];
 
-                return b.id - a.id;
-            });
-            setList(sorted);
-        } catch (err) {
-            const msg = err.response?.data?.message ?? 'Gagal mengambil data Pending Supply';
-            setResult({ type: 'error', message: msg });
-        } finally {
-            setLoadingList(false);
-        }
-    };
+                setList(
+                    [...data].sort(
+                        (
+                            a,
+                            b
+                        ) =>
+                            Number(
+                                b.id
+                            ) -
+                            Number(
+                                a.id
+                            )
+                    )
+                );
+            } catch (
+            error
+            ) {
+                setResult({
+                    type: 'error',
+
+                    message:
+                        error.response
+                            ?.data
+                            ?.message ??
+                        'Gagal mengambil data Pending Supply',
+                });
+            } finally {
+                setLoadingList(
+                    false
+                );
+            }
+        };
 
     useEffect(() => {
         fetchList();
     }, []);
 
-    const handleChange = (e) => {
-        setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-        setResult(null);
-    };
+    const handleChange = (
+        event
+    ) => {
+        const {
+            name,
+            value,
+        } = event.target;
 
-    const resetForm = () => {
-        setForm({ ...EMPTY_SUPPLY_FORM });
-        setEditingId(null);
-    };
-
-    const handleCancelEdit = () => {
-        resetForm();
-        setResult(null);
-    };
-
-    const handleEdit = (row) => {
-        setEditingId(row.id);
-        setForm({
-            site_id: String(row.site_id ?? ''),
-            parts_number: row.parts_number ?? '',
-            description: row.description ?? '',
-            qty: row.qty !== null && row.qty !== undefined ? String(row.qty) : '',
-            no_po: row.no_po ?? '',
-            eta: row.eta ? String(row.eta).slice(0, 10) : '',
-            remarks: row.remarks ?? '',
-        });
-        setResult(null);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    const handleDelete = async (row) => {
-        const confirmed = window.confirm(
-            `Yakin ingin menghapus Pending Supply part ${row.parts_number} site ${row.site_code}?`
+        setForm(
+            (
+                previous
+            ) => ({
+                ...previous,
+                [name]:
+                    value,
+            })
         );
-        if (!confirmed) return;
-
-        setDeletingId(row.id);
-        try {
-            await axiosClient.delete(`/pending-supply/${row.id}`);
-            setResult({
-                type: 'success',
-                message: `Data Pending Supply part ${row.parts_number} site ${row.site_code} berhasil dihapus.`,
-            });
-
-            addNotification({
-                title: 'Pending Supply dihapus',
-                message: `Part ${row.parts_number} site ${row.site_code ?? '-'} berhasil dihapus.`,
-                type: 'danger',
-                link: '/pending-supply',
-            });
-
-            window.dispatchEvent(
-                new CustomEvent('dashboard-data-changed')
-            );
-
-            if (editingId === row.id) resetForm();
-            await fetchList();
-        } catch (err) {
-            const msg = err.response?.data?.message ?? 'Gagal menghapus data Pending Supply';
-            setResult({ type: 'error', message: msg });
-        } finally {
-            setDeletingId(null);
-        }
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const resetForm =
+        () => {
+            setForm({
+                ...EMPTY_SUPPLY_FORM,
+            });
 
-        if (!form.site_id) { setResult({ type: 'error', message: 'Site wajib dipilih' }); return; }
-        if (!form.parts_number.trim()) { setResult({ type: 'error', message: 'Part number wajib diisi' }); return; }
-
-        if (form.qty !== '') {
-            const qtyNum = Number(form.qty);
-            if (!Number.isFinite(qtyNum) || qtyNum < 0) {
-                setResult({ type: 'error', message: 'Qty tidak boleh negatif' });
-                return;
-            }
-        }
-
-        const payload = {
-            site_id: Number(form.site_id),
-            parts_number: form.parts_number.trim(),
-            description: form.description.trim() || null,
-            qty: form.qty !== '' ? Number(form.qty) : 0,
-            no_po: form.no_po.trim() || null,
-            eta: form.eta || null,
-            remarks: form.remarks.trim() || null,
+            setEditingId(
+                null
+            );
         };
 
-        const selectedSite = sites.find(
-            (site) =>
-                String(site.id) ===
-                String(form.site_id)
+    const handleEdit = (
+        row
+    ) => {
+        setEditingId(
+            row.id
         );
 
-        const siteLabel =
-            selectedSite?.site_code ?? '-';
+        setForm({
+            site_id:
+                String(
+                    row.site_id ??
+                    ''
+                ),
 
-        const partLabel = payload.parts_number;
+            parts_number:
+                row.parts_number ??
+                '',
 
-        setSaving(true);
+            description:
+                row.description ??
+                '',
 
-        try {
-            if (editingId) {
-                await axiosClient.put(
-                    `/pending-supply/${editingId}`,
-                    payload
-                );
+            qty:
+                row.qty ??
+                '',
 
-                setResult({
-                    type: 'success',
-                    message: `Data Pending Supply part ${partLabel} site ${siteLabel} berhasil diperbarui.`,
-                });
+            no_po:
+                row.no_po ??
+                '',
 
-                addNotification({
-                    title: 'Pending Supply diperbarui',
-                    message: `Part ${partLabel} site ${siteLabel} berhasil diperbarui.`,
-                    type: 'warning',
-                    link: '/pending-supply',
-                });
-            } else {
-                await axiosClient.post(
-                    '/pending-supply',
-                    payload
-                );
+            eta:
+                row.eta
+                    ? String(
+                        row.eta
+                    ).slice(
+                        0,
+                        10
+                    )
+                    : '',
 
-                setResult({
-                    type: 'success',
-                    message: `Data Pending Supply part ${partLabel} site ${siteLabel} berhasil disimpan.`,
-                });
-
-                addNotification({
-                    title: 'Pending Supply ditambahkan',
-                    message: `Part ${partLabel} site ${siteLabel} berhasil ditambahkan.`,
-                    type: 'success',
-                    link: '/pending-supply',
-                });
-            }
-
-            window.dispatchEvent(
-                new CustomEvent('dashboard-data-changed')
-            );
-
-            resetForm();
-            await fetchList();
-        } catch (err) {
-            const fallback = editingId
-                ? 'Gagal memperbarui data Pending Supply'
-                : 'Gagal menyimpan data Pending Supply';
-            const msg = err.response?.data?.message ?? fallback;
-            setResult({ type: 'error', message: msg });
-        } finally {
-            setSaving(false);
-        }
+            remarks:
+                row.remarks ??
+                '',
+        });
     };
 
-    const totalPages = Math.max(1, Math.ceil(list.length / rowsPerPage));
-    const startIndex = (currentPage - 1) * rowsPerPage;
-    const endIndex = startIndex + rowsPerPage;
-    const paginatedList = list.slice(startIndex, endIndex);
+    // ============================================================
+    // BUKA MODAL DELETE PENDING
+    // ============================================================
 
-    useEffect(() => {
-        if (currentPage > totalPages) {
-            setCurrentPage(totalPages);
-        }
-    }, [currentPage, totalPages]);
+    const handleDelete = (
+        row
+    ) => {
+        setDeleteTarget({
+            ...row,
+
+            deleteMessage:
+                `Pending Supply part ${row.parts_number ?? '-'} site ${row.site_code ?? '-'} akan dihapus permanen.`,
+        });
+    };
+
+    // ============================================================
+    // KONFIRMASI DELETE PENDING
+    // ============================================================
+
+    const handleConfirmDelete =
+        async () => {
+            if (
+                !deleteTarget
+            ) {
+                return;
+            }
+
+            const row =
+                deleteTarget;
+
+            setDeletingId(
+                row.id
+            );
+
+            try {
+                await axiosClient.delete(
+                    `/pending-supply/${row.id}`
+                );
+
+                setResult({
+                    type: 'success',
+
+                    message:
+                        `Data Pending Supply part ${row.parts_number} site ${row.site_code} berhasil dihapus.`,
+                });
+
+                addNotification({
+                    title:
+                        'Pending Supply dihapus',
+
+                    message:
+                        `Part ${row.parts_number} site ${row.site_code ?? '-'} berhasil dihapus.`,
+
+                    type:
+                        'danger',
+
+                    link:
+                        '/pending-supply',
+                });
+
+                window.dispatchEvent(
+                    new CustomEvent(
+                        'dashboard-data-changed'
+                    )
+                );
+
+                if (
+                    editingId ===
+                    row.id
+                ) {
+                    resetForm();
+                }
+
+                setDeleteTarget(
+                    null
+                );
+
+                await fetchList();
+            } catch (
+            error
+            ) {
+                setResult({
+                    type: 'error',
+
+                    message:
+                        error.response
+                            ?.data
+                            ?.message ??
+                        'Gagal menghapus data Pending Supply',
+                });
+            } finally {
+                setDeletingId(
+                    null
+                );
+            }
+        };
+
+    const handleSubmit =
+        async (
+            event
+        ) => {
+            event.preventDefault();
+
+            if (
+                !form.site_id
+            ) {
+                setResult({
+                    type: 'error',
+                    message:
+                        'Site wajib dipilih',
+                });
+
+                return;
+            }
+
+            if (
+                !form.parts_number.trim()
+            ) {
+                setResult({
+                    type: 'error',
+
+                    message:
+                        'Part number wajib diisi',
+                });
+
+                return;
+            }
+
+            const payload = {
+                site_id:
+                    Number(
+                        form.site_id
+                    ),
+
+                parts_number:
+                    form.parts_number.trim(),
+
+                description:
+                    form.description.trim() ||
+                    null,
+
+                qty:
+                    form.qty !==
+                        ''
+                        ? Number(
+                            form.qty
+                        )
+                        : 0,
+
+                no_po:
+                    form.no_po.trim() ||
+                    null,
+
+                eta:
+                    form.eta ||
+                    null,
+
+                remarks:
+                    form.remarks.trim() ||
+                    null,
+            };
+
+            const selectedSite =
+                sites.find(
+                    (
+                        site
+                    ) =>
+                        String(
+                            site.id
+                        ) ===
+                        String(
+                            form.site_id
+                        )
+                );
+
+            const siteLabel =
+                selectedSite
+                    ?.site_code ??
+                '-';
+
+            setSaving(true);
+
+            try {
+                if (
+                    editingId
+                ) {
+                    await axiosClient.put(
+                        `/pending-supply/${editingId}`,
+                        payload
+                    );
+                } else {
+                    await axiosClient.post(
+                        '/pending-supply',
+                        payload
+                    );
+                }
+
+                setResult({
+                    type: 'success',
+
+                    message:
+                        `Pending Supply ${payload.parts_number} site ${siteLabel} berhasil ${editingId
+                            ? 'diperbarui'
+                            : 'disimpan'
+                        }.`,
+                });
+
+                addNotification({
+                    title:
+                        editingId
+                            ? 'Pending Supply diperbarui'
+                            : 'Pending Supply ditambahkan',
+
+                    message:
+                        `Part ${payload.parts_number} site ${siteLabel} berhasil ${editingId
+                            ? 'diperbarui'
+                            : 'ditambahkan'
+                        }.`,
+
+                    type:
+                        editingId
+                            ? 'warning'
+                            : 'success',
+
+                    link:
+                        '/pending-supply',
+                });
+
+                window.dispatchEvent(
+                    new CustomEvent(
+                        'dashboard-data-changed'
+                    )
+                );
+
+                resetForm();
+
+                await fetchList();
+            } catch (
+            error
+            ) {
+                setResult({
+                    type: 'error',
+
+                    message:
+                        error.response
+                            ?.data
+                            ?.message ??
+                        'Gagal menyimpan Pending Supply',
+                });
+            } finally {
+                setSaving(false);
+            }
+        };
+
+    const totalPages =
+        Math.max(
+            1,
+            Math.ceil(
+                list.length /
+                rowsPerPage
+            )
+        );
+
+    const startIndex =
+        (
+            currentPage -
+            1
+        ) *
+        rowsPerPage;
+
+    const endIndex =
+        startIndex +
+        rowsPerPage;
+
+    const paginatedList =
+        list.slice(
+            startIndex,
+            endIndex
+        );
 
     return (
         <>
             <div className="app-card p-4">
-                <div className="fw-semibold mb-3 d-flex align-items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                    <i className="bi bi-hourglass-split text-primary-custom" />
-                    {editingId ? 'Edit Pending Supply' : 'Input Pending Supply'}
+                <div className="fw-semibold mb-3">
+                    <i className="bi bi-hourglass-split text-primary-custom me-2" />
+
+                    {editingId
+                        ? 'Edit Pending Supply'
+                        : 'Input Pending Supply'}
                 </div>
 
                 {result && (
-                    <div className={`alert alert-${result.type === 'success' ? 'success' : 'danger'} py-2 mb-3`} role="alert">
-                        <i className={`bi ${result.type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2`} />
-                        {result.message}
+                    <div
+                        className={`alert alert-${result.type ===
+                            'success'
+                            ? 'success'
+                            : 'danger'
+                            }`}
+                    >
+                        {
+                            result.message
+                        }
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit}>
-                    <div className="row g-3 mb-3">
+                <form
+                    onSubmit={
+                        handleSubmit
+                    }
+                >
+                    <div className="row g-3">
                         <div className="col-12 col-md-4">
-                            <label className="form-label small text-secondary">Site <span className="text-danger">*</span></label>
-                            <select className="form-select" name="site_id" value={form.site_id} onChange={handleChange} required disabled={saving}>
-                                <option value="">Pilih Site</option>
-                                {sites.map((s) => (
-                                    <option key={s.id} value={s.id}>{s.site_code}{s.site_name ? ` - ${s.site_name}` : ''}</option>
-                                ))}
+                            <label className="form-label">
+                                Site *
+                            </label>
+
+                            <select
+                                className="form-select"
+                                name="site_id"
+                                value={
+                                    form.site_id
+                                }
+                                onChange={
+                                    handleChange
+                                }
+                                required
+                            >
+                                <option value="">
+                                    Pilih Site
+                                </option>
+
+                                {sites.map(
+                                    (
+                                        site
+                                    ) => (
+                                        <option
+                                            key={
+                                                site.id
+                                            }
+                                            value={
+                                                site.id
+                                            }
+                                        >
+                                            {
+                                                site.site_code
+                                            }
+                                        </option>
+                                    )
+                                )}
                             </select>
                         </div>
-                        <div className="col-12 col-md-4">
-                            <label className="form-label small text-secondary">Part Number <span className="text-danger">*</span></label>
-                            <input type="text" className="form-control" name="parts_number"
-                                value={form.parts_number} onChange={handleChange}
-                                placeholder="mis. ABC-123456" required disabled={saving} />
-                        </div>
-                        <div className="col-12 col-md-4">
-                            <label className="form-label small text-secondary">Deskripsi</label>
-                            <input type="text" className="form-control" name="description"
-                                value={form.description} onChange={handleChange}
-                                placeholder="Nama atau deskripsi part" disabled={saving} />
-                        </div>
-                        <div className="col-6 col-md-2">
-                            <label className="form-label small text-secondary">Qty</label>
-                            <input type="number" className="form-control" name="qty"
-                                value={form.qty} onChange={handleChange}
-                                min="0" step="1" placeholder="0" disabled={saving} />
-                        </div>
-                        <div className="col-6 col-md-3">
-                            <label className="form-label small text-secondary">No. PO</label>
-                            <input type="text" className="form-control" name="no_po"
-                                value={form.no_po} onChange={handleChange}
-                                placeholder="Nomor Purchase Order" disabled={saving} />
-                        </div>
-                        <div className="col-6 col-md-3">
-                            <label className="form-label small text-secondary">ETA</label>
-                            <input type="date" className="form-control" name="eta"
-                                value={form.eta} onChange={handleChange} disabled={saving} />
-                        </div>
-                        <div className="col-12 col-md-4">
-                            <label className="form-label small text-secondary">Keterangan</label>
-                            <input type="text" className="form-control" name="remarks"
-                                value={form.remarks} onChange={handleChange}
-                                placeholder="Catatan tambahan (opsional)" disabled={saving} />
-                        </div>
+
+                        {[
+                            [
+                                'parts_number',
+                                'Part Number',
+                            ],
+
+                            [
+                                'description',
+                                'Deskripsi',
+                            ],
+
+                            [
+                                'qty',
+                                'Qty',
+                            ],
+
+                            [
+                                'no_po',
+                                'No. PO',
+                            ],
+
+                            [
+                                'eta',
+                                'ETA',
+                            ],
+
+                            [
+                                'remarks',
+                                'Keterangan',
+                            ],
+                        ].map(
+                            ([
+                                name,
+                                label,
+                            ]) => (
+                                <div
+                                    key={
+                                        name
+                                    }
+                                    className="col-12 col-md-4"
+                                >
+                                    <label className="form-label">
+                                        {
+                                            label
+                                        }
+                                    </label>
+
+                                    <input
+                                        type={
+                                            name ===
+                                                'eta'
+                                                ? 'date'
+                                                : name ===
+                                                    'qty'
+                                                    ? 'number'
+                                                    : 'text'
+                                        }
+                                        className="form-control"
+                                        name={
+                                            name
+                                        }
+                                        value={
+                                            form[
+                                            name
+                                            ]
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                    />
+                                </div>
+                            )
+                        )}
                     </div>
 
-                    <div className="d-flex justify-content-end gap-2">
+                    <div className="d-flex justify-content-end gap-2 mt-3">
                         {editingId && (
-                            <button type="button" className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
-                                onClick={handleCancelEdit} disabled={saving}>
-                                <i className="bi bi-x-circle" />
+                            <button
+                                type="button"
+                                className="btn btn-outline-secondary btn-sm"
+                                onClick={
+                                    resetForm
+                                }
+                            >
                                 Batal Edit
                             </button>
                         )}
-                        <button type="submit" className="btn btn-primary btn-sm d-flex align-items-center gap-2" disabled={saving}>
-                            {saving && <span className="spinner-border spinner-border-sm" />}
-                            <i className="bi bi-save" />
-                            {editingId ? 'Simpan Perubahan' : 'Simpan Pending Supply'}
+
+                        <button
+                            type="submit"
+                            className="btn btn-primary btn-sm"
+                            disabled={
+                                saving
+                            }
+                        >
+                            <i className="bi bi-save me-2" />
+                            Simpan
                         </button>
                     </div>
                 </form>
             </div>
 
-            {/* ── Tabel Data Pending Supply ─────────────────────────────────── */}
             <div className="app-card p-4 mt-3">
-                <div className="d-flex justify-content-between align-items-start gap-3 mb-3">
-                    <div className="fw-semibold d-flex align-items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                        <i className="bi bi-table text-primary-custom" />
-                        Data Pending Supply Terbaru
+                <div className="d-flex justify-content-between mb-3">
+                    <div className="fw-semibold">
+                        Data Pending Supply
                     </div>
 
                     <button
                         type="button"
                         className="btn btn-outline-primary btn-sm"
-                        onClick={fetchList}
-                        disabled={loadingList}
+                        onClick={
+                            fetchList
+                        }
                     >
-                        {loadingList ? (
-                            <span className="spinner-border spinner-border-sm me-2" />
-                        ) : (
-                            <i className="bi bi-arrow-clockwise me-2" />
-                        )}
                         Refresh
                     </button>
                 </div>
 
                 {loadingList ? (
-                    <div className="d-flex align-items-center gap-2 text-secondary py-3">
-                        <span className="spinner-border spinner-border-sm" role="status" />
-                        <span>Memuat data Pending Supply…</span>
+                    <div className="text-secondary">
+                        Memuat data...
                     </div>
-                ) : list.length === 0 ? (
-                    <div className="text-secondary text-center py-3">Belum ada data Pending Supply.</div>
                 ) : (
-                    <div className="table-responsive">
-                        <table className="table table-sm table-hover align-middle mb-0">
-                            <thead>
-                                <tr className="text-secondary" style={{ fontSize: '0.8rem' }}>
-                                    <th>Site</th>
-                                    <th>Part Number</th>
-                                    <th>Deskripsi</th>
-                                    <th>Qty</th>
-                                    <th>No. PO</th>
-                                    <th>ETA</th>
-                                    <th>Keterangan</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {paginatedList.map((row) => (
-                                    <tr key={row.id}>
-                                        <td>{row.site_code}{row.site_name ? ` - ${row.site_name}` : ''}</td>
-                                        <td>{row.parts_number}</td>
-                                        <td>{displayOrDash(row.description)}</td>
-                                        <td>{row.qty ?? 0}</td>
-                                        <td>{displayOrDash(row.no_po)}</td>
-                                        <td>{formatEtaIndonesia(row.eta)}</td>
-                                        <td>{displayOrDash(row.remarks)}</td>
-                                        <td>
-                                            <div className="d-flex gap-2">
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-outline-primary btn-sm d-flex align-items-center gap-1"
-                                                    onClick={() => handleEdit(row)}
-                                                    disabled={saving || deletingId === row.id}
-                                                >
-                                                    <i className="bi bi-pencil" />
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-outline-danger btn-sm d-flex align-items-center gap-1"
-                                                    onClick={() => handleDelete(row)}
-                                                    disabled={saving || deletingId === row.id}
-                                                >
-                                                    {deletingId === row.id
-                                                        ? <span className="spinner-border spinner-border-sm" />
-                                                        : <i className="bi bi-trash" />}
-                                                    Hapus
-                                                </button>
-                                            </div>
-                                        </td>
+                    <>
+                        <div className="table-responsive">
+                            <table className="table table-sm table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>
+                                            Site
+                                        </th>
+
+                                        <th>
+                                            Part
+                                        </th>
+
+                                        <th>
+                                            Deskripsi
+                                        </th>
+
+                                        <th>
+                                            Qty
+                                        </th>
+
+                                        <th>
+                                            No PO
+                                        </th>
+
+                                        <th>
+                                            ETA
+                                        </th>
+
+                                        <th>
+                                            Keterangan
+                                        </th>
+
+                                        <th>
+                                            Aksi
+                                        </th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
 
-                        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 mt-3">
-                            <small className="text-secondary">
-                                Menampilkan{' '}
-                                {list.length === 0 ? 0 : startIndex + 1}
-                                {' - '}
-                                {Math.min(endIndex, list.length)}
-                                {' dari '}
-                                {list.length} data
-                                <span className="mx-1">·</span>
-                                Halaman {currentPage} dari {totalPages}
-                            </small>
-
-                            <nav aria-label="Pagination Pending Supply">
-                                <ul className="pagination pagination-sm mb-0">
-                                    <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                                        <button
-                                            type="button"
-                                            className="page-link"
-                                            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                                            disabled={currentPage === 1}
-                                            aria-label="Halaman sebelumnya"
-                                        >
-                                            <i className="bi bi-chevron-left" />
-                                        </button>
-                                    </li>
-
-                                    {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-                                        <li
-                                            key={pageNumber}
-                                            className={`page-item ${currentPage === pageNumber ? 'active' : ''}`}
-                                        >
-                                            <button
-                                                type="button"
-                                                className="page-link"
-                                                onClick={() => setCurrentPage(pageNumber)}
+                                <tbody>
+                                    {paginatedList.map(
+                                        (
+                                            row
+                                        ) => (
+                                            <tr
+                                                key={
+                                                    row.id
+                                                }
                                             >
-                                                {pageNumber}
-                                            </button>
-                                        </li>
-                                    ))}
+                                                <td>
+                                                    {
+                                                        row.site_code
+                                                    }
+                                                </td>
 
-                                    <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                                        <button
-                                            type="button"
-                                            className="page-link"
-                                            onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                                            disabled={currentPage === totalPages}
-                                            aria-label="Halaman berikutnya"
-                                        >
-                                            <i className="bi bi-chevron-right" />
-                                        </button>
-                                    </li>
-                                </ul>
-                            </nav>
+                                                <td>
+                                                    {
+                                                        row.parts_number
+                                                    }
+                                                </td>
+
+                                                <td>
+                                                    {displayOrDash(
+                                                        row.description
+                                                    )}
+                                                </td>
+
+                                                <td>
+                                                    {
+                                                        row.qty
+                                                    }
+                                                </td>
+
+                                                <td>
+                                                    {displayOrDash(
+                                                        row.no_po
+                                                    )}
+                                                </td>
+
+                                                <td>
+                                                    {formatEtaIndonesia(
+                                                        row.eta
+                                                    )}
+                                                </td>
+
+                                                <td>
+                                                    {displayOrDash(
+                                                        row.remarks
+                                                    )}
+                                                </td>
+
+                                                <td>
+                                                    <div className="d-flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-outline-primary btn-sm"
+                                                            onClick={() =>
+                                                                handleEdit(
+                                                                    row
+                                                                )
+                                                            }
+                                                        >
+                                                            Edit
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-outline-danger btn-sm"
+                                                            onClick={() =>
+                                                                handleDelete(
+                                                                    row
+                                                                )
+                                                            }
+                                                        >
+                                                            Hapus
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
-                    </div>
+
+                        <Pagination
+                            currentPage={
+                                currentPage
+                            }
+                            totalPages={
+                                totalPages
+                            }
+                            onChange={
+                                setCurrentPage
+                            }
+                        />
+                    </>
                 )}
             </div>
+
+            <ConfirmModal
+                show={
+                    !!deleteTarget
+                }
+                title="Hapus Pending Supply?"
+                message={
+                    deleteTarget
+                        ?.deleteMessage
+                }
+                loading={
+                    deletingId !==
+                    null
+                }
+                onCancel={() => {
+                    if (
+                        deletingId ===
+                        null
+                    ) {
+                        setDeleteTarget(
+                            null
+                        );
+                    }
+                }}
+                onConfirm={
+                    handleConfirmDelete
+                }
+            />
         </>
     );
 }
 
-// ── Halaman Utama ─────────────────────────────────────────────────────────────
+// ============================================================================
+// INPUT DATA
+// ============================================================================
+
 function InputData() {
-    const [sites, setSites] = useState([]);
-    const [loadingSites, setLoadingSites] = useState(true);
-    const [activeTab, setActiveTab] = useState('kpi'); // 'kpi' | 'unit' | 'supply'
+    const [
+        sites,
+        setSites,
+    ] = useState([]);
+
+    const [
+        loadingSites,
+        setLoadingSites,
+    ] = useState(true);
+
+    const [
+        activeTab,
+        setActiveTab,
+    ] = useState(
+        'kpi'
+    );
 
     useEffect(() => {
-        setLoadingSites(true);
+        setLoadingSites(
+            true
+        );
+
         getSites()
-            .then((d) => setSites(d ?? []))
-            .finally(() => setLoadingSites(false));
+            .then(
+                (
+                    data
+                ) => {
+                    const rawSites =
+                        Array.isArray(data)
+                            ? data
+                            : [];
+
+                    const normalizedSites =
+                        normalizeInputSites(
+                            rawSites
+                        );
+
+                    setSites(
+                        normalizedSites
+                    );
+                }
+            )
+            .catch((error) => {
+                console.error(
+                    'Gagal memuat daftar site:',
+                    error
+                );
+
+                setSites([]);
+            })
+            .finally(() =>
+                setLoadingSites(
+                    false
+                )
+            );
     }, []);
 
     const tabs = [
-        { key: 'kpi', label: 'KPI Summary', icon: 'bi-graph-up-arrow' },
-        { key: 'unit', label: 'Performa Unit', icon: 'bi-truck' },
-        { key: 'supply', label: 'Pending Supply', icon: 'bi-hourglass-split' },
+        {
+            key: 'kpi',
+            label:
+                'KPI Summary',
+            icon:
+                'bi-graph-up-arrow',
+        },
+
+        {
+            key: 'unit',
+            label:
+                'Performa Unit',
+            icon:
+                'bi-truck',
+        },
+
+        {
+            key: 'supply',
+            label:
+                'Pending Supply',
+            icon:
+                'bi-hourglass-split',
+        },
     ];
 
     return (
         <div>
-            {/* ── Header ──────────────────────────────────────────────── */}
             <div className="mb-3">
-                <h4 className="fw-bold mb-0" style={{ color: 'var(--text-primary)' }}>
+                <h4
+                    className="fw-bold mb-0"
+                    style={{
+                        color:
+                            'var(--text-primary)',
+                    }}
+                >
                     Input Data
                 </h4>
-                <p className="text-secondary mb-0" style={{ fontSize: '0.875rem' }}>
-                    Tambahkan data KPI, performa unit, atau pending supply ke sistem.
+
+                <p className="text-secondary mb-0 small">
+                    Tambahkan data KPI,
+                    performa unit, atau
+                    pending supply ke
+                    sistem.
                 </p>
             </div>
 
-            {/* ── Info banner jika sites belum tersedia ─────────────── */}
             {loadingSites && (
-                <div className="alert alert-info py-2 mb-3 d-flex align-items-center gap-2">
-                    <div className="spinner-border spinner-border-sm" role="status" />
-                    <span>Memuat daftar site…</span>
+                <div className="alert alert-info py-2">
+                    <span className="spinner-border spinner-border-sm me-2" />
+                    Memuat daftar site…
                 </div>
             )}
 
-            {/* ── Tab Navigation ───────────────────────────────────────── */}
             <div className="app-card p-2 mb-3">
                 <div className="d-flex gap-1 flex-nowrap">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.key}
-                            className={`btn btn-sm tab-nav-btn flex-fill d-flex align-items-center justify-content-center gap-2 ${activeTab === tab.key ? 'btn-primary' : 'btn-outline-secondary'}`}
-                            onClick={() => setActiveTab(tab.key)}
-                        >
-                            <i className={`bi ${tab.icon} tab-nav-icon`} />
-                            <span className="tab-nav-label text-truncate">{tab.label}</span>
-                        </button>
-                    ))}
+                    {tabs.map(
+                        (
+                            tab
+                        ) => (
+                            <button
+                                key={
+                                    tab.key
+                                }
+                                type="button"
+                                className={`btn btn-sm tab-nav-btn flex-fill d-flex align-items-center justify-content-center gap-2 ${activeTab ===
+                                    tab.key
+                                    ? 'btn-primary'
+                                    : 'btn-outline-secondary'
+                                    }`}
+                                onClick={() =>
+                                    setActiveTab(
+                                        tab.key
+                                    )
+                                }
+                            >
+                                <i
+                                    className={`bi ${tab.icon} tab-nav-icon`}
+                                />
+
+                                <span className="tab-nav-label text-truncate">
+                                    {
+                                        tab.label
+                                    }
+                                </span>
+                            </button>
+                        )
+                    )}
                 </div>
             </div>
 
-            {/* ── Form aktif ───────────────────────────────────────────── */}
-            {activeTab === 'kpi' && <KpiSummaryForm sites={sites} />}
-            {activeTab === 'unit' && <UnitPerformanceForm sites={sites} />}
-            {activeTab === 'supply' && <PendingSupplyForm sites={sites} />}
+            {activeTab ===
+                'kpi' && (
+                    <KpiSummaryForm
+                        sites={
+                            sites
+                        }
+                    />
+                )}
+
+            {activeTab ===
+                'unit' && (
+                    <UnitPerformanceForm
+                        sites={
+                            sites
+                        }
+                    />
+                )}
+
+            {activeTab ===
+                'supply' && (
+                    <PendingSupplyForm
+                        sites={
+                            sites
+                        }
+                    />
+                )}
         </div>
     );
 }
 
-export default InputData;
+export default InputData;   

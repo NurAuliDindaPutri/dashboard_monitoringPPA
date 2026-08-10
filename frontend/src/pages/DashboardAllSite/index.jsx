@@ -1,66 +1,101 @@
-import { useEffect, useState, useCallback } from 'react';
-
-// ── API layer ───────────────────────────────────────────────────────────────
-import { getSites } from '../../api/site.api';
-import { getKpiSummary } from '../../api/kpiSummary.api';
-import { getUnitPerformances } from '../../api/unitPerformance.api';
-import { getPendingSupply } from '../../api/pendingSupply.api';
 import {
-    dummySites,
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+} from 'react';
+
+import {
+    ResponsiveContainer,
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+} from 'recharts';
+
+// API
+import {
+    getKpiSummary,
+} from '../../api/kpiSummary.api';
+
+import {
+    getUnitPerformances,
+} from '../../api/unitPerformance.api';
+
+// Dummy fallback
+import {
     dummyKpiSummary,
     dummyUnitPerformances,
-    dummyPendingSupply,
 } from '../../data/dummyData';
 
-// ── Komponen reusable ───────────────────────────────────────────────────────
+// Components
 import FilterBar from '../../components/common/FilterBar';
-import KpiCard from '../../components/common/KpiCard';
-import GaugeCard from '../../components/common/GaugeCard';
 import ChartCard from '../../components/common/ChartCard';
-import DataTable from '../../components/common/DataTable';
+import SummarySpeedometerCard from '../../components/common/SummarySpeedometerCard';
 
-
-// ── Utils ───────────────────────────────────────────────────────────────────
+// Utils
 import {
     aggregateKpiSummary,
-    countUnits,
-    countPendingSupply,
-    sumPendingQty,
     buildKpiSummaryPerSite,
-    buildKpiPerSiteChart,
-    buildUnitPerformanceBySite,
-    aggregateKpiByMonth,
+    buildAvailabilityMonthlyChart,
     buildKpiBelowTargetAnalysis,
+    buildLeadTimePerSiteChart,
+    buildReadinessPerSiteChart,
 } from '../../utils/aggregate';
 
-// ── Inisialisasi filter default ─────────────────────────────────────────────
 const NOW = new Date();
-const DEFAULT_YEAR = NOW.getFullYear();
-const DEFAULT_MONTH = NOW.getMonth() + 1; // 1-12
-const SUPPLY_ROWS_PER_PAGE = 15;
 
+const DEFAULT_YEAR =
+    NOW.getFullYear();
+
+const DEFAULT_MONTH =
+    NOW.getMonth() + 1;
+
+const UNIT_MODEL_OPTIONS = [
+    'PC2000',
+    'PC1250',
+    'HD785',
+    'PC3400',
+];
+
+// ============================================================================
+// RESPONSE HELPER
+// ============================================================================
 
 function extractRows(response) {
     if (Array.isArray(response)) {
         return response;
     }
 
-    if (Array.isArray(response?.data?.data)) {
+    if (
+        Array.isArray(
+            response?.data?.data
+        )
+    ) {
         return response.data.data;
     }
 
-    if (Array.isArray(response?.data)) {
+    if (
+        Array.isArray(
+            response?.data
+        )
+    ) {
         return response.data;
     }
 
     return [];
 }
 
+// ============================================================================
+// DUMMY FILTER
+// ============================================================================
 
 function filterDummyRows(
     rows,
     {
-        siteId = '',
         month = '',
         year = '',
     } = {}
@@ -69,715 +104,1454 @@ function filterDummyRows(
         return [];
     }
 
-    return rows.filter((row) => {
-        const matchesSite =
-            !siteId ||
-            String(row.site_id) === String(siteId);
+    return rows.filter(
+        (row) => {
+            const monthMatch =
+                !month ||
+                Number(
+                    row.period_month
+                ) ===
+                Number(month);
 
-        const matchesMonth =
-            !month ||
-            Number(row.period_month) === Number(month);
+            const yearMatch =
+                !year ||
+                Number(
+                    row.period_year
+                ) ===
+                Number(year);
 
-        const matchesYear =
-            !year ||
-            Number(row.period_year) === Number(year);
-
-        return (
-            matchesSite &&
-            matchesMonth &&
-            matchesYear
-        );
-    });
+            return (
+                monthMatch &&
+                yearMatch
+            );
+        }
+    );
 }
 
-/**
- * Komponen Ring/Donut sederhana untuk visualisasi Ringkasan KPI per Site
- */
-function DonutRing({ label, actual, target, isGood }) {
-    const hasData = actual !== null && actual !== undefined;
-    const pct = hasData ? Math.round(actual * 100) : 0;
-    const targetPct = target !== null && target !== undefined ? Math.round(target * 100) : null;
+// ============================================================================
+// GENERAL HELPER
+// ============================================================================
 
-    // Warna: Hijau jika memenuhi target, Oranye/Merah jika belum
-    const color = !hasData ? '#cbd5e1' : isGood ? '#16a34a' : '#dc2626';
-    const bgStroke = 'var(--color-border, #e2e8f0)';
+function safeAverage(values = []) {
+    const validValues = values
+        .filter(
+            (value) =>
+                value !== null &&
+                value !== undefined &&
+                value !== ''
+        )
+        .map(Number)
+        .filter(Number.isFinite);
 
-    const radius = 30;
-    const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference - (Math.min(Math.max(pct, 0), 100) / 100) * circumference;
+    if (
+        validValues.length === 0
+    ) {
+        return null;
+    }
 
     return (
-        <div
-            className="d-flex flex-column align-items-center text-center rounded"
-            style={{
-                width: '100%',
-                minWidth: 0,
-                padding: 'clamp(0.25rem, 1.5vw, 0.5rem)',
-                backgroundColor:
-                    'var(--color-bg-secondary, rgba(255,255,255,0.04))',
-                border:
-                    '1px solid var(--color-border, rgba(255,255,255,0.12))',
-                overflow: 'hidden',
-            }}
-        >
-            <div
-                className="position-relative d-inline-flex align-items-center justify-content-center mb-1"
-                style={{
-                    width: 'clamp(52px, 16vw, 72px)',
-                    height: 'clamp(52px, 16vw, 72px)',
-                    maxWidth: '100%',
-                    flexShrink: 0,
-                }}
-            >
+        validValues.reduce(
+            (total, value) =>
+                total + value,
+            0
+        ) /
+        validValues.length
+    );
+}
+
+function convertToPercent(value) {
+    if (
+        value === null ||
+        value === undefined ||
+        value === ''
+    ) {
+        return null;
+    }
+
+    const number =
+        Number(value);
+
+    if (
+        !Number.isFinite(number)
+    ) {
+        return null;
+    }
+
+    const result =
+        Math.abs(number) <= 1
+            ? number * 100
+            : number;
+
+    return Number(
+        result.toFixed(1)
+    );
+}
+
+function normalizeSiteForDashboard(
+    siteCode
+) {
+    const code = String(
+        siteCode || ''
+    )
+        .trim()
+        .toUpperCase();
+
+    if (
+        code === 'ADRW' ||
+        code === 'WARA'
+    ) {
+        return 'WARA';
+    }
+
+    if (
+        code === 'PTBA' ||
+        code === 'BA'
+    ) {
+        return 'BA';
+    }
+
+    if (
+        code === 'AMC' ||
+        code === 'AMC-MAC' ||
+        code === 'AMC-LAC' ||
+        code === 'LC' ||
+        code === 'LAC'
+    ) {
+        return 'AMC';
+    }
+
+    return code;
+}
+
+function getRawSiteCode(row) {
+    return String(
+        row?.site_code || ''
+    )
+        .trim()
+        .toUpperCase();
+}
+
+function choosePreferredRows(
+    siteCode,
+    rows
+) {
+    if (
+        siteCode !== 'AMC'
+    ) {
+        return rows;
+    }
+
+    const lcRows =
+        rows.filter((row) => {
+            const code =
+                getRawSiteCode(
+                    row
+                );
+
+            return (
+                code === 'LC' ||
+                code === 'LAC'
+            );
+        });
+
+    if (
+        lcRows.length > 0
+    ) {
+        return lcRows;
+    }
+
+    return rows;
+}
+
+// ============================================================================
+// NORMALISASI UNIT MODEL
+// ============================================================================
+
+function normalizeUnitModel(
+    modelName
+) {
+    const model = String(
+        modelName || ''
+    )
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, '');
+
+    if (
+        model.includes(
+            'PC2000'
+        )
+    ) {
+        return 'PC2000';
+    }
+
+    if (
+        model.includes(
+            'PC1250'
+        ) ||
+        model.includes(
+            '1250SP'
+        )
+    ) {
+        return 'PC1250';
+    }
+
+    if (
+        model.includes(
+            'HD785'
+        )
+    ) {
+        return 'HD785';
+    }
+
+    if (
+        model.includes(
+            'PC3400'
+        )
+    ) {
+        return 'PC3400';
+    }
+
+    return null;
+}
+
+// ============================================================================
+// BUILD PERFORMANCE CHART DATA
+// ============================================================================
+
+function buildPerformanceBySelectedModel(
+    perfRows,
+    selectedModel
+) {
+    if (
+        !Array.isArray(perfRows) ||
+        perfRows.length === 0
+    ) {
+        return [];
+    }
+
+    const groupedBySite =
+        new Map();
+
+    for (
+        const row of perfRows
+    ) {
+        const category =
+            normalizeUnitModel(
+                row.model_name
+            );
+
+        if (
+            category !==
+            selectedModel
+        ) {
+            continue;
+        }
+
+        const siteCode =
+            normalizeSiteForDashboard(
+                row.site_code
+            );
+
+        if (!siteCode) {
+            continue;
+        }
+
+        if (
+            selectedModel ===
+            'PC3400' &&
+            siteCode !== 'BIB'
+        ) {
+            continue;
+        }
+
+        if (
+            !groupedBySite.has(
+                siteCode
+            )
+        ) {
+            groupedBySite.set(
+                siteCode,
+                []
+            );
+        }
+
+        groupedBySite
+            .get(siteCode)
+            .push(row);
+    }
+
+    return Array.from(
+        groupedBySite.entries()
+    )
+        .map(
+            ([
+                siteCode,
+                siteRows,
+            ]) => {
+                const rows =
+                    choosePreferredRows(
+                        siteCode,
+                        siteRows
+                    );
+
+                const pa =
+                    safeAverage(
+                        rows.map(
+                            (row) =>
+                                row.physical_availability
+                        )
+                    );
+
+                const ua =
+                    safeAverage(
+                        rows.map(
+                            (row) =>
+                                row.unit_availability
+                        )
+                    );
+
+                const mtbf =
+                    safeAverage(
+                        rows.map(
+                            (row) =>
+                                row.mtbf
+                        )
+                    );
+
+                const mttr =
+                    safeAverage(
+                        rows.map(
+                            (row) =>
+                                row.mttr
+                        )
+                    );
+
+                const fuel =
+                    safeAverage(
+                        rows.map(
+                            (row) =>
+                                row.fuel_consumption
+                        )
+                    );
+
+                const productivity =
+                    safeAverage(
+                        rows.map(
+                            (row) =>
+                                row.productivity
+                        )
+                    );
+
+                return {
+                    site:
+                        siteCode,
+
+                    pa:
+                        convertToPercent(
+                            pa
+                        ),
+
+                    ua:
+                        convertToPercent(
+                            ua
+                        ),
+
+                    mtbf:
+                        mtbf !== null
+                            ? Number(
+                                mtbf.toFixed(
+                                    1
+                                )
+                            )
+                            : null,
+
+                    mttr:
+                        mttr !== null
+                            ? Number(
+                                mttr.toFixed(
+                                    1
+                                )
+                            )
+                            : null,
+
+                    fuel:
+                        fuel !== null
+                            ? Number(
+                                fuel.toFixed(
+                                    1
+                                )
+                            )
+                            : null,
+
+                    productivity:
+                        productivity !==
+                            null
+                            ? Number(
+                                productivity.toFixed(
+                                    1
+                                )
+                            )
+                            : null,
+                };
+            }
+        )
+        .sort((a, b) =>
+            a.site.localeCompare(
+                b.site,
+                'id',
+                {
+                    sensitivity:
+                        'base',
+                }
+            )
+        );
+}
+
+// ============================================================================
+// KPI DONUT - COMPACT VERSION
+// ============================================================================
+
+function KpiDonut({
+    label,
+    actual,
+    target,
+    isGood,
+}) {
+    const hasData =
+        actual !== null &&
+        actual !== undefined &&
+        actual !== '';
+
+    const actualPercent =
+        hasData
+            ? Number(
+                (
+                    Number(actual) *
+                    100
+                ).toFixed(0)
+            )
+            : 0;
+
+    const targetPercent =
+        target !== null &&
+            target !== undefined &&
+            target !== ''
+            ? Number(
+                (
+                    Number(target) *
+                    100
+                ).toFixed(0)
+            )
+            : null;
+
+    const gap =
+        hasData &&
+            targetPercent !== null
+            ? targetPercent -
+            actualPercent
+            : null;
+
+    let status =
+        'no-data';
+
+    if (hasData) {
+        if (isGood) {
+            status =
+                'achieved';
+        } else if (
+            gap !== null &&
+            gap <= 2
+        ) {
+            status =
+                'near';
+        } else {
+            status =
+                'below';
+        }
+    }
+
+    const visualMap = {
+        achieved: {
+            label:
+                'Memenuhi',
+
+            start:
+                '#22d3ee',
+
+            middle:
+                '#6366f1',
+
+            end:
+                '#d946ef',
+
+            text:
+                '#38bdf8',
+
+            badgeBg:
+                'rgba(34, 197, 94, 0.15)',
+
+            badgeText:
+                '#4ade80',
+        },
+
+        near: {
+            label:
+                'Mendekati',
+
+            start:
+                '#f59e0b',
+
+            middle:
+                '#fb7185',
+
+            end:
+                '#d946ef',
+
+            text:
+                '#f59e0b',
+
+            badgeBg:
+                'rgba(245, 158, 11, 0.15)',
+
+            badgeText:
+                '#fbbf24',
+        },
+
+        below: {
+            label:
+                'Belum Target',
+
+            start:
+                '#991b1b',
+
+            middle:
+                '#dc2626',
+
+            end:
+                '#7e22ce',
+
+            text:
+                '#ef4444',
+
+            badgeBg:
+                'rgba(239, 68, 68, 0.14)',
+
+            badgeText:
+                '#f87171',
+        },
+
+        'no-data': {
+            label:
+                'Belum Ada',
+
+            start:
+                '#475569',
+
+            middle:
+                '#64748b',
+
+            end:
+                '#94a3b8',
+
+            text:
+                '#94a3b8',
+
+            badgeBg:
+                'rgba(148, 163, 184, 0.14)',
+
+            badgeText:
+                '#94a3b8',
+        },
+    };
+
+    const visual =
+        visualMap[status];
+
+    const radius = 25;
+
+    const circumference =
+        2 *
+        Math.PI *
+        radius;
+
+    const normalizedPercent =
+        Math.min(
+            Math.max(
+                actualPercent,
+                0
+            ),
+            100
+        );
+
+    const offset =
+        circumference -
+        (
+            normalizedPercent /
+            100
+        ) *
+        circumference;
+
+    const gradientId =
+        `kpi-gradient-${label
+            .replace(
+                /\s+/g,
+                '-'
+            )
+            .toLowerCase()}-${actualPercent}-${targetPercent}`;
+
+    return (
+        <div className="kpi-mini-card">
+            <div className="kpi-mini-donut">
                 <svg
-                    width="100%"
-                    height="100%"
-                    viewBox="0 0 76 76"
-                    aria-hidden="true"
+                    width="74"
+                    height="74"
+                    viewBox="0 0 66 66"
                 >
+                    <defs>
+                        <linearGradient
+                            id={
+                                gradientId
+                            }
+                            x1="0%"
+                            y1="0%"
+                            x2="100%"
+                            y2="100%"
+                        >
+                            <stop
+                                offset="0%"
+                                stopColor={
+                                    visual.start
+                                }
+                            />
+
+                            <stop
+                                offset="50%"
+                                stopColor={
+                                    visual.middle
+                                }
+                            />
+
+                            <stop
+                                offset="100%"
+                                stopColor={
+                                    visual.end
+                                }
+                            />
+                        </linearGradient>
+                    </defs>
+
                     <circle
-                        cx="38"
-                        cy="38"
+                        cx="33"
+                        cy="33"
                         r={radius}
-                        fill="transparent"
-                        stroke={bgStroke}
-                        strokeWidth="7"
+                        fill="none"
+                        stroke="var(--kpi-track)"
+                        strokeWidth="6"
                     />
 
                     {hasData && (
                         <circle
-                            cx="38"
-                            cy="38"
+                            cx="33"
+                            cy="33"
                             r={radius}
-                            fill="transparent"
-                            stroke={color}
-                            strokeWidth="7"
-                            strokeDasharray={circumference}
-                            strokeDashoffset={strokeDashoffset}
+                            fill="none"
+                            stroke={`url(#${gradientId})`}
+                            strokeWidth="6"
                             strokeLinecap="round"
-                            transform="rotate(-90 38 38)"
-                            style={{
-                                transition:
-                                    'stroke-dashoffset 0.6s ease',
-                            }}
+                            strokeDasharray={
+                                circumference
+                            }
+                            strokeDashoffset={
+                                offset
+                            }
+                            transform="rotate(-90 33 33)"
+                            className="kpi-donut-progress"
                         />
                     )}
                 </svg>
 
-                <div className="position-absolute text-center">
-                    <span
-                        className="fw-bold"
-                        style={{
-                            fontSize:
-                                'clamp(0.65rem, 2.6vw, 0.85rem)',
-                            color: hasData
-                                ? color
-                                : 'var(--color-text-muted)',
-                        }}
-                    >
-                        {hasData
-                            ? `${(actual * 100).toFixed(0)}%`
-                            : 'N/A'}
-                    </span>
-                </div>
+                <span
+                    className="kpi-mini-value"
+                    style={{
+                        color:
+                            visual.text,
+                    }}
+                >
+                    {hasData
+                        ? `${actualPercent}%`
+                        : 'N/A'}
+                </span>
+            </div>
+
+            <div className="kpi-mini-label">
+                {label}
+            </div>
+
+            <div className="kpi-mini-target">
+                Target:{' '}
+                {targetPercent !==
+                    null
+                    ? `${targetPercent}%`
+                    : '-'}
             </div>
 
             <span
-                className="fw-semibold mb-0 w-100"
-                title={label}
+                className="kpi-mini-status"
                 style={{
-                    minWidth: 0,
-                    fontSize:
-                        'clamp(0.58rem, 2.2vw, 0.78rem)',
-                    lineHeight: 1.2,
-                    color: 'var(--text-primary)',
-                    overflowWrap: 'anywhere',
-                }}
-            >
-                {label}
-            </span>
+                    background:
+                        visual.badgeBg,
 
-            <span
-                className="text-muted w-100"
-                style={{
-                    minWidth: 0,
-                    fontSize:
-                        'clamp(0.52rem, 1.9vw, 0.7rem)',
-                    lineHeight: 1.2,
-                    overflowWrap: 'anywhere',
+                    color:
+                        visual.badgeText,
                 }}
             >
-                {targetPct !== null
-                    ? `Target: ${targetPct}%`
-                    : '-'}
-            </span>
-
-            <span
-                className="badge rounded-pill mt-1"
-                style={{
-                    maxWidth: '100%',
-                    padding: '0.25em 0.45em',
-                    fontSize:
-                        'clamp(0.5rem, 1.8vw, 0.65rem)',
-                    lineHeight: 1.15,
-                    whiteSpace: 'normal',
-                    overflowWrap: 'anywhere',
-                    backgroundColor: `${color}1A`,
-                    color,
-                }}
-            >
-                {hasData
-                    ? isGood
-                        ? 'Memenuhi'
-                        : 'Belum Target'
-                    : 'Belum Ada Data'}
+                {visual.label}
             </span>
         </div>
     );
 }
 
-// ===========================================================================
-// Komponen utama DashboardAllSite
-// ===========================================================================
+// ============================================================================
+// PERFORMANCE CHART
+// ============================================================================
+
+function PerformanceBarChart({
+    title,
+    data,
+    series,
+    unit = '',
+    height = 280,
+}) {
+    const availableSeries =
+        series.filter(
+            (item) =>
+                data.some(
+                    (row) =>
+                        row[
+                        item.key
+                        ] !== null &&
+                        row[
+                        item.key
+                        ] !== undefined
+                )
+        );
+
+    return (
+        <div className="app-card p-3 h-100">
+            <div
+                className="fw-semibold mb-3"
+                style={{
+                    color:
+                        'var(--text-primary)',
+                }}
+            >
+                {title}
+            </div>
+
+            {data.length === 0 ||
+                availableSeries.length ===
+                0 ? (
+                <div
+                    className="d-flex flex-column align-items-center justify-content-center text-center text-muted"
+                    style={{
+                        height,
+                    }}
+                >
+                    <i className="bi bi-bar-chart fs-3" />
+
+                    <small className="mt-2">
+                        Data belum
+                        tersedia
+                    </small>
+                </div>
+            ) : (
+                <ResponsiveContainer
+                    width="100%"
+                    height={height}
+                >
+                    <BarChart
+                        data={data}
+                        margin={{
+                            top: 10,
+                            right: 10,
+                            left: -5,
+                            bottom: 5,
+                        }}
+                    >
+                        <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="var(--chart-grid)"
+                        />
+
+                        <XAxis
+                            dataKey="site"
+                            tick={{
+                                fontSize: 12,
+                                fill:
+                                    'var(--text-secondary)',
+                            }}
+                        />
+
+                        <YAxis
+                            tick={{
+                                fontSize: 12,
+                                fill:
+                                    'var(--text-secondary)',
+                            }}
+                        />
+
+                        <Tooltip
+                            contentStyle={{
+                                backgroundColor:
+                                    'var(--card-bg)',
+
+                                border:
+                                    '1px solid var(--border-color)',
+
+                                borderRadius:
+                                    10,
+
+                                color:
+                                    'var(--text-primary)',
+                            }}
+                            formatter={(
+                                value,
+                                name
+                            ) => [
+                                    value ===
+                                        null ||
+                                        value ===
+                                        undefined
+                                        ? '-'
+                                        : `${value}${unit}`,
+                                    name,
+                                ]}
+                        />
+
+                        <Legend
+                            wrapperStyle={{
+                                fontSize: 12,
+                            }}
+                        />
+
+                        {availableSeries.map(
+                            (
+                                item
+                            ) => (
+                                <Bar
+                                    key={
+                                        item.key
+                                    }
+                                    dataKey={
+                                        item.key
+                                    }
+                                    name={
+                                        item.label
+                                    }
+                                    fill={
+                                        item.color
+                                    }
+                                    radius={[
+                                        5,
+                                        5,
+                                        0,
+                                        0,
+                                    ]}
+                                    maxBarSize={
+                                        42
+                                    }
+                                />
+                            )
+                        )}
+                    </BarChart>
+                </ResponsiveContainer>
+            )}
+        </div>
+    );
+}
+
+// ============================================================================
+// DASHBOARD
+// ============================================================================
+
 function DashboardAllSite() {
-    // ── State filter ──────────────────────────────────────────────────────
-    // Catatan: filter Site sengaja tidak ada di halaman ini — Dashboard All Site
-    // selalu menampilkan ringkasan seluruh site. Untuk melihat data 1 site
-    // tertentu, gunakan Dashboard Per Site.
-    const [month, setMonth] = useState(DEFAULT_MONTH);
-    const [year, setYear] = useState(DEFAULT_YEAR);
+    const [
+        month,
+        setMonth,
+    ] = useState(
+        DEFAULT_MONTH
+    );
 
-    // ── State data ────────────────────────────────────────────────────────
-    const [sites, setSites] = useState([]);
-    const [kpiRows, setKpiRows] = useState([]);
-    const [perfRows, setPerfRows] = useState([]);
-    const [supplyRows, setSupplyRows] = useState([]);
-    const [supplyPage, setSupplyPage] = useState(1);
-    const [kpiYearRows, setKpiYearRows] = useState([]); // 1 tahun penuh, tanpa filter bulan - untuk tren
+    const [
+        year,
+        setYear,
+    ] = useState(
+        DEFAULT_YEAR
+    );
 
-    // ── State loading per endpoint ────────────────────────────────────────
-    const [loadingSites, setLoadingSites] = useState(true);
-    const [loadingKpi, setLoadingKpi] = useState(true);
-    const [loadingPerf, setLoadingPerf] = useState(true);
-    const [loadingSupply, setLoadingSupply] = useState(true);
-    const [loadingTrend, setLoadingTrend] = useState(true);
+    const [
+        selectedUnitModel,
+        setSelectedUnitModel,
+    ] = useState(
+        'PC2000'
+    );
 
-    // ── State error & sumber data ─────────────────────────────────────────
-    const [error, setError] = useState(null);
-    const [dataSource, setDataSource] = useState('database');
+    const [
+        kpiRows,
+        setKpiRows,
+    ] = useState([]);
 
-    // ── Fetch sites sekali saat mount ─────────────────────────────────────
+    const [
+        kpiYearRows,
+        setKpiYearRows,
+    ] = useState([]);
+
+    const [
+        perfRows,
+        setPerfRows,
+    ] = useState([]);
+
+    const [
+        loadingKpi,
+        setLoadingKpi,
+    ] = useState(true);
+
+    const [
+        loadingTrend,
+        setLoadingTrend,
+    ] = useState(true);
+
+    const [
+        loadingPerf,
+        setLoadingPerf,
+    ] = useState(true);
+
+    const [
+        dataSource,
+        setDataSource,
+    ] = useState(
+        'database'
+    );
+
+    const [
+        error,
+        setError,
+    ] = useState(null);
+
+    const fetchDashboardData =
+        useCallback(() => {
+            const params = {
+                period_year:
+                    year,
+
+                period_month:
+                    month,
+            };
+
+            setError(null);
+
+            setLoadingKpi(true);
+
+            getKpiSummary(params)
+                .then(
+                    (response) => {
+                        setKpiRows(
+                            extractRows(
+                                response
+                            )
+                        );
+                    }
+                )
+                .catch(
+                    (err) => {
+                        console.warn(
+                            'KPI API gagal, menggunakan dummy.',
+                            err
+                        );
+
+                        setKpiRows(
+                            filterDummyRows(
+                                dummyKpiSummary,
+                                {
+                                    month,
+                                    year,
+                                }
+                            )
+                        );
+
+                        setDataSource(
+                            'dummy'
+                        );
+                    }
+                )
+                .finally(
+                    () => {
+                        setLoadingKpi(
+                            false
+                        );
+                    }
+                );
+
+            setLoadingPerf(
+                true
+            );
+
+            getUnitPerformances(
+                params
+            )
+                .then(
+                    (response) => {
+                        setPerfRows(
+                            extractRows(
+                                response
+                            )
+                        );
+                    }
+                )
+                .catch(
+                    (err) => {
+                        console.warn(
+                            'Unit Performance API gagal, menggunakan dummy.',
+                            err
+                        );
+
+                        setPerfRows(
+                            filterDummyRows(
+                                dummyUnitPerformances,
+                                {
+                                    month,
+                                    year,
+                                }
+                            )
+                        );
+
+                        setDataSource(
+                            'dummy'
+                        );
+                    }
+                )
+                .finally(
+                    () => {
+                        setLoadingPerf(
+                            false
+                        );
+                    }
+                );
+        }, [
+            month,
+            year,
+        ]);
+
     useEffect(() => {
-        setLoadingSites(true);
+        setDataSource(
+            'database'
+        );
 
-        getSites()
-            .then((response) => {
-                setSites(extractRows(response));
-            })
-            .catch((err) => {
-                console.warn(
-                    'Backend tidak aktif. Menggunakan dummy site:',
-                    err
-                );
-
-                setSites(dummySites);
-                setDataSource('dummy');
-                setError(null);
-            })
-            .finally(() => setLoadingSites(false));
-    }, []);
-
-    // ── Fetch data yang tergantung filter ─────────────────────────────────
-    const fetchDashboardData = useCallback(() => {
-        const params = {
-            period_year: year,
-            period_month: month,
-        };
-
-        setError(null);
-
-        // KPI Summary
-        setLoadingKpi(true);
-
-        getKpiSummary(params)
-            .then((response) => {
-                setKpiRows(extractRows(response));
-            })
-            .catch((err) => {
-                console.warn(
-                    'Backend tidak aktif. Menggunakan dummy KPI Summary:',
-                    err
-                );
-
-                setKpiRows(
-                    filterDummyRows(
-                        dummyKpiSummary,
-                        {
-                            month,
-                            year,
-                        }
-                    )
-                );
-
-                setDataSource('dummy');
-            })
-            .finally(() => setLoadingKpi(false));
-
-        // Unit Performance
-        setLoadingPerf(true);
-
-        getUnitPerformances(params)
-            .then((response) => {
-                setPerfRows(extractRows(response));
-            })
-            .catch((err) => {
-                console.warn(
-                    'Backend tidak aktif. Menggunakan dummy Unit Performance:',
-                    err
-                );
-
-                setPerfRows(
-                    filterDummyRows(
-                        dummyUnitPerformances,
-                        {
-                            month,
-                            year,
-                        }
-                    )
-                );
-
-                setDataSource('dummy');
-            })
-            .finally(() => setLoadingPerf(false));
-
-        // Pending Supply
-        setLoadingSupply(true);
-
-        getPendingSupply({})
-            .then((response) => {
-                setSupplyRows(extractRows(response));
-            })
-            .catch((err) => {
-                console.warn(
-                    'Backend tidak aktif. Menggunakan dummy Pending Supply:',
-                    err
-                );
-
-                setSupplyRows(dummyPendingSupply);
-                setDataSource('dummy');
-            })
-            .finally(() => setLoadingSupply(false));
-    }, [month, year]);
-
-    useEffect(() => {
-        setDataSource('database');
         fetchDashboardData();
-    }, [fetchDashboardData]);
+    }, [
+        fetchDashboardData,
+    ]);
 
-    // ── Fetch tren KPI 1 tahun penuh (endpoint sama, tanpa filter bulan) ──
     useEffect(() => {
-        setLoadingTrend(true);
+        setLoadingTrend(
+            true
+        );
 
-        const params = {
-            period_year: year,
-        };
+        getKpiSummary({
+            period_year:
+                year,
+        })
+            .then(
+                (response) => {
+                    setKpiYearRows(
+                        extractRows(
+                            response
+                        )
+                    );
+                }
+            )
+            .catch(
+                (err) => {
+                    console.warn(
+                        'Trend KPI API gagal, menggunakan dummy.',
+                        err
+                    );
 
-        getKpiSummary(params)
-            .then((response) => {
-                setKpiYearRows(extractRows(response));
-            })
-            .catch((err) => {
-                console.warn(
-                    'Backend tidak aktif. Menggunakan tren KPI dummy:',
-                    err
-                );
+                    setKpiYearRows(
+                        filterDummyRows(
+                            dummyKpiSummary,
+                            {
+                                year,
+                            }
+                        )
+                    );
 
-                setKpiYearRows(
-                    filterDummyRows(
-                        dummyKpiSummary,
-                        { year }
-                    )
-                );
-
-                setDataSource('dummy');
-            })
-            .finally(() => setLoadingTrend(false));
+                    setDataSource(
+                        'dummy'
+                    );
+                }
+            )
+            .finally(
+                () => {
+                    setLoadingTrend(
+                        false
+                    );
+                }
+            );
     }, [year]);
 
-    useEffect(() => {
-        setSupplyPage(1);
-    }, [month, year, supplyRows.length]);
+    const kpiSummary =
+        aggregateKpiSummary(
+            kpiRows
+        );
 
-    // ── Derived data ──────────────────────────────────────────────────────
-    const kpiSummary = aggregateKpiSummary(kpiRows);
-    const siteKpiSummaryList = buildKpiSummaryPerSite(kpiRows);
-    const belowTargetAnalysis = buildKpiBelowTargetAnalysis(kpiRows);
-    const kpiPerSiteChartData = buildKpiPerSiteChart(kpiRows);
-    const unitPerfBySite = buildUnitPerformanceBySite(perfRows);
-    const monthlyTrendData = aggregateKpiByMonth(kpiYearRows);
+    const siteKpiSummary =
+        buildKpiSummaryPerSite(
+            kpiRows
+        );
 
-    const monthlyTrendSeries = [
-        {
-            key: 'Readiness',
-            label: 'Readiness',
-            color: '#1a56db',
-        },
-        {
-            key: 'Availability',
-            label: 'Availability VHS',
-            color: '#16a34a',
-        },
-        {
-            key: 'Lead Time',
-            label: 'Lead Time Supply',
-            color: '#d97706',
-        },
-    ].filter((seriesItem) =>
-        monthlyTrendData.some(
-            (row) =>
-                row[seriesItem.key] !== null &&
-                row[seriesItem.key] !== undefined
-        )
-    );
+    const belowTargetAnalysis =
+        buildKpiBelowTargetAnalysis(
+            kpiRows
+        );
 
-    const missingMonthlyTrendSeries = [
-        {
-            key: 'Readiness',
-            label: 'Readiness',
-        },
-        {
-            key: 'Availability',
-            label: 'Availability VHS',
-        },
-        {
-            key: 'Lead Time',
-            label: 'Lead Time Supply',
-        },
-    ]
-        .filter(
-            (seriesItem) =>
-                !monthlyTrendSeries.some(
-                    (availableSeries) =>
-                        availableSeries.key === seriesItem.key
-                )
-        )
-        .map((seriesItem) => seriesItem.label);
+    const readinessChartData =
+        buildReadinessPerSiteChart(
+            kpiRows
+        );
 
-    const totalUnits = countUnits(perfRows);
-    const totalPending = countPendingSupply(supplyRows);
-    const totalPendingQty = sumPendingQty(supplyRows);
+    const availabilityChartData =
+        buildAvailabilityMonthlyChart(
+            kpiYearRows
+        );
 
+    const leadTimeChartData =
+        buildLeadTimePerSiteChart(
+            kpiRows
+        );
 
-    const totalSupplyPages = Math.max(
-        1,
-        Math.ceil(supplyRows.length / SUPPLY_ROWS_PER_PAGE)
-    );
+    const performanceChartData =
+        useMemo(
+            () =>
+                buildPerformanceBySelectedModel(
+                    perfRows,
+                    selectedUnitModel
+                ),
+            [
+                perfRows,
+                selectedUnitModel,
+            ]
+        );
 
-    const supplyStartIndex =
-        (supplyPage - 1) * SUPPLY_ROWS_PER_PAGE;
+    const availableSiteCount =
+        performanceChartData.length;
 
-    const paginatedSupplyRows = supplyRows.slice(
-        supplyStartIndex,
-        supplyStartIndex + SUPPLY_ROWS_PER_PAGE
-    );
-
-    const supplyStartNumber =
-        supplyRows.length === 0 ? 0 : supplyStartIndex + 1;
-
-    const supplyEndNumber = Math.min(
-        supplyStartIndex + SUPPLY_ROWS_PER_PAGE,
-        supplyRows.length
-    );
-
-    const visibleSupplyPages = Array.from(
-        { length: totalSupplyPages },
-        (_, index) => index + 1
-    ).filter((pageNumber) => {
-        if (totalSupplyPages <= 7) return true;
-        if (pageNumber === 1 || pageNumber === totalSupplyPages) return true;
-        return Math.abs(pageNumber - supplyPage) <= 1;
-    });
-
-    // ── Definisi kolom tabel pending supply ───────────────────────────────
-    const supplyColumns = [
-        { key: 'site_code', label: 'Site', align: 'left' },
-        { key: 'parts_number', label: 'Part No.', align: 'left' },
-        { key: 'description', label: 'Deskripsi', align: 'left' },
-        { key: 'qty', label: 'Qty', align: 'center' },
-        { key: 'no_po', label: 'No. PO', align: 'left' },
-        {
-            key: 'eta',
-            label: 'ETA',
-            align: 'center',
-            render: (row) =>
-                row.eta
-                    ? new Date(row.eta).toLocaleDateString('id-ID', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                    })
-                    : '-',
-        },
-        { key: 'remarks', label: 'Keterangan', align: 'left' },
-    ];
-
-    const isLoadingAll = loadingKpi || loadingPerf || loadingSupply || loadingTrend;
+    const isLoading =
+        loadingKpi ||
+        loadingTrend ||
+        loadingPerf;
 
     return (
         <div>
-            {/* ── 1. Bagian Atas: Judul & Filter ───────────────────────────── */}
+            {/* HEADER */}
             <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <div>
-                    <h4 className="fw-bold mb-0" style={{ color: 'var(--text-primary)' }}>
+                    <h4
+                        className="fw-bold mb-0"
+                        style={{
+                            color:
+                                'var(--text-primary)',
+                        }}
+                    >
                         Dashboard All Site
                     </h4>
-                    <p className="text-secondary mb-0" style={{ fontSize: '0.875rem' }}>
-                        Ringkasan performa seluruh site, KPI utama, dan perbandingan antar-site.
+
+                    <p className="text-secondary mb-0 small">
+                        Monitoring KPI dan
+                        performa unit
+                        seluruh site.
                     </p>
                 </div>
-                {isLoadingAll && (
-                    <div className="d-flex align-items-center gap-2 text-secondary" style={{ fontSize: '0.8rem' }}>
-                        <div className="spinner-border spinner-border-sm text-primary-custom" role="status" />
-                        <span>Memuat data…</span>
+
+                {isLoading && (
+                    <div className="d-flex align-items-center gap-2 text-secondary small">
+                        <div className="spinner-border spinner-border-sm" />
+
+                        Memuat data…
                     </div>
                 )}
             </div>
 
-            {/* Error Banner */}
+            {/* ERROR / DUMMY */}
             {error && (
-                <div
-                    className="alert alert-danger d-flex align-items-center gap-2 py-2 mb-3"
-                    role="alert"
-                >
-                    <i className="bi bi-exclamation-triangle-fill" />
-                    <span>{error}</span>
-
-                    <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger ms-auto"
-                        onClick={() => {
-                            setError(null);
-                            fetchDashboardData();
-                        }}
-                    >
-                        Coba lagi
-                    </button>
+                <div className="alert alert-danger">
+                    {error}
                 </div>
             )}
 
-            {dataSource === 'dummy' && (
-                <div
-                    className="alert alert-warning d-flex align-items-center gap-2 py-2 mb-3"
-                    role="alert"
-                >
-                    <i className="bi bi-database-exclamation" />
+            {dataSource ===
+                'dummy' && (
+                    <div className="alert alert-warning">
+                        <i className="bi bi-database-exclamation me-2" />
 
-                    <span>
-                        Backend atau database tidak terhubung. Dashboard sedang
-                        menampilkan data dummy Januari–Desember 2026.
-                    </span>
-                </div>
-            )}
+                        Backend/database
+                        belum terhubung.
+                        Menampilkan data
+                        dummy.
+                    </div>
+                )}
 
-            {/* Filter Bar — hanya Bulan & Tahun; filter Site sengaja dihapus
-                karena halaman ini selalu menampilkan ringkasan seluruh site.
-                Untuk melihat 1 site tertentu, gunakan Dashboard Per Site. */}
+            {/* FILTER */}
             <FilterBar
                 month={month}
                 year={year}
-                onMonthChange={setMonth}
-                onYearChange={setYear}
-                showSiteFilter={false}
-                showMonthFilter={true}
-                showYearFilter={true}
+                onMonthChange={
+                    setMonth
+                }
+                onYearChange={
+                    setYear
+                }
+                showSiteFilter={
+                    false
+                }
+                showMonthFilter
+                showYearFilter
             />
 
-            {/* ── 2. KPI Utama: Gauges ───────────────────────────────────── */}
+            {/* KPI UTAMA */}
             <div className="row g-3 mb-4">
-                <div className="col-12 col-md-4">
-                    <GaugeCard
+                <div className="col-12 col-lg-4">
+                    <SummarySpeedometerCard
                         title="Readiness All Site"
-                        value={kpiSummary.readyness_actual}
-                        target={kpiSummary.readyness_target}
-                        loading={loadingKpi}
+                        actual={
+                            kpiSummary.readyness_actual
+                        }
+                        target={
+                            kpiSummary.readyness_target
+                        }
+                        loading={
+                            loadingKpi
+                        }
                     />
                 </div>
-                <div className="col-12 col-md-4">
-                    <GaugeCard
+
+                <div className="col-12 col-lg-4">
+                    <SummarySpeedometerCard
                         title="Availability VHS All Site"
-                        value={kpiSummary.availability_actual}
-                        target={kpiSummary.availability_target}
-                        loading={loadingKpi}
+                        actual={
+                            kpiSummary.availability_actual
+                        }
+                        target={
+                            kpiSummary.availability_target
+                        }
+                        loading={
+                            loadingKpi
+                        }
                     />
                 </div>
-                <div className="col-12 col-md-4">
-                    <GaugeCard
+
+                <div className="col-12 col-lg-4">
+                    <SummarySpeedometerCard
                         title="Lead Time Supply All Site"
-                        value={kpiSummary.leadtime_actual}
-                        target={kpiSummary.leadtime_target}
-                        loading={loadingKpi}
+                        actual={
+                            kpiSummary.leadtime_actual
+                        }
+                        target={
+                            kpiSummary.leadtime_target
+                        }
+                        loading={
+                            loadingKpi
+                        }
                     />
                 </div>
             </div>
 
-            {/* ── 3. Ringkasan KPI Per Site ──────────────────────────────── */}
+            {/* RINGKASAN KPI PER SITE */}
             <div className="app-card p-3 mb-4">
-                <div className="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
-                    <div>
-                        <h6 className="fw-semibold mb-0" style={{ color: 'var(--text-primary)' }}>
-                            Ringkasan KPI Per Site — Status Pencapaian Target
-                        </h6>
-                        <small className="text-secondary">
-                            Menunjukkan apakah tiap site sudah <strong>memenuhi target</strong> Readiness, Availability VHS &amp; Lead Time Supply pada periode terpilih (bukan perbandingan besaran nilai).
-                        </small>
-                    </div>
+                <div className="mb-3">
+                    <h6
+                        className="fw-semibold mb-1"
+                        style={{
+                            color:
+                                'var(--text-primary)',
+                        }}
+                    >
+                        Ringkasan KPI Per Site
+                        — Status Pencapaian
+                        Target
+                    </h6>
+
+                    <small className="text-secondary">
+                        Menunjukkan apakah
+                        tiap site sudah
+                        memenuhi target
+                        Readiness,
+                        Availability VHS,
+                        dan Lead Time
+                        Supply pada periode
+                        terpilih.
+                    </small>
                 </div>
 
                 {loadingKpi ? (
-                    <div className="placeholder-glow row g-3">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="col-12 col-md-4">
-                                <span className="placeholder w-100 rounded" style={{ height: 160 }} />
-                            </div>
-                        ))}
-                    </div>
-                ) : siteKpiSummaryList.length === 0 ? (
-                    <div className="text-center py-4 text-muted">
-                        <i className="bi bi-slash-circle fs-3" />
-                        <p className="mb-0 mt-2">Tidak ada data KPI per site untuk periode terpilih</p>
-                    </div>
-                ) : (
                     <div className="row g-3">
-                        {siteKpiSummaryList.map((siteItem) => (
-                            <div key={siteItem.site_id ?? siteItem.site_code} className="col-12 col-md-6 col-xl-4">
+                        {[1, 2, 3].map(
+                            (item) => (
                                 <div
-                                    className="border rounded h-100"
-                                    style={{
-                                        width: '100%',
-                                        minWidth: 0,
-                                        padding:
-                                            'clamp(0.65rem, 2vw, 1rem)',
-                                        backgroundColor:
-                                            'var(--card-bg)',
-                                        borderColor:
-                                            'var(--color-border)',
-                                        color:
-                                            'var(--text-primary)',
-                                        overflow: 'hidden',
-                                    }}
+                                    key={
+                                        item
+                                    }
+                                    className="col-12 col-md-6 col-xxl-4"
                                 >
-                                    <div className="d-flex align-items-start justify-content-between gap-2 mb-2">
+                                    <div className="placeholder-glow">
                                         <span
-                                            className="fw-bold"
+                                            className="placeholder w-100 rounded"
                                             style={{
-                                                minWidth: 0,
-                                                color:
-                                                    'var(--text-primary)',
-                                                overflowWrap:
-                                                    'anywhere',
+                                                height:
+                                                    185,
                                             }}
-                                        >
-                                            {siteItem.site_code}
-                                        </span>
-
-                                        {siteItem.site_name && (
-                                            <small
-                                                className="text-muted text-end"
-                                                style={{
-                                                    minWidth: 0,
-                                                    maxWidth: '55%',
-                                                    overflowWrap:
-                                                        'anywhere',
-                                                }}
-                                            >
-                                                {siteItem.site_name}
-                                            </small>
-                                        )}
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            display: 'grid',
-                                            gridTemplateColumns:
-                                                'repeat(3, minmax(0, 1fr))',
-                                            gap:
-                                                'clamp(0.2rem, 1.2vw, 0.5rem)',
-                                            alignItems: 'stretch',
-                                            width: '100%',
-                                            minWidth: 0,
-                                        }}
-                                    >
-                                        <DonutRing
-                                            label="Readiness"
-                                            actual={
-                                                siteItem.readyness_actual
-                                            }
-                                            target={
-                                                siteItem.readyness_target
-                                            }
-                                            isGood={
-                                                siteItem.readyness_is_good
-                                            }
-                                        />
-
-                                        <DonutRing
-                                            label="Availability"
-                                            actual={
-                                                siteItem.availability_actual
-                                            }
-                                            target={
-                                                siteItem.availability_target
-                                            }
-                                            isGood={
-                                                siteItem.availability_is_good
-                                            }
-                                        />
-
-                                        <DonutRing
-                                            label="Lead Time"
-                                            actual={
-                                                siteItem.leadtime_actual
-                                            }
-                                            target={
-                                                siteItem.leadtime_target
-                                            }
-                                            isGood={
-                                                siteItem.leadtime_is_good
-                                            }
                                         />
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            )
+                        )}
+                    </div>
+                ) : siteKpiSummary.length ===
+                    0 ? (
+                    <div className="text-center py-5 text-muted">
+                        Data KPI per site
+                        belum tersedia.
+                    </div>
+                ) : (
+                    <div className="row g-3">
+                        {siteKpiSummary.map(
+                            (
+                                site
+                            ) => (
+                                <div
+                                    key={
+                                        site.site_code
+                                    }
+                                    className="col-12 col-md-6 col-xxl-4"
+                                >
+                                    <div
+                                        className="border rounded-4 p-2 h-100"
+                                        style={{
+                                            borderColor:
+                                                'var(--border-color)',
+                                        }}
+                                    >
+                                        <div className="d-flex align-items-center justify-content-between mb-2 px-1">
+                                            <h6
+                                                className="fw-bold mb-0"
+                                                style={{
+                                                    color:
+                                                        'var(--text-primary)',
+                                                }}
+                                            >
+                                                {
+                                                    site.site_code
+                                                }
+                                            </h6>
+
+                                            <small
+                                                className="text-secondary"
+                                                style={{
+                                                    fontSize:
+                                                        '0.7rem',
+                                                }}
+                                            >
+                                                Site
+                                            </small>
+                                        </div>
+
+                                        <div className="row g-1">
+                                            <div className="col-4">
+                                                <KpiDonut
+                                                    label="Readiness"
+                                                    actual={
+                                                        site.readyness_actual
+                                                    }
+                                                    target={
+                                                        site.readyness_target
+                                                    }
+                                                    isGood={
+                                                        site.readyness_is_good
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div className="col-4">
+                                                <KpiDonut
+                                                    label="Availability"
+                                                    actual={
+                                                        site.availability_actual
+                                                    }
+                                                    target={
+                                                        site.availability_target
+                                                    }
+                                                    isGood={
+                                                        site.availability_is_good
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div className="col-4">
+                                                <KpiDonut
+                                                    label="Lead Time"
+                                                    actual={
+                                                        site.leadtime_actual
+                                                    }
+                                                    target={
+                                                        site.leadtime_target
+                                                    }
+                                                    isGood={
+                                                        site.leadtime_is_good
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        )}
                     </div>
                 )}
             </div>
 
-            {/* ── Analisis KPI Belum Mencapai Target ───────────────────── */}
+            {/* ANALISIS KPI */}
             <div className="app-card p-3 mb-4">
                 <div className="d-flex align-items-start justify-content-between gap-3 mb-3 flex-wrap">
                     <div>
                         <h6
                             className="fw-semibold mb-1"
-                            style={{ color: 'var(--text-primary)' }}
+                            style={{
+                                color:
+                                    'var(--text-primary)',
+                            }}
                         >
-                            Analisis KPI Belum Mencapai Target
+                            Analisis KPI Belum
+                            Mencapai Target
                         </h6>
 
                         <small className="text-secondary">
-                            Daftar KPI site yang nilai aktualnya masih berada
-                            di bawah target pada periode terpilih.
+                            Data diurutkan
+                            berdasarkan site
+                            A-Z.
                         </small>
                     </div>
 
                     {!loadingKpi && (
                         <span
-                            className={`badge rounded-pill ${belowTargetAnalysis.length > 0
+                            className={`badge rounded-pill ${belowTargetAnalysis.length >
+                                0
                                 ? 'text-bg-danger'
                                 : 'text-bg-success'
                                 }`}
                         >
-                            {belowTargetAnalysis.length > 0
+                            {belowTargetAnalysis.length >
+                                0
                                 ? `${belowTargetAnalysis.length} KPI perlu perhatian`
                                 : 'Semua KPI memenuhi target'}
                         </span>
@@ -788,359 +1562,458 @@ function DashboardAllSite() {
                     <div className="placeholder-glow">
                         <span
                             className="placeholder w-100 rounded"
-                            style={{ height: 120 }}
+                            style={{
+                                height:
+                                    130,
+                            }}
                         />
                     </div>
-                ) : belowTargetAnalysis.length === 0 ? (
+                ) : belowTargetAnalysis.length ===
+                    0 ? (
                     <div className="text-center py-4">
                         <i className="bi bi-check-circle-fill text-success fs-2" />
 
-                        <p
-                            className="fw-semibold mb-1 mt-2"
-                            style={{ color: 'var(--text-primary)' }}
-                        >
-                            Semua KPI telah mencapai target
+                        <p className="mb-0 mt-2">
+                            Semua KPI mencapai
+                            target.
                         </p>
-
-                        <small className="text-secondary">
-                            Tidak ada KPI site yang berada di bawah target
-                            pada periode terpilih.
-                        </small>
                     </div>
                 ) : (
                     <div className="table-responsive">
                         <table className="table align-middle mb-0">
                             <thead>
                                 <tr>
-                                    <th>Site</th>
-                                    <th>KPI</th>
-                                    <th className="text-end">Aktual</th>
-                                    <th className="text-end">Target</th>
-                                    <th className="text-end">Kekurangan</th>
-                                    <th className="text-center">Prioritas</th>
+                                    <th>
+                                        Site
+                                    </th>
+                                    <th>
+                                        KPI
+                                    </th>
+                                    <th className="text-end">
+                                        Aktual
+                                    </th>
+                                    <th className="text-end">
+                                        Target
+                                    </th>
+                                    <th className="text-end">
+                                        Kekurangan
+                                    </th>
+                                    <th className="text-center">
+                                        Prioritas
+                                    </th>
                                 </tr>
                             </thead>
 
                             <tbody>
-                                {belowTargetAnalysis.map((item) => {
-                                    const priorityClass =
-                                        item.priority === 'Prioritas Tinggi'
-                                            ? 'text-bg-danger'
-                                            : item.priority === 'Prioritas Sedang'
-                                                ? 'text-bg-warning'
-                                                : 'text-bg-secondary';
+                                {belowTargetAnalysis.map(
+                                    (
+                                        item
+                                    ) => {
+                                        const badge =
+                                            item.priority ===
+                                                'Prioritas Tinggi'
+                                                ? 'text-bg-danger'
+                                                : item.priority ===
+                                                    'Prioritas Sedang'
+                                                    ? 'text-bg-warning'
+                                                    : 'text-bg-secondary';
 
-                                    return (
-                                        <tr key={item.id}>
-                                            <td>
-                                                <div
-                                                    className="fw-semibold"
-                                                    style={{
-                                                        color: 'var(--text-primary)',
-                                                    }}
-                                                >
-                                                    {item.site_code}
-                                                </div>
+                                        return (
+                                            <tr
+                                                key={
+                                                    item.id
+                                                }
+                                            >
+                                                <td className="fw-semibold">
+                                                    {
+                                                        item.site_code
+                                                    }
+                                                </td>
 
-                                                {item.site_name && (
-                                                    <small className="text-muted">
-                                                        {item.site_name}
-                                                    </small>
-                                                )}
-                                            </td>
+                                                <td>
+                                                    {
+                                                        item.kpi
+                                                    }
+                                                </td>
 
-                                            <td>{item.kpi}</td>
+                                                <td className="text-end text-danger fw-semibold">
+                                                    {
+                                                        item.actual_percent
+                                                    }
+                                                    %
+                                                </td>
 
-                                            <td className="text-end text-danger fw-semibold">
-                                                {item.actual_percent}%
-                                            </td>
+                                                <td className="text-end">
+                                                    {
+                                                        item.target_percent
+                                                    }
+                                                    %
+                                                </td>
 
-                                            <td className="text-end">
-                                                {item.target_percent}%
-                                            </td>
+                                                <td className="text-end text-danger">
+                                                    -
+                                                    {
+                                                        item.gap_percent
+                                                    }
+                                                    %
+                                                </td>
 
-                                            <td className="text-end text-danger">
-                                                -{item.gap_percent}%
-                                            </td>
-
-                                            <td className="text-center">
-                                                <span
-                                                    className={`badge rounded-pill ${priorityClass}`}
-                                                >
-                                                    {item.priority}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                                <td className="text-center">
+                                                    <span
+                                                        className={`badge rounded-pill ${badge}`}
+                                                    >
+                                                        {
+                                                            item.priority
+                                                        }
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+                                )}
                             </tbody>
                         </table>
                     </div>
                 )}
             </div>
 
-            {/* ── 4. Perbandingan & Tren Seluruh Site ─────────────────── */}
+            {/* READINESS + AVAILABILITY */}
             <div className="row g-3 mb-4">
-                <div className="col-12 col-lg-6">
-                    <div className="h-100 d-flex flex-column gap-2">
-                        <ChartCard
-                            title="Perbandingan KPI Antar Site (%) — Nilai Aktual"
-                            type="bar"
-                            data={kpiPerSiteChartData}
-                            xKey="site"
-                            series={[
-                                {
-                                    key: 'readyness',
-                                    label: 'Readiness',
-                                    color: '#1a56db',
-                                },
-                                {
-                                    key: 'availability',
-                                    label: 'Availability VHS',
-                                    color: '#16a34a',
-                                },
-                                {
-                                    key: 'leadtime',
-                                    label: 'Lead Time Supply',
-                                    color: '#d97706',
-                                },
-                            ]}
-                            loading={loadingKpi}
-                            height={280}
-                        />
+                <div className="col-12 col-xl-6">
+                    <ChartCard
+                        title="Readiness Antar Site (%)"
+                        type="bar"
+                        data={
+                            readinessChartData
+                        }
+                        xKey="site"
+                        series={[
+                            {
+                                key: 'actual',
+                                label:
+                                    'Actual Readiness',
+                                color:
+                                    'var(--chart-purple)',
+                                renderAs:
+                                    'bar',
+                            },
 
-                        <div className="px-1">
-                            <small
-                                className="text-secondary d-block"
-                                style={{
-                                    lineHeight: 1.5,
-                                }}
-                            >
-                                Membandingkan <strong>besaran nilai aktual</strong>{' '}
-                                antar site pada periode terpilih. Untuk status
-                                pencapaian target, lihat bagian ringkasan KPI di atas.
-                            </small>
-                        </div>
-                    </div>
+                            {
+                                key: 'target',
+                                label:
+                                    'Target Readiness',
+                                color:
+                                    'var(--chart-pink)',
+                                renderAs:
+                                    'line',
+                                dashed:
+                                    true,
+                            },
+                        ]}
+                        loading={
+                            loadingKpi
+                        }
+                        height={300}
+                    />
                 </div>
 
-                <div className="col-12 col-lg-6">
-                    <div className="h-100 d-flex flex-column gap-2">
-                        <ChartCard
-                            title="Tren Bulanan KPI Seluruh Site (%)"
-                            type="line"
-                            data={monthlyTrendData}
-                            xKey="month"
-                            series={monthlyTrendSeries}
-                            loading={loadingTrend}
-                            height={280}
-                        />
+                <div className="col-12 col-xl-6">
+                    <ChartCard
+                        title={`Availability VHS Bulanan ${year} (%)`}
+                        type="line"
+                        data={
+                            availabilityChartData
+                        }
+                        xKey="month"
+                        series={[
+                            {
+                                key: 'actual',
+                                label:
+                                    'Actual Availability',
+                                color:
+                                    'var(--chart-cyan)',
+                            },
 
-                        <div className="px-1">
-                            <small
-                                className="text-secondary d-block"
-                                style={{
-                                    lineHeight: 1.5,
-                                }}
-                            >
-                                Menampilkan tren KPI selama satu tahun penuh
-                                berdasarkan tahun terpilih. Filter bulan tidak
-                                memengaruhi grafik ini.
-                                {missingMonthlyTrendSeries.length > 0 && (
-                                    <>
-                                        {' '}
-                                        Data{' '}
-                                        <strong>
-                                            {missingMonthlyTrendSeries.join(
-                                                ' dan '
-                                            )}
-                                        </strong>{' '}
-                                        belum tersedia, sehingga garisnya belum
-                                        ditampilkan.
-                                    </>
-                                )}
-                            </small>
-                        </div>
-                    </div>
+                            {
+                                key: 'target',
+                                label:
+                                    'Target Availability',
+                                color:
+                                    'var(--chart-pink)',
+                                dashed:
+                                    true,
+                            },
+                        ]}
+                        loading={
+                            loadingTrend
+                        }
+                        height={300}
+                    />
                 </div>
             </div>
 
-            {/* ── Ringkasan Agregat Performa Unit per Site (bukan per model) ── */}
-            <div className="mb-4 pt-2">
-                <ChartCard
-                    title="Ringkasan Performa Unit Antar Site — Rata-rata PA & UA (%)"
-                    type="bar"
-                    data={unitPerfBySite}
-                    xKey="site_code"
-                    series={[
-                        { key: 'physical_availability', label: 'Physical Availability (%)', color: '#1a56db' },
-                        { key: 'unit_availability', label: 'Unit Availability (%)', color: '#16a34a' },
-                    ]}
-                    loading={loadingPerf}
-                    height={280}
-                />
-                <small className="text-muted d-block mt-2">
-                    Rata-rata seluruh model unit di tiap site. Detail per model unit tersedia di Dashboard Per Site.
-                </small>
-            </div>
-
-            {/* ── 5. Ringkasan Tambahan (KPI Cards Operational & Pending Supply) ── */}
+            {/* LEAD TIME */}
             <div className="mb-4">
-                <h6 className="fw-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                    Ringkasan Tambahan Operasional
-                </h6>
-                <div className="row g-3">
-                    <div className="col-6 col-lg-3">
-                        <KpiCard
-                            icon="bi-building-check"
-                            label="Total Site"
-                            value={loadingSites ? null : sites.length}
-                            loading={loadingSites}
-                            variant="primary"
-                        />
-                    </div>
-                    <div className="col-6 col-lg-3">
-                        <KpiCard
-                            icon="bi-truck"
-                            label="Total Unit Dipantau"
-                            value={loadingPerf ? null : totalUnits}
-                            loading={loadingPerf}
-                            variant="success"
-                        />
-                    </div>
-                    <div className="col-6 col-lg-3">
-                        <KpiCard
-                            icon="bi-hourglass-split"
-                            label="Pending Supply"
-                            value={loadingSupply ? null : totalPending}
-                            suffix="item"
-                            loading={loadingSupply}
-                            variant="warning"
-                        />
-                    </div>
-                    <div className="col-6 col-lg-3">
-                        <KpiCard
-                            icon="bi-boxes"
-                            label="Total Qty Pending"
-                            value={loadingSupply ? null : totalPendingQty}
-                            suffix="pcs"
-                            loading={loadingSupply}
-                            variant="danger"
-                        />
-                    </div>
-                </div>
+                <ChartCard
+                    title="Lead Time Supply Antar Site (%)"
+                    type="bar"
+                    data={
+                        leadTimeChartData
+                    }
+                    xKey="site"
+                    series={[
+                        {
+                            key: 'actual',
+                            label:
+                                'Actual Lead Time Supply',
+                            color:
+                                'var(--chart-orange)',
+                            renderAs:
+                                'bar',
+                        },
+
+                        {
+                            key: 'target',
+                            label:
+                                'Target Lead Time Supply',
+                            color:
+                                'var(--chart-pink)',
+                            renderAs:
+                                'line',
+                            dashed:
+                                true,
+                        },
+                    ]}
+                    loading={
+                        loadingKpi
+                    }
+                    height={300}
+                />
             </div>
 
-            {/* ── 6. Tabel Pending Supply Seluruh Site ─────────────────── */}
-            <div className="mb-3">
-                <DataTable
-                    title={`Pending Supply Detail — ${totalPending} item (${totalPendingQty} pcs)`}
-                    columns={supplyColumns}
-                    data={paginatedSupplyRows}
-                    loading={loadingSupply}
-                    emptyMessage="Tidak ada pending supply"
-                    rowKey="id"
-                />
+            {/* PERFORMA UNIT */}
+            <div className="app-card p-3 mb-4">
+                <div className="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-3">
+                    <div>
+                        <h6
+                            className="fw-semibold mb-1"
+                            style={{
+                                color:
+                                    'var(--text-primary)',
+                            }}
+                        >
+                            Performa Unit All
+                            Site
+                        </h6>
 
-                {!loadingSupply && supplyRows.length > 0 && (
-                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3">
                         <small className="text-secondary">
-                            Menampilkan{' '}
-                            <strong>{supplyStartNumber}</strong>
-                            {' - '}
-                            <strong>{supplyEndNumber}</strong>
-                            {' dari '}
-                            <strong>{supplyRows.length}</strong>
-                            {' data'}
+                            Perbandingan PA,
+                            UA, MTBF, MTTR,
+                            Fuel, dan
+                            Productivity
+                            berdasarkan model
+                            unit.
                         </small>
+                    </div>
 
-                        <nav aria-label="Pagination Pending Supply">
-                            <ul className="pagination pagination-sm mb-0">
-                                <li
-                                    className={`page-item ${supplyPage === 1 ? 'disabled' : ''
-                                        }`}
-                                >
-                                    <button
-                                        type="button"
-                                        className="page-link"
-                                        onClick={() =>
-                                            setSupplyPage((currentPage) =>
-                                                Math.max(1, currentPage - 1)
-                                            )
-                                        }
-                                        disabled={supplyPage === 1}
-                                    >
-                                        Sebelumnya
-                                    </button>
-                                </li>
+                    {!loadingPerf && (
+                        <span className="badge rounded-pill text-bg-light">
+                            {
+                                availableSiteCount
+                            }{' '}
+                            site
+                        </span>
+                    )}
+                </div>
 
-                                {visibleSupplyPages.map((pageNumber, index) => {
-                                    const previousPage =
-                                        visibleSupplyPages[index - 1];
+                <div className="d-flex flex-wrap gap-2 mb-3">
+                    {UNIT_MODEL_OPTIONS.map(
+                        (
+                            model
+                        ) => (
+                            <button
+                                key={
+                                    model
+                                }
+                                type="button"
+                                className={`btn btn-sm ${selectedUnitModel ===
+                                    model
+                                    ? 'btn-primary'
+                                    : 'btn-outline-secondary'
+                                    }`}
+                                onClick={() =>
+                                    setSelectedUnitModel(
+                                        model
+                                    )
+                                }
+                            >
+                                {
+                                    model
+                                }
 
-                                    const showEllipsis =
-                                        previousPage &&
-                                        pageNumber - previousPage > 1;
+                                {model ===
+                                    'PC3400' && (
+                                        <small className="ms-1">
+                                            (BIB)
+                                        </small>
+                                    )}
+                            </button>
+                        )
+                    )}
+                </div>
 
-                                    return (
-                                        <div
-                                            key={pageNumber}
-                                            className="d-flex"
-                                        >
-                                            {showEllipsis && (
-                                                <li className="page-item disabled">
-                                                    <span className="page-link">
-                                                        …
-                                                    </span>
-                                                </li>
-                                            )}
+                <div
+                    className="alert alert-light border py-2 mb-3"
+                    style={{
+                        fontSize:
+                            '0.8rem',
+                    }}
+                >
+                    <i className="bi bi-info-circle me-2" />
 
-                                            <li
-                                                className={`page-item ${supplyPage === pageNumber
-                                                        ? 'active'
-                                                        : ''
-                                                    }`}
-                                            >
-                                                <button
-                                                    type="button"
-                                                    className="page-link"
-                                                    onClick={() =>
-                                                        setSupplyPage(pageNumber)
-                                                    }
-                                                >
-                                                    {pageNumber}
-                                                </button>
-                                            </li>
-                                        </div>
-                                    );
-                                })}
+                    PC2000, PC1250 dan
+                    HD785 menampilkan
+                    seluruh site yang
+                    memiliki model
+                    tersebut. PC3400
+                    khusus site BIB.
+                    PC1250SP masuk ke
+                    kategori PC1250.
+                </div>
 
-                                <li
-                                    className={`page-item ${supplyPage === totalSupplyPages
-                                            ? 'disabled'
-                                            : ''
-                                        }`}
-                                >
-                                    <button
-                                        type="button"
-                                        className="page-link"
-                                        onClick={() =>
-                                            setSupplyPage((currentPage) =>
-                                                Math.min(
-                                                    totalSupplyPages,
-                                                    currentPage + 1
-                                                )
-                                            )
-                                        }
-                                        disabled={
-                                            supplyPage === totalSupplyPages
-                                        }
-                                    >
-                                        Berikutnya
-                                    </button>
-                                </li>
-                            </ul>
-                        </nav>
+                {loadingPerf ? (
+                    <div className="placeholder-glow">
+                        <span
+                            className="placeholder w-100 rounded"
+                            style={{
+                                height:
+                                    300,
+                            }}
+                        />
+                    </div>
+                ) : performanceChartData.length ===
+                    0 ? (
+                    <div className="text-center py-5 text-muted">
+                        <i className="bi bi-truck fs-2" />
+
+                        <p className="mb-1 mt-2">
+                            Data{' '}
+                            {
+                                selectedUnitModel
+                            }{' '}
+                            belum tersedia.
+                        </p>
+
+                        <small>
+                            Pilih model unit
+                            lainnya.
+                        </small>
+                    </div>
+                ) : (
+                    <div className="row g-3">
+                        <div className="col-12 col-xl-6">
+                            <PerformanceBarChart
+                                title={`PA & UA — ${selectedUnitModel} (%)`}
+                                data={
+                                    performanceChartData
+                                }
+                                unit="%"
+                                series={[
+                                    {
+                                        key: 'pa',
+                                        label:
+                                            'PA (%)',
+                                        color:
+                                            'var(--chart-purple)',
+                                    },
+
+                                    {
+                                        key: 'ua',
+                                        label:
+                                            'UA (%)',
+                                        color:
+                                            'var(--chart-cyan)',
+                                    },
+                                ]}
+                                height={
+                                    290
+                                }
+                            />
+                        </div>
+
+                        <div className="col-12 col-xl-6">
+                            <PerformanceBarChart
+                                title={`MTBF & MTTR — ${selectedUnitModel}`}
+                                data={
+                                    performanceChartData
+                                }
+                                series={[
+                                    {
+                                        key: 'mtbf',
+                                        label:
+                                            'MTBF',
+                                        color:
+                                            'var(--chart-purple)',
+                                    },
+
+                                    {
+                                        key: 'mttr',
+                                        label:
+                                            'MTTR',
+                                        color:
+                                            'var(--chart-pink)',
+                                    },
+                                ]}
+                                height={
+                                    290
+                                }
+                            />
+                        </div>
+
+                        <div className="col-12 col-xl-6">
+                            <PerformanceBarChart
+                                title={`Fuel Consumption — ${selectedUnitModel}`}
+                                data={
+                                    performanceChartData
+                                }
+                                series={[
+                                    {
+                                        key: 'fuel',
+                                        label:
+                                            'Fuel',
+                                        color:
+                                            'var(--chart-cyan)',
+                                    },
+                                ]}
+                                height={
+                                    270
+                                }
+                            />
+                        </div>
+
+                        <div className="col-12 col-xl-6">
+                            <PerformanceBarChart
+                                title={`Productivity — ${selectedUnitModel}`}
+                                data={
+                                    performanceChartData
+                                }
+                                series={[
+                                    {
+                                        key:
+                                            'productivity',
+
+                                        label:
+                                            'Productivity',
+
+                                        color:
+                                            'var(--chart-orange)',
+                                    },
+                                ]}
+                                height={
+                                    270
+                                }
+                            />
+                        </div>
                     </div>
                 )}
             </div>
