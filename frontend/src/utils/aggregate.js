@@ -1,79 +1,195 @@
-/**
- * aggregate.js
- * Kumpulan fungsi untuk mengolah data mentah dari API menjadi
- * format yang siap ditampilkan di komponen-komponen Dashboard.
- */
-
 import { MONTHS } from './constants';
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
+// ============================================================================
+// MASTER SITE
+// ============================================================================
 
 /**
- * Tentukan key & label unik untuk satu site dari sebuah baris data, dengan aman.
- * - Jika site_id kosong tapi site_code ada, gunakan site_code sebagai fallback.
- * - Jika site_id dan site_code sama-sama kosong, baris dianggap tidak valid (return null)
- *   sehingga baris tsb bisa di-skip oleh pemanggil, dan tidak pernah muncul label
- *   "Site undefined" di UI.
+ * Aturan final site:
  *
- * @param {object} row Baris data yang punya field site_id / site_code
- * @returns {{ key: string|number, label: string }|null}
+ * WARA + ADRW -> WARA
+ * PTBA        -> BA
+ *
+ * AMC + AMC-MAC + LC -> AMC
+ *
+ * KHUSUS AMC:
+ * Data yang diprioritaskan adalah data LC.
+ * Jika LC tidak ada, baru fallback ke AMC / AMC-MAC.
  */
-function resolveSiteIdentity(row) {
-    const rawSiteId = row?.site_id;
-    const rawSiteCode = row?.site_code;
+export function normalizeSiteCode(siteCode) {
+    const code = String(siteCode || '')
+        .trim()
+        .toUpperCase();
 
-    const hasSiteId = rawSiteId !== null && rawSiteId !== undefined && rawSiteId !== '';
-    const hasSiteCode = rawSiteCode !== null && rawSiteCode !== undefined && rawSiteCode !== '';
+    if (
+        code === 'WARA' ||
+        code === 'ADRW'
+    ) {
+        return 'WARA';
+    }
 
-    if (!hasSiteId && !hasSiteCode) return null;
+    if (
+        code === 'PTBA' ||
+        code === 'BA'
+    ) {
+        return 'BA';
+    }
 
-    return {
-        key: hasSiteId ? rawSiteId : rawSiteCode,
-        label: hasSiteCode ? rawSiteCode : String(rawSiteId),
-    };
+    if (
+        code === 'AMC' ||
+        code === 'AMC-MAC' ||
+        code === 'AMC-LAC' ||
+        code === 'LAC' ||
+        code === 'LC'
+    ) {
+        return 'AMC';
+    }
+
+    return code;
 }
 
-// ---------------------------------------------------------------------------
-// KPI Summary helpers
-// ---------------------------------------------------------------------------
+// ============================================================================
+// INTERNAL HELPERS
+// ============================================================================
+
+function getRawSiteCode(row) {
+    return String(
+        row?.site_code || ''
+    )
+        .trim()
+        .toUpperCase();
+}
 
 /**
- * Hitung rata-rata dari array angka, abaikan nilai null/undefined/NaN.
- * @param {Array<number|null>} values
- * @returns {number|null}
+ * Memilih data yang akan digunakan untuk satu site.
+ *
+ * KHUSUS AMC:
+ * - kalau LC tersedia -> hanya LC yang digunakan
+ * - kalau LC tidak tersedia -> AMC / AMC-MAC digunakan
  */
-export function safeAvg(values = []) {
-    const validValues = values
-        .filter(
-            (value) =>
-                value !== null &&
-                value !== undefined &&
-                value !== ''
-        )
-        .map(Number)
-        .filter(Number.isFinite);
+function selectPreferredSiteRows(
+    normalizedSiteCode,
+    rows = []
+) {
+    if (
+        normalizedSiteCode !== 'AMC'
+    ) {
+        return rows;
+    }
 
-    if (validValues.length === 0) {
+    const lcRows = rows.filter((row) => {
+        const code = getRawSiteCode(row);
+
+        return (
+            code === 'LC' ||
+            code === 'LAC'
+        );
+    });
+
+    if (lcRows.length > 0) {
+        return lcRows;
+    }
+
+    return rows.filter((row) => {
+        const code =
+            getRawSiteCode(row);
+
+        return (
+            code === 'AMC' ||
+            code === 'AMC-MAC' ||
+            code === 'AMC-LAC'
+        );
+    });
+}
+
+/**
+ * Menghasilkan identitas site setelah normalisasi.
+ */
+function resolveSiteIdentity(row) {
+    const rawCode =
+        row?.site_code ??
+        row?.site_id;
+
+    if (
+        rawCode === null ||
+        rawCode === undefined ||
+        rawCode === ''
+    ) {
         return null;
     }
 
-    const total = validValues.reduce(
-        (sum, value) => sum + value,
-        0
-    );
+    const normalizedCode =
+        normalizeSiteCode(rawCode);
 
-    return total / validValues.length;
+    if (!normalizedCode) {
+        return null;
+    }
+
+    return {
+        key: normalizedCode,
+        label: normalizedCode,
+    };
 }
 
 /**
- * Hitung jumlah dari array angka, abaikan nilai null/undefined/NaN.
- * @param {Array<number|null>} values
- * @returns {number|null}
+ * Sorting site A-Z.
  */
-export function safeSum(values = []) {
-    const validValues = values
+function sortBySite(a, b) {
+    const siteA = String(
+        a?.site_code ??
+        a?.site ??
+        ''
+    );
+
+    const siteB = String(
+        b?.site_code ??
+        b?.site ??
+        ''
+    );
+
+    return siteA.localeCompare(
+        siteB,
+        'id',
+        {
+            sensitivity: 'base',
+            numeric: true,
+        }
+    );
+}
+
+/**
+ * Ubah decimal 0-1 menjadi persen.
+ *
+ * 0.9 -> 90
+ */
+function toPercent(value) {
+    if (
+        value === null ||
+        value === undefined ||
+        value === ''
+    ) {
+        return null;
+    }
+
+    const number = Number(value);
+
+    if (!Number.isFinite(number)) {
+        return null;
+    }
+
+    return Number(
+        (number * 100).toFixed(1)
+    );
+}
+
+// ============================================================================
+// GENERAL
+// ============================================================================
+
+export function safeAvg(
+    values = []
+) {
+    const valid = values
         .filter(
             (value) =>
                 value !== null &&
@@ -83,328 +199,345 @@ export function safeSum(values = []) {
         .map(Number)
         .filter(Number.isFinite);
 
-    if (validValues.length === 0) {
-        return 0;
+    if (valid.length === 0) {
+        return null;
     }
 
-    return validValues.reduce(
-        (sum, value) => sum + value,
+    return (
+        valid.reduce(
+            (sum, value) =>
+                sum + value,
+            0
+        ) / valid.length
+    );
+}
+
+export function safeSum(
+    values = []
+) {
+    const valid = values
+        .filter(
+            (value) =>
+                value !== null &&
+                value !== undefined &&
+                value !== ''
+        )
+        .map(Number)
+        .filter(Number.isFinite);
+
+    return valid.reduce(
+        (sum, value) =>
+            sum + value,
         0
     );
 }
 
-/**
- * Agregasi data kpi-summary menjadi satu objek ringkasan untuk ditampilkan
- * di Gauge dan KPI Cards. Jika ada beberapa site, nilai dirata-rata.
- *
- * @param {Array<object>} kpiRows Baris dari /api/kpi-summary
- * @returns {{
- *   readyness_actual: number|null,
- *   readyness_target: number|null,
- *   availability_actual: number|null,
- *   availability_target: number|null,
- *   leadtime_actual: number|null,
- *   leadtime_target: number|null,
- * }}
- */
-export function aggregateKpiSummary(kpiRows) {
-    if (!kpiRows || kpiRows.length === 0) {
+// ============================================================================
+// KPI PER SITE
+// ============================================================================
+
+export function buildKpiSummaryPerSite(
+    kpiRows
+) {
+    if (
+        !Array.isArray(kpiRows) ||
+        kpiRows.length === 0
+    ) {
+        return [];
+    }
+
+    const map = new Map();
+
+    for (const row of kpiRows) {
+        const identity =
+            resolveSiteIdentity(row);
+
+        if (!identity) {
+            continue;
+        }
+
+        const {
+            key,
+            label,
+        } = identity;
+
+        if (!map.has(key)) {
+            map.set(key, {
+                site_id:
+                    row.site_id ?? null,
+
+                site_code:
+                    label,
+
+                site_name:
+                    label,
+
+                rows: [],
+            });
+        }
+
+        map.get(key)
+            .rows.push(row);
+    }
+
+    return Array.from(
+        map.values()
+    )
+        .map((group) => {
+            /**
+             * KHUSUS AMC:
+             * kalau LC tersedia,
+             * rows di sini hanya berisi LC.
+             */
+            const rows =
+                selectPreferredSiteRows(
+                    group.site_code,
+                    group.rows
+                );
+
+            const readynessActual =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.readyness_actual
+                    )
+                );
+
+            const readynessTarget =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.readyness_target
+                    )
+                );
+
+            const availabilityActual =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.availability_actual
+                    )
+                );
+
+            const availabilityTarget =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.availability_target
+                    )
+                );
+
+            const leadtimeActual =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.leadtime_actual
+                    )
+                );
+
+            const leadtimeTarget =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.leadtime_target
+                    )
+                );
+
+            return {
+                site_id:
+                    group.site_id,
+
+                site_code:
+                    group.site_code,
+
+                site_name:
+                    group.site_name,
+
+                // READINESS
+                readyness_actual:
+                    readynessActual,
+
+                readyness_target:
+                    readynessTarget,
+
+                readyness_is_good:
+                    readynessActual !== null &&
+                        readynessTarget !== null
+                        ? readynessActual >=
+                        readynessTarget
+                        : true,
+
+                // AVAILABILITY
+                availability_actual:
+                    availabilityActual,
+
+                availability_target:
+                    availabilityTarget,
+
+                availability_is_good:
+                    availabilityActual !== null &&
+                        availabilityTarget !== null
+                        ? availabilityActual >=
+                        availabilityTarget
+                        : true,
+
+                // LEAD TIME
+                leadtime_actual:
+                    leadtimeActual,
+
+                leadtime_target:
+                    leadtimeTarget,
+
+                leadtime_is_good:
+                    leadtimeActual !== null &&
+                        leadtimeTarget !== null
+                        ? leadtimeActual >=
+                        leadtimeTarget
+                        : true,
+            };
+        })
+        .sort(sortBySite);
+}
+
+// ============================================================================
+// KPI ALL SITE
+// ============================================================================
+
+export function aggregateKpiSummary(
+    kpiRows
+) {
+    const sites =
+        buildKpiSummaryPerSite(
+            kpiRows
+        );
+
+    if (sites.length === 0) {
         return {
             readyness_actual: null,
             readyness_target: null,
+
             availability_actual: null,
             availability_target: null,
+
             leadtime_actual: null,
             leadtime_target: null,
         };
     }
 
     return {
-        readyness_actual: safeAvg(
-            kpiRows.map((row) => row.readyness_actual)
-        ),
+        readyness_actual:
+            safeAvg(
+                sites.map(
+                    (site) =>
+                        site.readyness_actual
+                )
+            ),
 
-        readyness_target: safeAvg(
-            kpiRows.map((row) => row.readyness_target)
-        ),
+        readyness_target:
+            safeAvg(
+                sites.map(
+                    (site) =>
+                        site.readyness_target
+                )
+            ),
 
-        availability_actual: safeAvg(
-            kpiRows.map((row) => row.availability_actual)
-        ),
+        availability_actual:
+            safeAvg(
+                sites.map(
+                    (site) =>
+                        site.availability_actual
+                )
+            ),
 
-        availability_target: safeAvg(
-            kpiRows.map((row) => row.availability_target)
-        ),
+        availability_target:
+            safeAvg(
+                sites.map(
+                    (site) =>
+                        site.availability_target
+                )
+            ),
 
-        leadtime_actual: safeAvg(
-            kpiRows.map((row) => row.leadtime_actual)
-        ),
+        leadtime_actual:
+            safeAvg(
+                sites.map(
+                    (site) =>
+                        site.leadtime_actual
+                )
+            ),
 
-        leadtime_target: safeAvg(
-            kpiRows.map((row) => row.leadtime_target)
-        ),
+        leadtime_target:
+            safeAvg(
+                sites.map(
+                    (site) =>
+                        site.leadtime_target
+                )
+            ),
     };
 }
-// ---------------------------------------------------------------------------
-// Unit Performance helpers
-// ---------------------------------------------------------------------------
 
-/**
- * Agregasi data unit-performance menjadi ringkasan per bulan untuk chart.
- * Setiap titik pada sumbu X adalah nama bulan.
- *
- * @param {Array<object>} perfRows Baris dari /api/unit-performance
- * @returns {Array<{
- *   month: string,
- *   physical_availability: number|null,
- *   unit_availability: number|null,
- *   mtbf: number|null,
- *   mttr: number|null,
- *   productivity: number|null,
- *   fuel_consumption: number|null,
- * }>}
- */
-export function aggregatePerfByMonth(perfRows) {
-    if (!perfRows || perfRows.length === 0) return [];
+// ============================================================================
+// ANALISIS KPI BELUM TARGET
+// ============================================================================
 
-    // Kelompokkan per (year, month)
-    const map = new Map();
-    for (const row of perfRows) {
-        const key = `${row.period_year}-${String(row.period_month).padStart(2, '0')}`;
-        if (!map.has(key)) {
-            map.set(key, {
-                year: row.period_year,
-                monthNum: row.period_month,
-                rows: [],
-            });
-        }
-        map.get(key).rows.push(row);
-    }
-
-    // Urutkan kronologis dan bentuk titik data
-    return Array.from(map.values())
-        .sort((a, b) =>
-            a.year !== b.year ? a.year - b.year : a.monthNum - b.monthNum
-        )
-        .map(({ monthNum, rows }) => {
-            const label = MONTHS.find((m) => m.value === Number(monthNum))?.label ?? monthNum;
-            return {
-                month: label,
-                physical_availability: safeAvg(rows.map((r) => r.physical_availability)),
-                unit_availability: safeAvg(rows.map((r) => r.unit_availability)),
-                mtbf: safeAvg(rows.map((r) => r.mtbf)),
-                mttr: safeAvg(rows.map((r) => r.mttr)),
-                productivity: safeAvg(rows.map((r) => r.productivity)),
-                fuel_consumption: safeAvg(rows.map((r) => r.fuel_consumption)),
-            };
-        });
-}
-
-/**
- * Agregasi data unit-performance menjadi ringkasan per unit model untuk tabel.
- * Setiap baris adalah satu model unit dengan rata-rata KPI-nya.
- *
- * @param {Array<object>} perfRows
- * @returns {Array<object>}
- */
-export function aggregatePerfByUnit(perfRows) {
-    if (!perfRows || perfRows.length === 0) return [];
-
-    const map = new Map();
-    for (const row of perfRows) {
-        const key = row.unit_model_id;
-        if (!map.has(key)) {
-            map.set(key, {
-                unit_model_id: row.unit_model_id,
-                model_name: row.model_name,
-                site_code: row.site_code,
-                site_name: row.site_name,
-                rows: [],
-            });
-        }
-        map.get(key).rows.push(row);
-    }
-
-    return Array.from(map.values()).map(({ unit_model_id, model_name, site_code, site_name, rows }) => ({
-        unit_model_id,
-        model_name,
-        site_code,
-        site_name,
-        physical_availability: safeAvg(rows.map((r) => r.physical_availability)),
-        unit_availability: safeAvg(rows.map((r) => r.unit_availability)),
-        mtbf: safeAvg(rows.map((r) => r.mtbf)),
-        mttr: safeAvg(rows.map((r) => r.mttr)),
-        productivity: safeAvg(rows.map((r) => r.productivity)),
-        fuel_consumption: safeAvg(rows.map((r) => r.fuel_consumption)),
-    }));
-}
-
-// ---------------------------------------------------------------------------
-// KPI Cards summary helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Hitung jumlah unit dari data unit-performance (distinct unit_model_id).
- * @param {Array<object>} perfRows
- * @returns {number}
- */
-export function countUnits(perfRows) {
-    if (!perfRows || perfRows.length === 0) return 0;
-    return new Set(perfRows.map((r) => r.unit_model_id)).size;
-}
-
-/**
- * Hitung jumlah total pending supply.
- * @param {Array<object>} supplyRows
- * @returns {number}
- */
-export function countPendingSupply(supplyRows) {
-    if (!supplyRows || supplyRows.length === 0) return 0;
-    return supplyRows.length;
-}
-
-/**
- * Hitung total qty pending supply.
- * @param {Array<object>} supplyRows
- * @returns {number}
- */
-export function sumPendingQty(supplyRows) {
-    if (!supplyRows || supplyRows.length === 0) return 0;
-    return supplyRows.reduce((s, r) => s + (Number(r.qty) || 0), 0);
-}
-
-// ---------------------------------------------------------------------------
-// Chart: KPI per site (bar chart)
-// ---------------------------------------------------------------------------
-
-/**
- * Bentuk data untuk bar chart perbandingan KPI antar site.
- * Setiap bar adalah satu site, dengan nilai readyness, availability, leadtime.
- *
- * @param {Array<object>} kpiRows Baris dari /api/kpi-summary (tanpa filter site)
- * @returns {Array<{ site: string, readyness: number|null, availability: number|null, leadtime: number|null }>}
- */
-export function buildKpiPerSiteChart(kpiRows) {
-    if (!kpiRows || kpiRows.length === 0) return [];
-
-    const map = new Map();
-    for (const row of kpiRows) {
-        const identity = resolveSiteIdentity(row);
-        if (!identity) continue; // site_id & site_code sama-sama kosong -> skip
-
-        const { key, label } = identity;
-        if (!map.has(key)) {
-            map.set(key, {
-                site: label,
-                rows: [],
-            });
-        }
-        map.get(key).rows.push(row);
-    }
-
-    return Array.from(map.values()).map(({ site, rows }) => ({
-        site,
-        readyness: safeAvg(rows.map((r) => r.readyness_actual)) !== null
-            ? parseFloat((safeAvg(rows.map((r) => r.readyness_actual)) * 100).toFixed(1))
-            : null,
-        availability: safeAvg(rows.map((r) => r.availability_actual)) !== null
-            ? parseFloat((safeAvg(rows.map((r) => r.availability_actual)) * 100).toFixed(1))
-            : null,
-        leadtime: safeAvg(rows.map((r) => r.leadtime_actual)) !== null
-            ? parseFloat((safeAvg(rows.map((r) => r.leadtime_actual)) * 100).toFixed(1))
-            : null,
-    }));
-}
-
-/**
- * Bentuk data ringkasan KPI per site untuk komponen Donut/Ring KPI.
- * Mengabaikan site yang tidak memiliki data pada periode terpilih.
- *
- * @param {Array<object>} kpiRows Baris dari /api/kpi-summary
- * @returns {Array<object>}
- */
-export function buildKpiSummaryPerSite(kpiRows) {
-    if (!kpiRows || kpiRows.length === 0) return [];
-
-    const map = new Map();
-    for (const row of kpiRows) {
-        const identity = resolveSiteIdentity(row);
-        if (!identity) continue; // site_id & site_code sama-sama kosong -> skip
-
-        const { key, label } = identity;
-        if (!map.has(key)) {
-            map.set(key, {
-                site_id: row.site_id ?? null,
-                site_code: label,
-                site_name: row.site_name || '',
-                rows: [],
-            });
-        }
-        map.get(key).rows.push(row);
-    }
-
-    return Array.from(map.values()).map(({ site_id, site_code, site_name, rows }) => {
-        const readyness_actual = safeAvg(rows.map((r) => r.readyness_actual));
-        const readyness_target = safeAvg(rows.map((r) => r.readyness_target));
-        const availability_actual = safeAvg(rows.map((r) => r.availability_actual));
-        const availability_target = safeAvg(rows.map((r) => r.availability_target));
-        const leadtime_actual = safeAvg(rows.map((r) => r.leadtime_actual));
-        const leadtime_target = safeAvg(rows.map((r) => r.leadtime_target));
-
-        return {
-            site_id,
-            site_code,
-            site_name,
-            readyness_actual,
-            readyness_target,
-            readyness_is_good: readyness_actual !== null && readyness_target !== null ? readyness_actual >= readyness_target : true,
-            availability_actual,
-            availability_target,
-            availability_is_good: availability_actual !== null && availability_target !== null ? availability_actual >= availability_target : true,
-            leadtime_actual,
-            leadtime_target,
-            leadtime_is_good: leadtime_actual !== null && leadtime_target !== null ? leadtime_actual >= leadtime_target : true,
-        };
-    });
-}
-
-/**
- * Membuat daftar KPI per site yang belum mencapai target.
- *
- * @param {Array<object>} kpiRows
- * @returns {Array<object>}
- */
-export function buildKpiBelowTargetAnalysis(kpiRows) {
-    const siteSummaries =
-        buildKpiSummaryPerSite(kpiRows);
+export function buildKpiBelowTargetAnalysis(
+    kpiRows
+) {
+    const sites =
+        buildKpiSummaryPerSite(
+            kpiRows
+        );
 
     const result = [];
 
-    const kpiDefinitions = [
+    const definitions = [
         {
             key: 'readyness',
             label: 'Readiness',
-            actualKey: 'readyness_actual',
-            targetKey: 'readyness_target',
+
+            actual:
+                'readyness_actual',
+
+            target:
+                'readyness_target',
         },
         {
             key: 'availability',
-            label: 'Availability VHS',
-            actualKey: 'availability_actual',
-            targetKey: 'availability_target',
+            label:
+                'Availability VHS',
+
+            actual:
+                'availability_actual',
+
+            target:
+                'availability_target',
         },
         {
             key: 'leadtime',
-            label: 'Lead Time Supply',
-            actualKey: 'leadtime_actual',
-            targetKey: 'leadtime_target',
+            label:
+                'Lead Time Supply',
+
+            actual:
+                'leadtime_actual',
+
+            target:
+                'leadtime_target',
         },
     ];
 
-    for (const site of siteSummaries) {
-        for (const kpi of kpiDefinitions) {
-            const actual = site[kpi.actualKey];
-            const target = site[kpi.targetKey];
+    for (const site of sites) {
+        for (
+            const definition of
+            definitions
+        ) {
+            const actual =
+                site[
+                definition.actual
+                ];
+
+            const target =
+                site[
+                definition.target
+                ];
 
             if (
                 actual === null ||
@@ -416,215 +549,1003 @@ export function buildKpiBelowTargetAnalysis(kpiRows) {
                 continue;
             }
 
-            const gap = target - actual;
-            const gapPercent = gap * 100;
+            const gap =
+                target - actual;
 
-            let priority = 'Perlu Perhatian';
+            const gapPercent =
+                gap * 100;
 
-            if (gapPercent >= 10) {
-                priority = 'Prioritas Tinggi';
-            } else if (gapPercent >= 5) {
-                priority = 'Prioritas Sedang';
+            let priority =
+                'Perlu Perhatian';
+
+            if (
+                gapPercent >= 10
+            ) {
+                priority =
+                    'Prioritas Tinggi';
+            } else if (
+                gapPercent >= 5
+            ) {
+                priority =
+                    'Prioritas Sedang';
             }
 
             result.push({
-                id: `${site.site_id ?? site.site_code}-${kpi.key}`,
-                site_id: site.site_id,
-                site_code: site.site_code,
-                site_name: site.site_name,
-                kpi: kpi.label,
+                id:
+                    `${site.site_code}-${definition.key}`,
+
+                site_id:
+                    site.site_id,
+
+                site_code:
+                    site.site_code,
+
+                site_name:
+                    site.site_name,
+
+                kpi:
+                    definition.label,
+
                 actual,
+
                 target,
+
                 gap,
-                actual_percent: Number(
-                    (actual * 100).toFixed(1)
-                ),
-                target_percent: Number(
-                    (target * 100).toFixed(1)
-                ),
-                gap_percent: Number(
-                    gapPercent.toFixed(1)
-                ),
+
+                actual_percent:
+                    Number(
+                        (
+                            actual * 100
+                        ).toFixed(1)
+                    ),
+
+                target_percent:
+                    Number(
+                        (
+                            target * 100
+                        ).toFixed(1)
+                    ),
+
+                gap_percent:
+                    Number(
+                        gapPercent.toFixed(
+                            1
+                        )
+                    ),
+
                 priority,
             });
         }
     }
 
+    /**
+     * Sorting:
+     * AMC
+     * BA
+     * BGE
+     * BIB
+     * ...
+     * WARA
+     *
+     * Jika site sama,
+     * KPI juga diurutkan A-Z.
+     */
     return result.sort(
-        (a, b) => b.gap_percent - a.gap_percent
+        (a, b) => {
+            const siteCompare =
+                String(
+                    a.site_code
+                ).localeCompare(
+                    String(
+                        b.site_code
+                    ),
+                    'id',
+                    {
+                        sensitivity:
+                            'base',
+
+                        numeric:
+                            true,
+                    }
+                );
+
+            if (
+                siteCompare !== 0
+            ) {
+                return siteCompare;
+            }
+
+            return String(
+                a.kpi
+            ).localeCompare(
+                String(
+                    b.kpi
+                ),
+                'id',
+                {
+                    sensitivity:
+                        'base',
+                }
+            );
+        }
     );
 }
 
-/**
- * Mengelompokkan data unit performance berdasarkan Model Unit (mis. PC3400, PC2000, dll.).
- * Mengabaikan site yang tidak memiliki data pada periode terpilih (Rule 6).
- * Sumbu X adalah Site (`site_code`).
- *
- * @param {Array<object>} perfRows Baris data /api/unit-performance
- * @returns {Array<object>}
- */
-export function buildUnitPerformanceByModel(perfRows) {
-    if (!perfRows || perfRows.length === 0) return [];
+// ============================================================================
+// READINESS PER SITE
+// ============================================================================
 
-    const modelMap = new Map();
+export function buildReadinessPerSiteChart(
+    kpiRows
+) {
+    return buildKpiSummaryPerSite(
+        kpiRows
+    ).map((site) => ({
+        site:
+            site.site_code,
 
-    for (const row of perfRows) {
-        const modelName = row.model_name || 'Lainnya';
-        if (!modelMap.has(modelName)) {
-            modelMap.set(modelName, new Map());
-        }
-        const siteMap = modelMap.get(modelName);
-        const siteKey = row.site_code || `Site ${row.site_id || ''}`;
-        if (!siteMap.has(siteKey)) {
-            siteMap.set(siteKey, {
-                site_code: siteKey,
-                site_name: row.site_name || '',
-                rows: [],
-            });
-        }
-        siteMap.get(siteKey).rows.push(row);
-    }
+        actual:
+            toPercent(
+                site.readyness_actual
+            ),
 
-    const result = [];
-
-    for (const [model_name, siteMap] of modelMap.entries()) {
-        const chartData = [];
-        let hasProductivity = false;
-        let hasFuelConsumption = false;
-
-        for (const [site_code, { site_name, rows }] of siteMap.entries()) {
-            const paAvg = safeAvg(rows.map((r) => r.physical_availability));
-            const uaAvg = safeAvg(rows.map((r) => r.unit_availability));
-            const mtbfAvg = safeAvg(rows.map((r) => r.mtbf));
-            const mttrAvg = safeAvg(rows.map((r) => r.mttr));
-            const prodAvg = safeAvg(rows.map((r) => r.productivity));
-            const fuelAvg = safeAvg(rows.map((r) => r.fuel_consumption));
-
-            if (prodAvg !== null && prodAvg > 0) hasProductivity = true;
-            if (fuelAvg !== null && fuelAvg > 0) hasFuelConsumption = true;
-
-            chartData.push({
-                site_code,
-                site_name,
-                physical_availability: paAvg !== null ? parseFloat((paAvg * 100).toFixed(1)) : null,
-                unit_availability: uaAvg !== null ? parseFloat((uaAvg * 100).toFixed(1)) : null,
-                mtbf: mtbfAvg !== null ? parseFloat(mtbfAvg.toFixed(1)) : null,
-                mttr: mttrAvg !== null ? parseFloat(mttrAvg.toFixed(1)) : null,
-                productivity: prodAvg !== null ? parseFloat(prodAvg.toFixed(1)) : null,
-                fuel_consumption: fuelAvg !== null ? parseFloat(fuelAvg.toFixed(1)) : null,
-            });
-        }
-
-        result.push({
-            model_name,
-            chartData,
-            hasProductivity,
-            hasFuelConsumption,
-        });
-    }
-
-    return result;
+        target:
+            toPercent(
+                site.readyness_target
+            ),
+    }));
 }
 
-// ---------------------------------------------------------------------------
-// Chart: Availability trend (line chart, per bulan)
-// ---------------------------------------------------------------------------
+// ============================================================================
+// LEAD TIME PER SITE
+// ============================================================================
 
-/**
- * Bentuk data ringkasan performa unit AGREGAT per site (lintas semua model
- * di site tsb). Dipakai Dashboard All Site untuk membandingkan performa
- * unit antar-site tanpa merinci ke level model.
- *
- * @param {Array<object>} perfRows Baris dari /api/unit-performance
- * @returns {Array<{ site_code: string, site_name: string, physical_availability: number|null, unit_availability: number|null, mtbf: number|null, mttr: number|null }>}
- */
-export function buildUnitPerformanceBySite(perfRows) {
-    if (!perfRows || perfRows.length === 0) return [];
+export function buildLeadTimePerSiteChart(
+    kpiRows
+) {
+    return buildKpiSummaryPerSite(
+        kpiRows
+    ).map((site) => ({
+        site:
+            site.site_code,
+
+        actual:
+            toPercent(
+                site.leadtime_actual
+            ),
+
+        target:
+            toPercent(
+                site.leadtime_target
+            ),
+    }));
+}
+
+// ============================================================================
+// AVAILABILITY BULANAN
+// ============================================================================
+
+export function buildAvailabilityMonthlyChart(
+    kpiRows
+) {
+    if (
+        !Array.isArray(kpiRows) ||
+        kpiRows.length === 0
+    ) {
+        return [];
+    }
 
     const map = new Map();
-    for (const row of perfRows) {
-        const identity = resolveSiteIdentity(row);
-        if (!identity) continue; // site_id & site_code sama-sama kosong -> skip
 
-        const { key, label } = identity;
+    for (const row of kpiRows) {
+        const month =
+            Number(
+                row.period_month
+            );
+
+        const year =
+            Number(
+                row.period_year
+            );
+
+        if (
+            !Number.isFinite(
+                month
+            ) ||
+            month < 1 ||
+            month > 12
+        ) {
+            continue;
+        }
+
+        const key =
+            `${year}-${month}`;
+
         if (!map.has(key)) {
             map.set(key, {
-                site_code: label,
-                site_name: row.site_name || '',
+                year,
+                month,
                 rows: [],
             });
         }
-        map.get(key).rows.push(row);
+
+        map.get(key)
+            .rows.push(row);
     }
 
-    return Array.from(map.values()).map(({ site_code, site_name, rows }) => {
-        const paAvg = safeAvg(rows.map((r) => r.physical_availability));
-        const uaAvg = safeAvg(rows.map((r) => r.unit_availability));
-        const mtbfAvg = safeAvg(rows.map((r) => r.mtbf));
-        const mttrAvg = safeAvg(rows.map((r) => r.mttr));
+    return Array.from(
+        map.values()
+    )
+        .sort(
+            (a, b) =>
+                a.year !== b.year
+                    ? a.year -
+                    b.year
+                    : a.month -
+                    b.month
+        )
+        .map((group) => {
+            /**
+             * Karena melalui
+             * buildKpiSummaryPerSite(),
+             * AMC otomatis memakai data LC.
+             */
+            const sites =
+                buildKpiSummaryPerSite(
+                    group.rows
+                );
 
-        return {
-            site_code,
-            site_name,
-            physical_availability: paAvg !== null ? parseFloat((paAvg * 100).toFixed(1)) : null,
-            unit_availability: uaAvg !== null ? parseFloat((uaAvg * 100).toFixed(1)) : null,
-            mtbf: mtbfAvg !== null ? parseFloat(mtbfAvg.toFixed(1)) : null,
-            mttr: mttrAvg !== null ? parseFloat(mttrAvg.toFixed(1)) : null,
-        };
-    });
-}
+            const actual =
+                safeAvg(
+                    sites.map(
+                        (site) =>
+                            site.availability_actual
+                    )
+                );
 
-/**
- * Agregasi data kpi-summary (lintas seluruh site atau site terpilih) menjadi
- * tren per bulan untuk chart. Nilai actual dikonversi ke persen (0-100).
- * Dipakai Dashboard All Site untuk "tren bulanan seluruh site".
- *
- * @param {Array<object>} kpiRows Baris dari /api/kpi-summary (biasanya hasil query 1 tahun penuh, tanpa filter bulan)
- * @returns {Array<{ month: string, Readiness: number|null, Availability: number|null, 'Lead Time': number|null }>}
- */
-export function aggregateKpiByMonth(kpiRows) {
-    if (!kpiRows || kpiRows.length === 0) return [];
+            const target =
+                safeAvg(
+                    sites.map(
+                        (site) =>
+                            site.availability_target
+                    )
+                );
 
-    const map = new Map();
-    for (const row of kpiRows) {
-        const key = `${row.period_year}-${String(row.period_month).padStart(2, '0')}`;
-        if (!map.has(key)) {
-            map.set(key, { year: row.period_year, monthNum: row.period_month, rows: [] });
-        }
-        map.get(key).rows.push(row);
-    }
-
-    return Array.from(map.values())
-        .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.monthNum - b.monthNum))
-        .map(({ monthNum, rows }) => {
-            const label = MONTHS.find((m) => m.value === Number(monthNum))?.label ?? monthNum;
-            const readyness = safeAvg(rows.map((r) => r.readyness_actual));
-            const availability = safeAvg(rows.map((r) => r.availability_actual));
-            const leadtime = safeAvg(rows.map((r) => r.leadtime_actual));
             return {
-                month: label,
-                Readiness: readyness !== null ? parseFloat((readyness * 100).toFixed(1)) : null,
-                Availability: availability !== null ? parseFloat((availability * 100).toFixed(1)) : null,
-                'Lead Time': leadtime !== null ? parseFloat((leadtime * 100).toFixed(1)) : null,
+                month:
+                    MONTHS.find(
+                        (item) =>
+                            Number(
+                                item.value
+                            ) ===
+                            group.month
+                    )?.label ??
+                    group.month,
+
+                actual:
+                    toPercent(
+                        actual
+                    ),
+
+                target:
+                    toPercent(
+                        target
+                    ),
             };
         });
 }
 
-/**
- * Bentuk data untuk line chart tren availability per bulan.
- * Nilai dikonversi ke persen (0-100).
- *
- * @param {Array<object>} perfRows
- * @returns {Array<{ month: string, 'PA (%)': number|null, 'UA (%)': number|null }>}
- */
-export function buildAvailabilityTrendChart(perfRows) {
-    return aggregatePerfByMonth(perfRows).map((point) => ({
-        month: point.month,
-        'PA (%)': point.physical_availability !== null
-            ? parseFloat((point.physical_availability * 100).toFixed(1))
-            : null,
-        'UA (%)': point.unit_availability !== null
-            ? parseFloat((point.unit_availability * 100).toFixed(1))
-            : null,
+// ============================================================================
+// UNIT PERFORMANCE BY MODEL
+// ============================================================================
+
+export function buildUnitPerformanceByModel(
+    perfRows
+) {
+    if (
+        !Array.isArray(perfRows) ||
+        perfRows.length === 0
+    ) {
+        return [];
+    }
+
+    const modelMap =
+        new Map();
+
+    for (const row of perfRows) {
+        const modelName =
+            row.model_name ||
+            'Lainnya';
+
+        const siteCode =
+            normalizeSiteCode(
+                row.site_code
+            );
+
+        if (!siteCode) {
+            continue;
+        }
+
+        if (
+            !modelMap.has(
+                modelName
+            )
+        ) {
+            modelMap.set(
+                modelName,
+                new Map()
+            );
+        }
+
+        const siteMap =
+            modelMap.get(
+                modelName
+            );
+
+        if (
+            !siteMap.has(
+                siteCode
+            )
+        ) {
+            siteMap.set(
+                siteCode,
+                {
+                    rows: [],
+                }
+            );
+        }
+
+        siteMap
+            .get(siteCode)
+            .rows.push(row);
+    }
+
+    const result = [];
+
+    for (
+        const [
+            modelName,
+            siteMap,
+        ] of modelMap.entries()
+    ) {
+        const chartData = [];
+
+        for (
+            const [
+                siteCode,
+                group,
+            ] of siteMap.entries()
+        ) {
+            /**
+             * KHUSUS AMC:
+             * kalau LC tersedia,
+             * hanya LC digunakan.
+             */
+            const rows =
+                selectPreferredSiteRows(
+                    siteCode,
+                    group.rows
+                );
+
+            const pa =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.physical_availability
+                    )
+                );
+
+            const ua =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.unit_availability
+                    )
+                );
+
+            const mtbf =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.mtbf
+                    )
+                );
+
+            const mttr =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.mttr
+                    )
+                );
+
+            const fuel =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.fuel_consumption
+                    )
+                );
+
+            const productivity =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.productivity
+                    )
+                );
+
+            chartData.push({
+                site_code:
+                    siteCode,
+
+                site_name:
+                    siteCode,
+
+                physical_availability:
+                    toPercent(pa),
+
+                unit_availability:
+                    toPercent(ua),
+
+                mtbf:
+                    mtbf !== null
+                        ? Number(
+                            mtbf.toFixed(
+                                1
+                            )
+                        )
+                        : null,
+
+                mttr:
+                    mttr !== null
+                        ? Number(
+                            mttr.toFixed(
+                                1
+                            )
+                        )
+                        : null,
+
+                fuel_consumption:
+                    fuel !== null
+                        ? Number(
+                            fuel.toFixed(
+                                1
+                            )
+                        )
+                        : null,
+
+                productivity:
+                    productivity !== null
+                        ? Number(
+                            productivity.toFixed(
+                                1
+                            )
+                        )
+                        : null,
+            });
+        }
+
+        chartData.sort(
+            sortBySite
+        );
+
+        result.push({
+            model_name:
+                modelName,
+
+            chartData,
+        });
+    }
+
+    return result.sort(
+        (a, b) =>
+            String(
+                a.model_name
+            ).localeCompare(
+                String(
+                    b.model_name
+                ),
+                'id',
+                {
+                    numeric: true,
+                    sensitivity:
+                        'base',
+                }
+            )
+    );
+}
+
+// ============================================================================
+// FUNGSI LAMA
+// Tetap dipertahankan supaya halaman lain tidak error
+// ============================================================================
+
+export function buildKpiPerSiteChart(
+    kpiRows
+) {
+    return buildKpiSummaryPerSite(
+        kpiRows
+    ).map((site) => ({
+        site:
+            site.site_code,
+
+        readyness:
+            toPercent(
+                site.readyness_actual
+            ),
+
+        availability:
+            toPercent(
+                site.availability_actual
+            ),
+
+        leadtime:
+            toPercent(
+                site.leadtime_actual
+            ),
     }));
+}
+
+// ============================================================================
+// KPI BULANAN LAMA
+// ============================================================================
+
+export function aggregateKpiByMonth(
+    kpiRows
+) {
+    if (
+        !Array.isArray(kpiRows) ||
+        kpiRows.length === 0
+    ) {
+        return [];
+    }
+
+    const monthMap =
+        new Map();
+
+    for (const row of kpiRows) {
+        const year =
+            Number(
+                row.period_year
+            );
+
+        const month =
+            Number(
+                row.period_month
+            );
+
+        const key =
+            `${year}-${month}`;
+
+        if (
+            !monthMap.has(key)
+        ) {
+            monthMap.set(
+                key,
+                {
+                    year,
+                    month,
+                    rows: [],
+                }
+            );
+        }
+
+        monthMap
+            .get(key)
+            .rows.push(row);
+    }
+
+    return Array.from(
+        monthMap.values()
+    )
+        .sort(
+            (a, b) =>
+                a.year !== b.year
+                    ? a.year -
+                    b.year
+                    : a.month -
+                    b.month
+        )
+        .map((group) => {
+            const sites =
+                buildKpiSummaryPerSite(
+                    group.rows
+                );
+
+            const readiness =
+                safeAvg(
+                    sites.map(
+                        (site) =>
+                            site.readyness_actual
+                    )
+                );
+
+            const availability =
+                safeAvg(
+                    sites.map(
+                        (site) =>
+                            site.availability_actual
+                    )
+                );
+
+            const leadtime =
+                safeAvg(
+                    sites.map(
+                        (site) =>
+                            site.leadtime_actual
+                    )
+                );
+
+            return {
+                month:
+                    MONTHS.find(
+                        (item) =>
+                            Number(
+                                item.value
+                            ) ===
+                            group.month
+                    )?.label ??
+                    group.month,
+
+                Readiness:
+                    toPercent(
+                        readiness
+                    ),
+
+                Availability:
+                    toPercent(
+                        availability
+                    ),
+
+                'Lead Time':
+                    toPercent(
+                        leadtime
+                    ),
+            };
+        });
+}
+
+// ============================================================================
+// UNIT PERFORMANCE PER BULAN
+// ============================================================================
+
+export function aggregatePerfByMonth(
+    perfRows
+) {
+    if (
+        !Array.isArray(perfRows) ||
+        perfRows.length === 0
+    ) {
+        return [];
+    }
+
+    const map = new Map();
+
+    for (const row of perfRows) {
+        const year =
+            Number(
+                row.period_year
+            );
+
+        const month =
+            Number(
+                row.period_month
+            );
+
+        const key =
+            `${year}-${month}`;
+
+        if (!map.has(key)) {
+            map.set(key, {
+                year,
+                month,
+                rows: [],
+            });
+        }
+
+        map.get(key)
+            .rows.push(row);
+    }
+
+    return Array.from(
+        map.values()
+    )
+        .sort(
+            (a, b) =>
+                a.year !== b.year
+                    ? a.year -
+                    b.year
+                    : a.month -
+                    b.month
+        )
+        .map((group) => ({
+            month:
+                MONTHS.find(
+                    (item) =>
+                        Number(
+                            item.value
+                        ) ===
+                        group.month
+                )?.label ??
+                group.month,
+
+            physical_availability:
+                safeAvg(
+                    group.rows.map(
+                        (row) =>
+                            row.physical_availability
+                    )
+                ),
+
+            unit_availability:
+                safeAvg(
+                    group.rows.map(
+                        (row) =>
+                            row.unit_availability
+                    )
+                ),
+
+            mtbf:
+                safeAvg(
+                    group.rows.map(
+                        (row) =>
+                            row.mtbf
+                    )
+                ),
+
+            mttr:
+                safeAvg(
+                    group.rows.map(
+                        (row) =>
+                            row.mttr
+                    )
+                ),
+
+            productivity:
+                safeAvg(
+                    group.rows.map(
+                        (row) =>
+                            row.productivity
+                    )
+                ),
+
+            fuel_consumption:
+                safeAvg(
+                    group.rows.map(
+                        (row) =>
+                            row.fuel_consumption
+                    )
+                ),
+        }));
+}
+
+// ============================================================================
+// AGGREGATE PER UNIT
+// ============================================================================
+
+export function aggregatePerfByUnit(
+    perfRows
+) {
+    if (
+        !Array.isArray(perfRows) ||
+        perfRows.length === 0
+    ) {
+        return [];
+    }
+
+    return buildUnitPerformanceByModel(
+        perfRows
+    ).flatMap(
+        (model) =>
+            model.chartData.map(
+                (row) => ({
+                    model_name:
+                        model.model_name,
+
+                    ...row,
+                })
+            )
+    );
+}
+
+// ============================================================================
+// UNIT PERFORMANCE PER SITE
+// ============================================================================
+
+export function buildUnitPerformanceBySite(
+    perfRows
+) {
+    if (
+        !Array.isArray(perfRows) ||
+        perfRows.length === 0
+    ) {
+        return [];
+    }
+
+    const map = new Map();
+
+    for (const row of perfRows) {
+        const identity =
+            resolveSiteIdentity(row);
+
+        if (!identity) {
+            continue;
+        }
+
+        if (
+            !map.has(
+                identity.key
+            )
+        ) {
+            map.set(
+                identity.key,
+                {
+                    site_code:
+                        identity.label,
+
+                    rows: [],
+                }
+            );
+        }
+
+        map.get(
+            identity.key
+        ).rows.push(row);
+    }
+
+    return Array.from(
+        map.values()
+    )
+        .map((group) => {
+            const rows =
+                selectPreferredSiteRows(
+                    group.site_code,
+                    group.rows
+                );
+
+            const pa =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.physical_availability
+                    )
+                );
+
+            const ua =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.unit_availability
+                    )
+                );
+
+            const mtbf =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.mtbf
+                    )
+                );
+
+            const mttr =
+                safeAvg(
+                    rows.map(
+                        (row) =>
+                            row.mttr
+                    )
+                );
+
+            return {
+                site_code:
+                    group.site_code,
+
+                site_name:
+                    group.site_code,
+
+                physical_availability:
+                    toPercent(pa),
+
+                unit_availability:
+                    toPercent(ua),
+
+                mtbf:
+                    mtbf !== null
+                        ? Number(
+                            mtbf.toFixed(
+                                1
+                            )
+                        )
+                        : null,
+
+                mttr:
+                    mttr !== null
+                        ? Number(
+                            mttr.toFixed(
+                                1
+                            )
+                        )
+                        : null,
+            };
+        })
+        .sort(sortBySite);
+}
+
+// ============================================================================
+// AVAILABILITY TREND UNIT
+// ============================================================================
+
+export function buildAvailabilityTrendChart(
+    perfRows
+) {
+    return aggregatePerfByMonth(
+        perfRows
+    ).map((row) => ({
+        month:
+            row.month,
+
+        'PA (%)':
+            row.physical_availability !==
+                null
+                ? toPercent(
+                    row.physical_availability
+                )
+                : null,
+
+        'UA (%)':
+            row.unit_availability !==
+                null
+                ? toPercent(
+                    row.unit_availability
+                )
+                : null,
+    }));
+}
+
+// ============================================================================
+// COUNTERS
+// ============================================================================
+
+export function countUnits(
+    perfRows
+) {
+    if (
+        !Array.isArray(perfRows)
+    ) {
+        return 0;
+    }
+
+    return new Set(
+        perfRows.map(
+            (row) =>
+                row.unit_model_id
+        )
+    ).size;
+}
+
+export function countPendingSupply(
+    rows
+) {
+    return Array.isArray(rows)
+        ? rows.length
+        : 0;
+}
+
+export function sumPendingQty(
+    rows
+) {
+    if (!Array.isArray(rows)) {
+        return 0;
+    }
+
+    return rows.reduce(
+        (sum, row) =>
+            sum +
+            (
+                Number(
+                    row.qty
+                ) || 0
+            ),
+        0
+    );
 }

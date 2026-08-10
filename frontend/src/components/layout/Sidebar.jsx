@@ -17,28 +17,6 @@ const menuItems = [
         icon: 'bi-pencil-square',
     },
     {
-        label: 'Data Unit',
-        path: '/data-unit',
-        icon: 'bi-truck',
-    },
-    {
-        label: 'Detail LT Supply',
-        path: '/detail-lt-supply',
-        icon: 'bi-clock-history',
-    },
-    {
-        label: 'Pending Supply',
-        path: '/pending-supply',
-        icon: 'bi-box-seam',
-    },
-
-    {
-        label: 'Critical Item',
-        path: '/critical-items',
-        icon: 'bi-exclamation-diamond',
-    },
-
-    {
         label: 'Import Excel Bulanan',
         path: '/import-master-data',
         icon: 'bi-file-earmark-arrow-up',
@@ -100,8 +78,8 @@ function Sidebar({
                     >
                         <i
                             className={`bi ${isCollapsed
-                                ? 'bi-chevron-right'
-                                : 'bi-chevron-left'
+                                    ? 'bi-chevron-right'
+                                    : 'bi-chevron-left'
                                 }`}
                         />
                     </button>
