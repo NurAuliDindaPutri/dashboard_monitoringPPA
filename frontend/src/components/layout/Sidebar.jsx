@@ -78,8 +78,8 @@ function Sidebar({
                     >
                         <i
                             className={`bi ${isCollapsed
-                                    ? 'bi-chevron-right'
-                                    : 'bi-chevron-left'
+                                ? 'bi-chevron-right'
+                                : 'bi-chevron-left'
                                 }`}
                         />
                     </button>
@@ -122,5 +122,6 @@ function Sidebar({
         </>
     );
 }
+
 
 export default Sidebar;

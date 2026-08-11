@@ -6,6 +6,8 @@ import {
     useState,
 } from 'react';
 
+import { createPortal } from 'react-dom';
+
 import { Link } from 'react-router-dom';
 
 import {
@@ -163,6 +165,9 @@ function Navbar({
         theme === 'dark';
 
     const notificationRef =
+        useRef(null);
+
+    const notificationDropdownRef =
         useRef(null);
 
     // ------------------------------------------------------------------------
@@ -349,11 +354,19 @@ function Navbar({
         function handleOutsideClick(
             event
         ) {
-            if (
-                notificationRef.current &&
-                !notificationRef.current.contains(
+            const clickedBell =
+                notificationRef.current?.contains(
                     event.target
-                )
+                );
+
+            const clickedDropdown =
+                notificationDropdownRef.current?.contains(
+                    event.target
+                );
+
+            if (
+                !clickedBell &&
+                !clickedDropdown
             ) {
                 setIsNotificationOpen(
                     false
@@ -704,8 +717,8 @@ function Navbar({
                     >
                         <i
                             className={`bi ${isDark
-                                    ? 'bi-sun'
-                                    : 'bi-moon-stars'
+                                ? 'bi-sun'
+                                : 'bi-moon-stars'
                                 } fs-6`}
                         />
                     </button>
@@ -758,390 +771,177 @@ function Navbar({
                             DROPDOWN
                         ==================================================== */}
 
-                        {isNotificationOpen && (
-                            <div
-                                className="app-card position-absolute end-0 mt-2 p-0 shadow"
-                                style={{
-                                    width:
-                                        390,
-
-                                    maxWidth:
-                                        'calc(100vw - 24px)',
-
-                                    zIndex:
-                                        1050,
-
-                                    overflow:
-                                        'hidden',
-                                }}
-                            >
-                                {/* HEADER */}
-
+                        {isNotificationOpen &&
+                            createPortal(
                                 <div
-                                    className="px-3 py-3"
-                                    style={{
-                                        borderBottom:
-                                            '1px solid var(--border-color)',
-                                    }}
+                                    ref={notificationDropdownRef}
+                                    className="notification-dropdown"
                                 >
-                                    <div className="d-flex align-items-start justify-content-between gap-2">
-                                        <div>
-                                            <div
-                                                className="fw-semibold"
-                                                style={{
-                                                    color:
-                                                        'var(--text-primary)',
-                                                }}
-                                            >
-                                                Notifikasi
-                                                Operasional
+                                    {/* HEADER */}
+
+                                    <div
+                                        className="px-3 py-3"
+                                        style={{
+                                            borderBottom:
+                                                '1px solid var(--border-color)',
+                                        }}
+                                    >
+                                        <div className="d-flex align-items-start justify-content-between gap-2">
+                                            <div>
+                                                <div
+                                                    className="fw-semibold"
+                                                    style={{
+                                                        color:
+                                                            'var(--text-primary)',
+                                                    }}
+                                                >
+                                                    Notifikasi
+                                                    Operasional
+                                                </div>
+
+                                                <small className="text-secondary">
+                                                    Ringkasan
+                                                    kondisi
+                                                    dan
+                                                    aktivitas
+                                                    terbaru
+                                                </small>
                                             </div>
 
-                                            <small className="text-secondary">
-                                                Ringkasan
-                                                kondisi
-                                                dan
-                                                aktivitas
-                                                terbaru
-                                            </small>
+                                            <span className="badge rounded-pill text-bg-danger">
+                                                {
+                                                    notificationCount
+                                                }
+                                            </span>
                                         </div>
 
-                                        <span className="badge rounded-pill text-bg-danger">
-                                            {
-                                                notificationCount
-                                            }
-                                        </span>
+                                        {/* ACTION BUTTON */}
+
+                                        <div className="d-flex flex-wrap gap-2 mt-3">
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm btn-outline-primary"
+                                                onClick={
+                                                    handleMarkAllRead
+                                                }
+                                                disabled={
+                                                    unreadActivityCount ===
+                                                    0
+                                                }
+                                            >
+                                                <i className="bi bi-check2-all me-1" />
+
+                                                Tandai
+                                                dibaca
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm btn-outline-danger"
+                                                onClick={
+                                                    handleClearAll
+                                                }
+                                                disabled={
+                                                    activityNotifications.length ===
+                                                    0
+                                                }
+                                            >
+                                                <i className="bi bi-trash me-1" />
+
+                                                Hapus
+                                                semua
+                                            </button>
+                                        </div>
                                     </div>
 
-                                    {/* ACTION BUTTON */}
-
-                                    <div className="d-flex flex-wrap gap-2 mt-3">
-                                        <button
-                                            type="button"
-                                            className="btn btn-sm btn-outline-primary"
-                                            onClick={
-                                                handleMarkAllRead
-                                            }
-                                            disabled={
-                                                unreadActivityCount ===
-                                                0
-                                            }
-                                        >
-                                            <i className="bi bi-check2-all me-1" />
-
-                                            Tandai
-                                            dibaca
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            className="btn btn-sm btn-outline-danger"
-                                            onClick={
-                                                handleClearAll
-                                            }
-                                            disabled={
-                                                activityNotifications.length ===
-                                                0
-                                            }
-                                        >
-                                            <i className="bi bi-trash me-1" />
-
-                                            Hapus
-                                            semua
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* =================================================
+                                    {/* =================================================
                                     CONTENT
                                 ================================================= */}
 
-                                <div
-                                    className="thin-scrollbar"
-                                    style={{
-                                        maxHeight:
-                                            460,
+                                    <div
+                                        className="thin-scrollbar"
+                                        style={{
+                                            maxHeight:
+                                                460,
 
-                                        overflowY:
-                                            'auto',
-                                    }}
-                                >
-                                    {/* LOADING */}
+                                            overflowY:
+                                                'auto',
+                                        }}
+                                    >
+                                        {/* LOADING */}
 
-                                    {loadingNotifications ? (
-                                        <div className="text-center py-4">
-                                            <div
-                                                className="spinner-border spinner-border-sm"
-                                                role="status"
-                                            />
+                                        {loadingNotifications ? (
+                                            <div className="text-center py-4">
+                                                <div
+                                                    className="spinner-border spinner-border-sm"
+                                                    role="status"
+                                                />
 
-                                            <div className="small text-secondary mt-2">
-                                                Memuat
-                                                notifikasi...
+                                                <div className="small text-secondary mt-2">
+                                                    Memuat
+                                                    notifikasi...
+                                                </div>
                                             </div>
-                                        </div>
-                                    ) : notificationCount ===
-                                        0 &&
-                                        activityNotifications.length ===
-                                        0 ? (
-                                        /* EMPTY */
+                                        ) : notificationCount ===
+                                            0 &&
+                                            activityNotifications.length ===
+                                            0 ? (
+                                            /* EMPTY */
 
-                                        <div className="text-center py-4 px-3">
-                                            <i className="bi bi-check-circle-fill text-success fs-3" />
+                                            <div className="text-center py-4 px-3">
+                                                <i className="bi bi-check-circle-fill text-success fs-3" />
 
-                                            <div
-                                                className="fw-semibold mt-2"
-                                                style={{
-                                                    color:
-                                                        'var(--text-primary)',
-                                                }}
-                                            >
-                                                Tidak
-                                                ada
-                                                peringatan
+                                                <div
+                                                    className="fw-semibold mt-2"
+                                                    style={{
+                                                        color:
+                                                            'var(--text-primary)',
+                                                    }}
+                                                >
+                                                    Tidak
+                                                    ada
+                                                    peringatan
+                                                </div>
+
+                                                <small className="text-secondary">
+                                                    Semua
+                                                    kondisi
+                                                    operasional
+                                                    terlihat
+                                                    aman.
+                                                </small>
                                             </div>
-
-                                            <small className="text-secondary">
-                                                Semua
-                                                kondisi
-                                                operasional
-                                                terlihat
-                                                aman.
-                                            </small>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            {/* =====================================
+                                        ) : (
+                                            <>
+                                                {/* =====================================
                                                 KONDISI OPERASIONAL
                                             ===================================== */}
 
-                                            {operationalCount >
-                                                0 && (
-                                                    <div>
-                                                        <div className="px-3 pt-3 pb-2">
-                                                            <small className="fw-semibold text-secondary text-uppercase">
-                                                                Kondisi
-                                                                Operasional
-                                                            </small>
-                                                        </div>
+                                                {operationalCount >
+                                                    0 && (
+                                                        <div>
+                                                            <div className="px-3 pt-3 pb-2">
+                                                                <small className="fw-semibold text-secondary text-uppercase">
+                                                                    Kondisi
+                                                                    Operasional
+                                                                </small>
+                                                            </div>
 
-                                                        {/* KPI */}
+                                                            {/* KPI */}
 
-                                                        {belowTargetRows.length >
-                                                            0 && (
-                                                                <Link
-                                                                    to="/dashboard-all-site"
-                                                                    onClick={
-                                                                        closeNotification
-                                                                    }
-                                                                    className="d-flex gap-3 px-3 py-3 text-decoration-none"
-                                                                    style={{
-                                                                        borderBottom:
-                                                                            '1px solid var(--border-color)',
-                                                                    }}
-                                                                >
-                                                                    <div
-                                                                        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                                                        style={{
-                                                                            width:
-                                                                                38,
-
-                                                                            height:
-                                                                                38,
-
-                                                                            backgroundColor:
-                                                                                'rgba(220, 38, 38, 0.14)',
-
-                                                                            color:
-                                                                                '#dc2626',
-                                                                        }}
-                                                                    >
-                                                                        <i className="bi bi-graph-down-arrow" />
-                                                                    </div>
-
-                                                                    <div>
-                                                                        <div
-                                                                            className="fw-semibold small"
-                                                                            style={{
-                                                                                color:
-                                                                                    'var(--text-primary)',
-                                                                            }}
-                                                                        >
-                                                                            {
-                                                                                belowTargetRows.length
-                                                                            }{' '}
-                                                                            KPI
-                                                                            belum
-                                                                            mencapai
-                                                                            target
-                                                                        </div>
-
-                                                                        <small className="text-secondary">
-                                                                            Klik
-                                                                            untuk
-                                                                            melihat
-                                                                            analisis
-                                                                            KPI.
-                                                                        </small>
-                                                                    </div>
-                                                                </Link>
-                                                            )}
-
-                                                        {/* PENDING */}
-
-                                                        {overduePendingRows.length >
-                                                            0 && (
-                                                                <Link
-                                                                    to="/pending-supply"
-                                                                    onClick={
-                                                                        closeNotification
-                                                                    }
-                                                                    className="d-flex gap-3 px-3 py-3 text-decoration-none"
-                                                                    style={{
-                                                                        borderBottom:
-                                                                            '1px solid var(--border-color)',
-                                                                    }}
-                                                                >
-                                                                    <div
-                                                                        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                                                        style={{
-                                                                            width:
-                                                                                38,
-
-                                                                            height:
-                                                                                38,
-
-                                                                            backgroundColor:
-                                                                                'rgba(217, 119, 6, 0.14)',
-
-                                                                            color:
-                                                                                '#d97706',
-                                                                        }}
-                                                                    >
-                                                                        <i className="bi bi-clock-history" />
-                                                                    </div>
-
-                                                                    <div>
-                                                                        <div
-                                                                            className="fw-semibold small"
-                                                                            style={{
-                                                                                color:
-                                                                                    'var(--text-primary)',
-                                                                            }}
-                                                                        >
-                                                                            {
-                                                                                overduePendingRows.length
-                                                                            }{' '}
-                                                                            pending
-                                                                            supply
-                                                                            melewati
-                                                                            ETA
-                                                                        </div>
-
-                                                                        <small className="text-secondary">
-                                                                            Jadwal
-                                                                            kedatangan
-                                                                            perlu
-                                                                            ditindaklanjuti.
-                                                                        </small>
-                                                                    </div>
-                                                                </Link>
-                                                            )}
-
-                                                        {/* CRITICAL */}
-
-                                                        {criticalRows.length >
-                                                            0 && (
-                                                                <Link
-                                                                    to="/critical-items"
-                                                                    onClick={
-                                                                        closeNotification
-                                                                    }
-                                                                    className="d-flex gap-3 px-3 py-3 text-decoration-none"
-                                                                >
-                                                                    <div
-                                                                        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                                                        style={{
-                                                                            width:
-                                                                                38,
-
-                                                                            height:
-                                                                                38,
-
-                                                                            backgroundColor:
-                                                                                'rgba(220, 38, 38, 0.14)',
-
-                                                                            color:
-                                                                                '#dc2626',
-                                                                        }}
-                                                                    >
-                                                                        <i className="bi bi-exclamation-diamond" />
-                                                                    </div>
-
-                                                                    <div>
-                                                                        <div
-                                                                            className="fw-semibold small"
-                                                                            style={{
-                                                                                color:
-                                                                                    'var(--text-primary)',
-                                                                            }}
-                                                                        >
-                                                                            {
-                                                                                criticalRows.length
-                                                                            }{' '}
-                                                                            critical
-                                                                            item
-                                                                        </div>
-
-                                                                        <small className="text-secondary">
-                                                                            Spare
-                                                                            part
-                                                                            kritis
-                                                                            perlu
-                                                                            dipantau.
-                                                                        </small>
-                                                                    </div>
-                                                                </Link>
-                                                            )}
-                                                    </div>
-                                                )}
-
-                                            {/* =====================================
-                                                AKTIVITAS TERBARU
-                                            ===================================== */}
-
-                                            {activityNotifications.length >
-                                                0 && (
-                                                    <div>
-                                                        <div className="px-3 pt-3 pb-2">
-                                                            <small className="fw-semibold text-secondary text-uppercase">
-                                                                Aktivitas
-                                                                Terbaru
-                                                            </small>
-                                                        </div>
-
-                                                        {activityNotifications.map(
-                                                            (
-                                                                item
-                                                            ) => {
-                                                                const style =
-                                                                    getNotificationStyle(
-                                                                        item.type
-                                                                    );
-
-                                                                return (
-                                                                    <div
-                                                                        key={
-                                                                            item.id
+                                                            {belowTargetRows.length >
+                                                                0 && (
+                                                                    <Link
+                                                                        to="/dashboard-all-site"
+                                                                        onClick={
+                                                                            closeNotification
                                                                         }
-                                                                        className="d-flex gap-3 px-3 py-3"
+                                                                        className="d-flex gap-3 px-3 py-3 text-decoration-none"
                                                                         style={{
                                                                             borderBottom:
                                                                                 '1px solid var(--border-color)',
                                                                         }}
                                                                     >
-                                                                        {/* ICON */}
-
                                                                         <div
                                                                             className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
                                                                             style={{
@@ -1151,109 +951,312 @@ function Navbar({
                                                                                 height:
                                                                                     38,
 
-                                                                                color:
-                                                                                    style.color,
-
                                                                                 backgroundColor:
-                                                                                    style.background,
+                                                                                    'rgba(220, 38, 38, 0.14)',
+
+                                                                                color:
+                                                                                    '#dc2626',
                                                                             }}
                                                                         >
-                                                                            <i
-                                                                                className={`bi ${style.icon}`}
-                                                                            />
+                                                                            <i className="bi bi-graph-down-arrow" />
                                                                         </div>
 
-                                                                        {/* CONTENT */}
-
-                                                                        <div className="flex-grow-1">
-                                                                            {item.link ? (
-                                                                                <Link
-                                                                                    to={
-                                                                                        item.link
-                                                                                    }
-                                                                                    onClick={
-                                                                                        closeNotification
-                                                                                    }
-                                                                                    className="text-decoration-none"
-                                                                                >
-                                                                                    <div
-                                                                                        className="fw-semibold small"
-                                                                                        style={{
-                                                                                            color:
-                                                                                                'var(--text-primary)',
-                                                                                        }}
-                                                                                    >
-                                                                                        {
-                                                                                            item.title
-                                                                                        }
-                                                                                    </div>
-
-                                                                                    <small className="text-secondary d-block">
-                                                                                        {
-                                                                                            item.message
-                                                                                        }
-                                                                                    </small>
-                                                                                </Link>
-                                                                            ) : (
-                                                                                <>
-                                                                                    <div
-                                                                                        className="fw-semibold small"
-                                                                                        style={{
-                                                                                            color:
-                                                                                                'var(--text-primary)',
-                                                                                        }}
-                                                                                    >
-                                                                                        {
-                                                                                            item.title
-                                                                                        }
-                                                                                    </div>
-
-                                                                                    <small className="text-secondary d-block">
-                                                                                        {
-                                                                                            item.message
-                                                                                        }
-                                                                                    </small>
-                                                                                </>
-                                                                            )}
-
-                                                                            <small
-                                                                                className="text-muted"
+                                                                        <div>
+                                                                            <div
+                                                                                className="fw-semibold small"
                                                                                 style={{
-                                                                                    fontSize:
-                                                                                        '0.7rem',
+                                                                                    color:
+                                                                                        'var(--text-primary)',
                                                                                 }}
                                                                             >
-                                                                                {formatNotificationTime(
-                                                                                    item.createdAt
-                                                                                )}
+                                                                                {
+                                                                                    belowTargetRows.length
+                                                                                }{' '}
+                                                                                KPI
+                                                                                belum
+                                                                                mencapai
+                                                                                target
+                                                                            </div>
+
+                                                                            <small className="text-secondary">
+                                                                                Klik
+                                                                                untuk
+                                                                                melihat
+                                                                                analisis
+                                                                                KPI.
                                                                             </small>
                                                                         </div>
+                                                                    </Link>
+                                                                )}
 
-                                                                        {/* DELETE SATU */}
+                                                            {/* PENDING */}
 
-                                                                        <button
-                                                                            type="button"
-                                                                            className="btn btn-sm btn-link text-danger p-0 align-self-start"
-                                                                            title="Hapus notifikasi"
-                                                                            onClick={() =>
-                                                                                handleRemoveNotification(
-                                                                                    item.id
-                                                                                )
-                                                                            }
+                                                            {overduePendingRows.length >
+                                                                0 && (
+                                                                    <Link
+                                                                        to="/pending-supply"
+                                                                        onClick={
+                                                                            closeNotification
+                                                                        }
+                                                                        className="d-flex gap-3 px-3 py-3 text-decoration-none"
+                                                                        style={{
+                                                                            borderBottom:
+                                                                                '1px solid var(--border-color)',
+                                                                        }}
+                                                                    >
+                                                                        <div
+                                                                            className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                            style={{
+                                                                                width:
+                                                                                    38,
+
+                                                                                height:
+                                                                                    38,
+
+                                                                                backgroundColor:
+                                                                                    'rgba(217, 119, 6, 0.14)',
+
+                                                                                color:
+                                                                                    '#d97706',
+                                                                            }}
                                                                         >
-                                                                            <i className="bi bi-x-lg" />
-                                                                        </button>
-                                                                    </div>
-                                                                );
-                                                            }
-                                                        )}
-                                                    </div>
-                                                )}
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        )}
+                                                                            <i className="bi bi-clock-history" />
+                                                                        </div>
+
+                                                                        <div>
+                                                                            <div
+                                                                                className="fw-semibold small"
+                                                                                style={{
+                                                                                    color:
+                                                                                        'var(--text-primary)',
+                                                                                }}
+                                                                            >
+                                                                                {
+                                                                                    overduePendingRows.length
+                                                                                }{' '}
+                                                                                pending
+                                                                                supply
+                                                                                melewati
+                                                                                ETA
+                                                                            </div>
+
+                                                                            <small className="text-secondary">
+                                                                                Jadwal
+                                                                                kedatangan
+                                                                                perlu
+                                                                                ditindaklanjuti.
+                                                                            </small>
+                                                                        </div>
+                                                                    </Link>
+                                                                )}
+
+                                                            {/* CRITICAL */}
+
+                                                            {criticalRows.length >
+                                                                0 && (
+                                                                    <Link
+                                                                        to="/critical-items"
+                                                                        onClick={
+                                                                            closeNotification
+                                                                        }
+                                                                        className="d-flex gap-3 px-3 py-3 text-decoration-none"
+                                                                    >
+                                                                        <div
+                                                                            className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                            style={{
+                                                                                width:
+                                                                                    38,
+
+                                                                                height:
+                                                                                    38,
+
+                                                                                backgroundColor:
+                                                                                    'rgba(220, 38, 38, 0.14)',
+
+                                                                                color:
+                                                                                    '#dc2626',
+                                                                            }}
+                                                                        >
+                                                                            <i className="bi bi-exclamation-diamond" />
+                                                                        </div>
+
+                                                                        <div>
+                                                                            <div
+                                                                                className="fw-semibold small"
+                                                                                style={{
+                                                                                    color:
+                                                                                        'var(--text-primary)',
+                                                                                }}
+                                                                            >
+                                                                                {
+                                                                                    criticalRows.length
+                                                                                }{' '}
+                                                                                critical
+                                                                                item
+                                                                            </div>
+
+                                                                            <small className="text-secondary">
+                                                                                Spare
+                                                                                part
+                                                                                kritis
+                                                                                perlu
+                                                                                dipantau.
+                                                                            </small>
+                                                                        </div>
+                                                                    </Link>
+                                                                )}
+                                                        </div>
+                                                    )}
+
+                                                {/* =====================================
+                                                AKTIVITAS TERBARU
+                                            ===================================== */}
+
+                                                {activityNotifications.length >
+                                                    0 && (
+                                                        <div>
+                                                            <div className="px-3 pt-3 pb-2">
+                                                                <small className="fw-semibold text-secondary text-uppercase">
+                                                                    Aktivitas
+                                                                    Terbaru
+                                                                </small>
+                                                            </div>
+
+                                                            {activityNotifications.map(
+                                                                (
+                                                                    item
+                                                                ) => {
+                                                                    const style =
+                                                                        getNotificationStyle(
+                                                                            item.type
+                                                                        );
+
+                                                                    return (
+                                                                        <div
+                                                                            key={
+                                                                                item.id
+                                                                            }
+                                                                            className="d-flex gap-3 px-3 py-3"
+                                                                            style={{
+                                                                                borderBottom:
+                                                                                    '1px solid var(--border-color)',
+                                                                            }}
+                                                                        >
+                                                                            {/* ICON */}
+
+                                                                            <div
+                                                                                className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                                style={{
+                                                                                    width:
+                                                                                        38,
+
+                                                                                    height:
+                                                                                        38,
+
+                                                                                    color:
+                                                                                        style.color,
+
+                                                                                    backgroundColor:
+                                                                                        style.background,
+                                                                                }}
+                                                                            >
+                                                                                <i
+                                                                                    className={`bi ${style.icon}`}
+                                                                                />
+                                                                            </div>
+
+                                                                            {/* CONTENT */}
+
+                                                                            <div className="flex-grow-1">
+                                                                                {item.link ? (
+                                                                                    <Link
+                                                                                        to={
+                                                                                            item.link
+                                                                                        }
+                                                                                        onClick={
+                                                                                            closeNotification
+                                                                                        }
+                                                                                        className="text-decoration-none"
+                                                                                    >
+                                                                                        <div
+                                                                                            className="fw-semibold small"
+                                                                                            style={{
+                                                                                                color:
+                                                                                                    'var(--text-primary)',
+                                                                                            }}
+                                                                                        >
+                                                                                            {
+                                                                                                item.title
+                                                                                            }
+                                                                                        </div>
+
+                                                                                        <small className="text-secondary d-block">
+                                                                                            {
+                                                                                                item.message
+                                                                                            }
+                                                                                        </small>
+                                                                                    </Link>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <div
+                                                                                            className="fw-semibold small"
+                                                                                            style={{
+                                                                                                color:
+                                                                                                    'var(--text-primary)',
+                                                                                            }}
+                                                                                        >
+                                                                                            {
+                                                                                                item.title
+                                                                                            }
+                                                                                        </div>
+
+                                                                                        <small className="text-secondary d-block">
+                                                                                            {
+                                                                                                item.message
+                                                                                            }
+                                                                                        </small>
+                                                                                    </>
+                                                                                )}
+
+                                                                                <small
+                                                                                    className="text-muted"
+                                                                                    style={{
+                                                                                        fontSize:
+                                                                                            '0.7rem',
+                                                                                    }}
+                                                                                >
+                                                                                    {formatNotificationTime(
+                                                                                        item.createdAt
+                                                                                    )}
+                                                                                </small>
+                                                                            </div>
+
+                                                                            {/* DELETE SATU */}
+
+                                                                            <button
+                                                                                type="button"
+                                                                                className="btn btn-sm btn-link text-danger p-0 align-self-start"
+                                                                                title="Hapus notifikasi"
+                                                                                onClick={() =>
+                                                                                    handleRemoveNotification(
+                                                                                        item.id
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                <i className="bi bi-x-lg" />
+                                                                            </button>
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                            )}
+                                                        </div>
+                                                    )}
+                                            </>
+                                        )}
+                                    </div>
+                                </div>,
+                                document.body
+                            )}
                     </div>
                 </div>
             </nav>
