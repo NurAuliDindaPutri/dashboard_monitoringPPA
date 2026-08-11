@@ -321,6 +321,15 @@ function DashboardPerSite() {
         DEFAULT_YEAR
     );
 
+
+    // RESET FILTER
+    function handleResetFilter() {
+        setSiteId('');
+        setUnitId('');
+        setMonth(DEFAULT_MONTH);
+        setYear(DEFAULT_YEAR);
+    }
+
     // ------------------------------------------------------------------------
     // DATA
     // ------------------------------------------------------------------------
@@ -1637,6 +1646,17 @@ function DashboardPerSite() {
                 showUnitFilter
             />
 
+            <div className="d-flex justify-content-end mb-3">
+                <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={handleResetFilter}
+                >
+                    <i className="bi bi-arrow-counterclockwise me-1" />
+                    Reset Filter
+                </button>
+            </div>
+
             {/* ================================================================
                 NO SITE
             ================================================================= */}
@@ -1948,7 +1968,7 @@ function DashboardPerSite() {
                                                 'PA (%)',
 
                                             color:
-                                                'var(--chart-blue)',
+                                                '#0A3991',
                                         },
                                     ]}
                                     loading={
@@ -1978,7 +1998,7 @@ function DashboardPerSite() {
                                                 'UA (%)',
 
                                             color:
-                                                'var(--chart-green)',
+                                                '#9CC6ED',
                                         },
                                     ]}
                                     loading={
@@ -2008,7 +2028,7 @@ function DashboardPerSite() {
                                                 'MTBF',
 
                                             color:
-                                                'var(--chart-purple)',
+                                                '#6A0B23',
                                         },
                                     ]}
                                     loading={
@@ -2038,7 +2058,7 @@ function DashboardPerSite() {
                                                 'MTTR',
 
                                             color:
-                                                'var(--chart-red)',
+                                                '#F2AFBC',
                                         },
                                     ]}
                                     loading={
@@ -2088,7 +2108,7 @@ function DashboardPerSite() {
                                                     'Productivity',
 
                                                 color:
-                                                    'var(--chart-cyan)',
+                                                    '#7EA336',
                                             },
                                         ]}
                                         loading={
@@ -2149,7 +2169,7 @@ function DashboardPerSite() {
                                                     'Fuel (L)',
 
                                                 color:
-                                                    'var(--chart-orange)',
+                                                    '#F2913D',
                                             },
                                         ]}
                                         loading={

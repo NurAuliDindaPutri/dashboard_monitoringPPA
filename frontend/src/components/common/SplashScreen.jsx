@@ -12,7 +12,7 @@ function SplashScreen({ exiting = false }) {
                 </div>
 
                 <h1 className="splash-title">
-                    Monitoring Performance PPA
+                    PPA NEXUS
                 </h1>
 
                 <p className="splash-subtitle">

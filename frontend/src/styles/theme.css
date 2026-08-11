@@ -9,15 +9,56 @@ Monitoring Performance PPA
     --sidebar-width-collapsed: 76px;
     --navbar-height: 58px;
 
+    /* ============================================================
+    PALETTE — Sand / Sky Blue / Deep Sea / Moss / Terracotta
+    ============================================================ */
+    --p-sand: #E4CBA9;
+    --p-sky: #7FC7CC;
+    --p-deep-sea: #092F33;
+    --p-moss: #4B5B34;
+    --p-terracotta: #AF5031;
+    --p-cherry: #FDABA5;
+    --p-red-wine: #980204;
+    --p-sunshine: #EA8913;
+
+    /* Alias lama dipertahankan agar class/komponen lama tidak rusak */
+    --p-teal-900: var(--p-deep-sea);
+    --p-teal-700: var(--p-moss);
+    --p-teal-400: var(--p-sky);
+    --p-teal-300: #A9D9DC;
+    --p-teal-200: var(--p-sand);
+    --p-teal-100: #F7F0E6;
+
+    --p-berry-900: var(--p-red-wine);
+    --p-berry-700: var(--p-terracotta);
+    --p-berry-500: var(--p-red-wine);
+    --p-berry-300: var(--p-cherry);
+    --p-berry-100: #FFF0EE;
+
+    --p-amber-500: var(--p-sunshine);
+
     /* Status */
-    --success: #22c55e;
-    --success-soft: rgba(34, 197, 94, 0.14);
+    --success: var(--p-sky);
+    --success-soft: rgba(127, 199, 204, 0.16);
 
-    --warning: #f59e0b;
-    --warning-soft: rgba(245, 158, 11, 0.14);
+    --warning: var(--p-sunshine);
+    --warning-soft: rgba(234, 137, 19, 0.15);
 
-    --danger: #ef4444;
-    --danger-soft: rgba(239, 68, 68, 0.14);
+    --danger: var(--p-red-wine);
+    --danger-soft: rgba(152, 2, 4, 0.12);
+
+    /* Gauge / KPI semantics */
+    --status-good: var(--p-sky);
+    --status-good-soft: rgba(127, 199, 204, 0.16);
+
+    --status-warning: var(--p-sunshine);
+    --status-warning-soft: rgba(234, 137, 19, 0.15);
+
+    --status-danger: var(--p-red-wine);
+    --status-danger-soft: rgba(152, 2, 4, 0.12);
+
+    --status-neutral: #91A5A6;
+    --status-neutral-soft: rgba(145, 165, 166, 0.15);
 
     /* Transition */
     --theme-transition:
@@ -32,57 +73,71 @@ DARK MODE
 
 :root,
 :root[data-theme='dark'] {
-    --chart-grid: rgba(255, 255, 255, 0.08);
-    --navy-950: #121629;
-    --navy-900: #171c33;
-    --navy-850: #1c223d;
-    --navy-800: #222a49;
-    --navy-750: #293153;
-    --navy-700: #30395e;
+    --chart-grid: rgba(255, 255, 255, .055);
 
-    --app-shell-bg: #14182d;
+    --navy-950: #0B171A;
+    --navy-900: #101D21;
+    --navy-850: #152428;
+    --navy-800: #1A2B30;
+    --navy-750: #20343A;
+    --navy-700: #294047;
 
-    --card-bg: #1c223d;
-    --card-bg-hover: #222a49;
-    --card-border: rgba(255, 255, 255, 0.08);
+    --app-shell-bg: #0B171A;
+    --card-bg: #152428;
+    --card-bg-hover: #1A2B30;
+    --card-border: rgba(127, 199, 204, .11);
 
-    --text-primary: #f7f8ff;
-    --text-secondary: #aab2cf;
-    --text-muted: #7f89aa;
+    --text-primary: #F6F8F7;
+    --text-secondary: #B8C5C6;
+    --text-muted: #7F9194;
 
-    --accent-indigo: #7067f0;
-    --accent-violet: #8b5cf6;
-    --accent-blue: #4f8cff;
+    --accent-indigo: #7FC7CC;
+    --accent-violet: #7FC7CC;
+    --accent-blue: #7FC7CC;
+    --accent-gradient: linear-gradient(135deg, #5FAFB5, #7FC7CC);
 
-    --accent-gradient:
-        linear-gradient(135deg,
-            #7067f0 0%,
-            #8b5cf6 100%);
+    --sidebar-bg: #101D21;
+    --sidebar-text: #C9D4D5;
+    --sidebar-text-hover: #FFFFFF;
+    --sidebar-brand-color: #FFFFFF;
+    --sidebar-icon-color: #90A6A9;
 
-    --sidebar-bg:
-        radial-gradient(circle at 0% 0%,
-            rgba(112, 103, 240, 0.14),
-            transparent 40%),
-        linear-gradient(180deg,
-            #191e36 0%,
-            #14182c 100%);
+    --navbar-bg: rgba(16, 29, 33, .96);
+    --navbar-border: rgba(255, 255, 255, .06);
+    --navbar-text: #F6F8F7;
 
-    --sidebar-text: #aeb6d0;
-    --sidebar-text-hover: #ffffff;
-    --sidebar-brand-color: #ffffff;
-    --sidebar-icon-color: #aeb6d0;
+    --border-color: rgba(255, 255, 255, .07);
 
-    --navbar-bg: rgba(23, 28, 51, 0.96);
-    --navbar-border: rgba(255, 255, 255, 0.07);
-    --navbar-text: #f4f6ff;
+    --shadow-soft: 0 14px 30px rgba(0, 0, 0, .24);
+    --shadow-card: 0 10px 22px rgba(0, 0, 0, .20);
 
-    --border-color: rgba(255, 255, 255, 0.08);
+    --chart-teal: #7FC7CC;
+    --chart-teal-dark: #5FAFB5;
+    --chart-amber: #EA8913;
+    --chart-red: #980204;
+    --chart-slate: #94A6A8;
 
-    --shadow-soft:
-        0 12px 30px rgba(4, 7, 20, 0.28);
+    --chart-purple: #7FC7CC;
+    --chart-cyan: #7FC7CC;
+    --chart-pink: #EA8913;
+    --chart-orange: #EA8913;
+    --chart-blue: #7FC7CC;
+    --chart-green: #7FC7CC;
+    --chart-berry: #980204;
+    --chart-berry-dark: #AF5031;
+    --chart-gray: #94A6A8;
 
-    --shadow-card:
-        0 10px 26px rgba(4, 7, 20, 0.22);
+    --chart-axis-text: #9FB0B2;
+    --chart-dot-bg: #152428;
+    --chart-hover: rgba(127, 199, 204, .045);
+
+    --gauge-track: #26363B;
+    --gauge-needle: #EAF0EF;
+    --gauge-center: #152428;
+    --gauge-tick: rgba(228, 203, 169, .24);
+    --gauge-tick-major: rgba(228, 203, 169, .52);
+
+    --kpi-track: rgba(255, 255, 255, .08);
 }
 
 /* ============================================================
@@ -90,57 +145,71 @@ LIGHT MODE
 ============================================================ */
 
 :root[data-theme='light'] {
-    --chart-grid: rgba(15, 23, 42, 0.10);
-    --navy-950: #eef0f7;
-    --navy-900: #f2f3f9;
-    --navy-850: #f5f6fb;
-    --navy-800: #eef0f6;
-    --navy-750: #e7e9f2;
-    --navy-700: #dfe2ef;
+    --chart-grid: rgba(9, 47, 51, .065);
 
-    --app-shell-bg: #f5f6fb;
+    --navy-950: #F4F6F5;
+    --navy-900: #F7F8F7;
+    --navy-850: #FAFBFA;
+    --navy-800: #F0F3F2;
+    --navy-750: #E8ECEA;
+    --navy-700: #DEE4E1;
 
-    --card-bg: #ffffff;
-    --card-bg-hover: #f7f8fc;
-    --card-border: rgba(15, 23, 42, 0.08);
+    --app-shell-bg: #F4F6F5;
+    --card-bg: #FFFFFF;
+    --card-bg-hover: #FAFBFA;
+    --card-border: rgba(9, 47, 51, .08);
 
-    --text-primary: #1e2233;
-    --text-secondary: #5b6178;
-    --text-muted: #8a90a6;
+    --text-primary: #092F33;
+    --text-secondary: #5E7072;
+    --text-muted: #8A999B;
 
-    --accent-indigo: #6d5ef0;
-    --accent-violet: #7c3aed;
-    --accent-blue: #3b82f6;
+    --accent-indigo: #5FAFB5;
+    --accent-violet: #7FC7CC;
+    --accent-blue: #5FAFB5;
+    --accent-gradient: linear-gradient(135deg, #5FAFB5, #7FC7CC);
 
-    --accent-gradient:
-        linear-gradient(135deg,
-            #6d5ef0 0%,
-            #7c3aed 100%);
+    --sidebar-bg: #FFFFFF;
+    --sidebar-text: #344D50;
+    --sidebar-text-hover: #092F33;
+    --sidebar-brand-color: #092F33;
+    --sidebar-icon-color: #6A8285;
 
-    --sidebar-bg:
-        radial-gradient(circle at 0% 0%,
-            rgba(109, 94, 240, 0.08),
-            transparent 40%),
-        linear-gradient(180deg,
-            #ffffff 0%,
-            #f7f7fc 100%);
+    --navbar-bg: rgba(255, 255, 255, .97);
+    --navbar-border: rgba(9, 47, 51, .07);
+    --navbar-text: #092F33;
 
-    --sidebar-text: #34394c;
-    --sidebar-text-hover: #171b2b;
-    --sidebar-brand-color: #222738;
-    --sidebar-icon-color: #60667a;
+    --border-color: rgba(9, 47, 51, .08);
 
-    --navbar-bg: rgba(255, 255, 255, 0.96);
-    --navbar-border: rgba(15, 23, 42, 0.06);
-    --navbar-text: #1e2233;
+    --shadow-soft: 0 12px 26px rgba(9, 47, 51, .06);
+    --shadow-card: 0 8px 20px rgba(9, 47, 51, .05);
 
-    --border-color: rgba(15, 23, 42, 0.08);
+    --chart-teal: #5FAFB5;
+    --chart-teal-dark: #428E94;
+    --chart-amber: #EA8913;
+    --chart-red: #980204;
+    --chart-slate: #607477;
 
-    --shadow-soft:
-        0 12px 30px rgba(15, 23, 42, 0.08);
+    --chart-purple: #5FAFB5;
+    --chart-cyan: #5FAFB5;
+    --chart-pink: #EA8913;
+    --chart-orange: #EA8913;
+    --chart-blue: #5FAFB5;
+    --chart-green: #5FAFB5;
+    --chart-berry: #980204;
+    --chart-berry-dark: #AF5031;
+    --chart-gray: #94A6A8;
 
-    --shadow-card:
-        0 10px 26px rgba(15, 23, 42, 0.06);
+    --chart-axis-text: #607477;
+    --chart-dot-bg: #FFFFFF;
+    --chart-hover: rgba(127, 199, 204, .07);
+
+    --gauge-track: #E7ECEA;
+    --gauge-needle: #092F33;
+    --gauge-center: #FFFFFF;
+    --gauge-tick: rgba(9, 47, 51, .14);
+    --gauge-tick-major: rgba(9, 47, 51, .30);
+
+    --kpi-track: rgba(9, 47, 51, .08);
 }
 
 /* ============================================================
@@ -188,7 +257,7 @@ MAIN CONTENT
 
     background:
         radial-gradient(circle at 90% 0%,
-            rgba(112, 103, 240, 0.07),
+            rgba(127, 199, 204, 0.07),
             transparent 32%),
         var(--app-shell-bg);
 
@@ -284,7 +353,7 @@ SIDEBAR
     color: #ffffff;
 
     box-shadow:
-        0 6px 16px rgba(112, 103, 240, 0.32),
+        0 6px 16px rgba(77, 182, 172, 0.32),
         inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
@@ -339,7 +408,7 @@ SIDEBAR
 
 .sidebar-link:hover {
     color: var(--sidebar-text-hover);
-    background: rgba(139, 92, 246, 0.08);
+    background: rgba(128, 203, 196, 0.08);
     transform: translateX(2px);
 }
 
@@ -353,11 +422,11 @@ SIDEBAR
 
     background:
         linear-gradient(90deg,
-            rgba(112, 103, 240, 0.28),
-            rgba(139, 92, 246, 0.1));
+            rgba(77, 182, 172, 0.28),
+            rgba(128, 203, 196, 0.1));
 
     box-shadow:
-        inset 0 0 0 1px rgba(139, 92, 246, 0.24),
+        inset 0 0 0 1px rgba(128, 203, 196, 0.24),
         0 8px 18px rgba(4, 7, 20, 0.14);
 }
 
@@ -380,7 +449,7 @@ SIDEBAR
     background: var(--accent-violet);
 
     box-shadow:
-        0 0 10px rgba(139, 92, 246, 0.5);
+        0 0 10px rgba(128, 203, 196, 0.5);
 }
 
 .sidebar-link-label {
@@ -389,21 +458,149 @@ SIDEBAR
     white-space: nowrap;
 }
 
+.sidebar-current-site-card {
+    margin: 14px 10px 10px;
+    padding: 12px;
+
+    background: rgba(127, 199, 204, 0.05);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+
+    color: var(--text-primary);
+}
+
+.sidebar-current-site-label {
+    margin-bottom: 10px;
+
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+
+    color: var(--text-muted);
+}
+
+.sidebar-current-site-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    margin-bottom: 12px;
+}
+
+.sidebar-current-site-dot {
+    width: 8px;
+    height: 8px;
+
+    flex: 0 0 auto;
+
+    background: #22c55e;
+    border-radius: 50%;
+
+    box-shadow:
+        0 0 0 4px rgba(34, 197, 94, 0.1);
+}
+
+.sidebar-current-site-code {
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.1;
+
+    color: var(--text-primary);
+}
+
+.sidebar-current-site-name {
+    margin-top: 2px;
+
+    font-size: 0.66rem;
+
+    color: var(--text-muted);
+}
+
+.sidebar-current-site-period {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+
+    padding-top: 10px;
+
+    border-top: 1px solid var(--border-color);
+}
+
+.sidebar-current-site-period span,
+.sidebar-current-site-footer span {
+    font-size: 0.62rem;
+    color: var(--text-muted);
+}
+
+.sidebar-current-site-period strong,
+.sidebar-current-site-footer strong {
+    font-size: 0.68rem;
+    font-weight: 600;
+
+    color: var(--text-secondary);
+}
+
+.sidebar-current-site-footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8px;
+
+    margin-top: 12px;
+    padding-top: 10px;
+
+    border-top: 1px solid var(--border-color);
+}
+
+.sidebar-current-site-footer>div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+
+    min-width: 0;
+}
+
+.sidebar-current-site-refresh {
+    width: 28px;
+    height: 28px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 auto;
+
+    padding: 0;
+
+    background: transparent;
+    color: var(--text-muted);
+
+    border: 0;
+    border-radius: 8px;
+
+    transition: 0.2s ease;
+}
+
+.sidebar-current-site-refresh:hover {
+    background: rgba(127, 199, 204, 0.09);
+    color: var(--accent-violet);
+}
+
 /* ============================================================
 LIGHT MODE SIDEBAR OVERRIDE
 ============================================================ */
 
 :root[data-theme='light'] .sidebar-link {
-    color: #34394c !important;
+    color: #37474F !important;
 }
 
 :root[data-theme='light'] .sidebar-link i {
-    color: #60667a !important;
+    color: #607D8B !important;
 }
 
 :root[data-theme='light'] .sidebar-link:hover {
-    color: #171b2b !important;
-    background: rgba(124, 58, 237, 0.08);
+    color: #263238 !important;
+    background: rgba(0, 137, 123, 0.08);
 }
 
 :root[data-theme='light'] .sidebar-link:hover i {
@@ -417,7 +614,7 @@ LIGHT MODE SIDEBAR OVERRIDE
 }
 
 :root[data-theme='light'] .sidebar-brand-text {
-    color: #222738 !important;
+    color: #263238 !important;
 }
 
 /* ============================================================
@@ -454,7 +651,7 @@ SIDEBAR TOGGLE
 
 :root[data-theme='light'] .sidebar-toggle-btn {
     background: #ffffff;
-    color: #34394c;
+    color: #37474F;
     border-color: rgba(15, 23, 42, 0.12);
 }
 
@@ -600,7 +797,7 @@ NAVBAR
     background:
         linear-gradient(90deg,
             transparent,
-            rgba(139, 92, 246, 0.35),
+            rgba(128, 203, 196, 0.35),
             transparent);
 }
 
@@ -631,8 +828,8 @@ NAVBAR
 }
 
 .navbar-icon-btn:hover {
-    background: rgba(139, 92, 246, 0.16);
-    border-color: rgba(139, 92, 246, 0.34);
+    background: rgba(128, 203, 196, 0.16);
+    border-color: rgba(128, 203, 196, 0.34);
     transform: translateY(-1px);
 }
 
@@ -651,7 +848,7 @@ NAVBAR
     font-weight: 700;
 
     box-shadow:
-        0 0 0 2px rgba(139, 92, 246, 0.25),
+        0 0 0 2px rgba(128, 203, 196, 0.25),
         0 6px 14px rgba(0, 0, 0, 0.25);
 }
 
@@ -675,7 +872,7 @@ FILTER / FORM
 .form-control:hover,
 .form-select:hover {
     background-color: var(--navy-750);
-    border-color: rgba(139, 92, 246, 0.26);
+    border-color: rgba(128, 203, 196, 0.26);
 }
 
 .form-control:focus,
@@ -686,7 +883,7 @@ FILTER / FORM
     border-color: var(--accent-violet);
 
     box-shadow:
-        0 0 0 3px rgba(139, 92, 246, 0.15);
+        0 0 0 3px rgba(128, 203, 196, 0.15);
 }
 
 .form-control::placeholder {
@@ -796,7 +993,7 @@ CARD
 .gauge-card:hover,
 .site-summary-card:hover {
     background: var(--card-bg-hover) !important;
-    border-color: rgba(139, 92, 246, 0.18) !important;
+    border-color: rgba(128, 203, 196, 0.18) !important;
 }
 
 .card-header,
@@ -881,21 +1078,21 @@ BADGES
 .badge-success,
 .status-success {
     background: var(--success-soft) !important;
-    color: #4ade80 !important;
+    color: #7FC7CC !important;
 }
 
 .badge.bg-warning,
 .badge-warning,
 .status-warning {
     background: var(--warning-soft) !important;
-    color: #fbbf24 !important;
+    color: #E0AC5B !important;
 }
 
 .badge.bg-danger,
 .badge-danger,
 .status-danger {
     background: var(--danger-soft) !important;
-    color: #fb7185 !important;
+    color: #F28FA8 !important;
 }
 
 /* ============================================================
@@ -932,7 +1129,7 @@ TABLE
 }
 
 .table tbody tr:hover {
-    background: rgba(139, 92, 246, 0.07);
+    background: rgba(128, 203, 196, 0.07);
 }
 
 .table-responsive {
@@ -1018,13 +1215,13 @@ body::-webkit-scrollbar-track {
 
 .thin-scrollbar::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb {
-    background: rgba(139, 92, 246, 0.35);
+    background: rgba(128, 203, 196, 0.35);
     border-radius: 999px;
 }
 
 .thin-scrollbar::-webkit-scrollbar-thumb:hover,
 body::-webkit-scrollbar-thumb:hover {
-    background: rgba(139, 92, 246, 0.55);
+    background: rgba(128, 203, 196, 0.55);
 }
 
 /* ============================================================
@@ -1330,8 +1527,8 @@ Mobile: tampil fixed di bagian bawah
 
     background:
         linear-gradient(135deg,
-            rgba(102, 88, 238, 0.97),
-            rgba(92, 121, 246, 0.97));
+            rgba(0, 137, 123, 0.97),
+            rgba(69, 90, 100, 0.97));
 
     border:
         1px solid rgba(255, 255, 255, 0.25);
@@ -1464,7 +1661,7 @@ Mobile: tampil fixed di bagian bawah
 
     background:
         var(--card-bg,
-            #18213f);
+            #152126);
 
     border:
         1px solid rgba(255, 255, 255, 0.14);
@@ -1577,7 +1774,7 @@ Mobile: tampil fixed di bagian bawah
         rgba(112, 91, 245, 0.25);
 
     border-color:
-        rgba(132, 107, 255, 0.65);
+        rgba(157, 23, 77, 0.65);
 }
 
 .mobile-nav-more-icon {
@@ -1593,8 +1790,8 @@ Mobile: tampil fixed di bagian bawah
 
     background:
         linear-gradient(135deg,
-            #795cff,
-            #5b74ef);
+            #AF5031,
+            #455A64);
 
     border-radius: 11px;
 }
@@ -1788,7 +1985,7 @@ ICON
 }
 
 .confirm-modal-icon-primary {
-    background: rgba(112, 103, 240, 0.14);
+    background: rgba(77, 182, 172, 0.14);
     color: var(--accent-indigo);
 }
 
@@ -1904,12 +2101,12 @@ LIGHT MODE
 }
 
 :root[data-theme='light'] .confirm-modal-close {
-    background: #f7f8fc;
+    background: #FFFFFF;
 }
 
 :root[data-theme='light'] .confirm-modal-actions .btn-light {
-    background: #f5f6fb;
-    color: #34394c;
+    background: #F3F6F6;
+    color: #37474F;
 
     border-color:
         rgba(15,
@@ -2260,8 +2457,8 @@ VERY SMALL MOBILE
 :root[data-theme='dark'] .mobile-bottom-navigation {
     background:
         linear-gradient(135deg,
-            #202746 0%,
-            #252d50 100%);
+            #152126 0%,
+            #1A282E 100%);
 
     border:
         1px solid rgba(255, 255, 255, 0.08);
@@ -2275,14 +2472,14 @@ VERY SMALL MOBILE
 :root[data-theme='light'] .mobile-bottom-navigation {
     background:
         linear-gradient(135deg,
-            #625df0 0%,
-            #5670ee 100%);
+            #4E9EA4 0%,
+            #455A64 100%);
 
     border:
         1px solid rgba(255, 255, 255, 0.28);
 
     box-shadow:
-        0 10px 28px rgba(80, 82, 180, 0.25);
+        0 10px 28px rgba(38, 50, 56, 0.25);
 }
 
 
@@ -2453,185 +2650,186 @@ VERY SMALL MOBILE
 }
 
 /* ============================================================
-   CHART THEME ONLY
-   Tidak mengubah elemen dashboard lain
+   BADGE ACCENT REFINEMENTS
    ============================================================ */
 
-/* LIGHT */
-:root[data-theme='light'] {
-    --chart-purple: #7c3aed;
-    --chart-cyan: #06b6d4;
-    --chart-blue: #4f46e5;
-    --chart-orange: #f59e0b;
-    --chart-pink: #ec4899;
-    --chart-red: #ef4444;
-
-    --chart-grid: rgba(100, 116, 139, 0.14);
-    --chart-axis-text: #64748b;
-
-    --chart-tooltip-bg: rgba(255, 255, 255, 0.98);
-    --chart-tooltip-border: rgba(99, 102, 241, 0.15);
-
-    --chart-hover: rgba(124, 58, 237, 0.045);
-    --chart-dot-bg: #ffffff;
-
-    --chart-card-bg: #ffffff;
-    --chart-card-border: rgba(99, 102, 241, 0.10);
-
-    --chart-card-shadow:
-        0 8px 24px rgba(72, 72, 120, 0.06);
+.badge.bg-light,
+.text-bg-light {
+    background: var(--card-bg-hover) !important;
+    color: var(--text-secondary) !important;
+    border: 1px solid var(--border-color);
 }
-
-
-/* DARK */
-:root[data-theme='dark'] {
-    --chart-purple: #8b5cf6;
-    --chart-cyan: #22d3ee;
-    --chart-blue: #6366f1;
-    --chart-orange: #fb923c;
-    --chart-pink: #f472b6;
-    --chart-red: #fb7185;
-
-    --chart-grid: rgba(148, 163, 184, 0.10);
-    --chart-axis-text: #9ca9c7;
-
-    --chart-tooltip-bg: rgba(28, 35, 70, 0.98);
-    --chart-tooltip-border: rgba(139, 92, 246, 0.28);
-
-    --chart-hover: rgba(139, 92, 246, 0.075);
-    --chart-dot-bg: #1c2346;
-
-    --chart-card-bg:
-        linear-gradient(145deg,
-            rgba(31, 39, 79, 0.98),
-            rgba(28, 35, 69, 0.98));
-
-    --chart-card-border:
-        rgba(139, 92, 246, 0.12);
-
-    --chart-card-shadow:
-        0 10px 30px rgba(0, 0, 0, 0.12);
-}
-
 
 /* ============================================================
-   CHART CARD
+   PPA CHART CARD
+   Premium card shell for ChartCard.jsx / PerformanceBarChart
    ============================================================ */
 
-.ppa-chart-card {
+.ppa-chart-card,
+.app-card {
+    position: relative;
     width: 100%;
     height: 100%;
 
-    padding: 16px 16px 12px;
+    padding: 18px 18px 14px;
 
-    background:
-        var(--chart-card-bg);
-
-    border:
-        1px solid var(--chart-card-border);
-
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: 16px;
 
-    box-shadow:
-        var(--chart-card-shadow);
+    box-shadow: var(--shadow-card);
+
+    overflow: hidden;
+
+    transition:
+        box-shadow 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease;
 }
 
+.ppa-chart-card::before {
+    content: '';
+
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+
+    height: 3px;
+
+    background: linear-gradient(90deg,
+            var(--p-teal-400) 0%,
+            var(--p-teal-400) 40%,
+            var(--p-amber-500) 70%,
+            var(--p-berry-500) 100%);
+
+    opacity: 0.55;
+}
+
+.ppa-chart-card:hover {
+    border-color: rgba(128, 203, 196, 0.28);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.14);
+}
+
+:root[data-theme='light'] .ppa-chart-card:hover {
+    box-shadow: 0 14px 30px rgba(38, 50, 56, 0.10);
+}
 
 .ppa-chart-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 10px;
 
-    margin-bottom: 8px;
+    margin-bottom: 10px;
 }
 
+.ppa-chart-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
 
 .ppa-chart-title {
-    color:
-        var(--text-primary);
+    color: var(--text-primary);
 
     font-size: 0.95rem;
-
     font-weight: 700;
-
     line-height: 1.3;
+
+    letter-spacing: 0.1px;
 }
 
+.ppa-chart-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 20px;
+    height: 20px;
+
+    border-radius: 50%;
+
+    color: var(--text-muted);
+    font-size: 0.72rem;
+
+    background: var(--card-bg-hover);
+    border: 1px solid var(--border-color);
+
+    flex-shrink: 0;
+}
 
 /* ============================================================
-   EMPTY
+   CHART EMPTY STATE
    ============================================================ */
 
 .ppa-chart-empty {
     display: flex;
-
     flex-direction: column;
-
     align-items: center;
     justify-content: center;
-
     gap: 8px;
 
-    color:
-        var(--text-muted);
+    color: var(--text-muted);
 }
 
-
 .ppa-chart-empty-icon {
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
 
     display: flex;
-
     align-items: center;
     justify-content: center;
 
     border-radius: 12px;
 
-    background:
-        rgba(124, 58, 237, 0.08);
+    background: var(--status-neutral-soft);
+    color: var(--p-teal-400);
 
-    color:
-        var(--chart-purple);
-
-    font-size: 1rem;
+    font-size: 1.05rem;
 }
-
 
 /* ============================================================
-   RECHART AXIS
+   RECHARTS THEMING
    ============================================================ */
 
-.ppa-chart-card .recharts-cartesian-axis-tick-value {
-    fill:
-        var(--chart-axis-text);
+.ppa-chart-card .recharts-cartesian-axis-tick-value,
+.app-card .recharts-cartesian-axis-tick-value {
+    fill: var(--text-muted);
+    font-weight: 500;
 }
 
-
-.ppa-chart-card .recharts-cartesian-grid line {
-    stroke:
-        var(--chart-grid);
+.ppa-chart-card .recharts-cartesian-grid line,
+.app-card .recharts-cartesian-grid line {
+    stroke: var(--chart-grid);
 }
 
-
-/* ============================================================
-   LEGEND
-   ============================================================ */
-
-.ppa-chart-card .recharts-legend-item {
-    margin-right:
-        14px !important;
+.ppa-chart-card .recharts-legend-item,
+.app-card .recharts-legend-item {
+    margin-right: 14px !important;
 }
 
-
-.ppa-chart-card .recharts-legend-item-text {
-    color:
-        var(--chart-axis-text) !important;
-
-    font-size:
-        0.72rem;
+.ppa-chart-card .recharts-legend-item-text,
+.app-card .recharts-legend-item-text {
+    color: var(--text-secondary) !important;
+    font-size: 0.74rem !important;
+    font-weight: 500;
 }
 
+.ppa-chart-bar-value {
+    fill: var(--text-secondary);
+    font-size: 0.66rem;
+    font-weight: 700;
+}
+
+.ppa-target-line {
+    filter: drop-shadow(0 0 3px rgba(213, 154, 56, 0.35));
+}
+
+.ppa-data-line {
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.18));
+}
 
 /* ============================================================
    TOOLTIP
@@ -2640,1271 +2838,839 @@ VERY SMALL MOBILE
 .ppa-chart-tooltip {
     min-width: 165px;
 
-    padding: 11px 12px;
+    padding: 11px 13px;
 
-    background:
-        var(--chart-tooltip-bg);
+    background: var(--chart-tooltip-bg, var(--card-bg));
+    border: 1px solid var(--chart-tooltip-border, var(--border-color));
+    border-radius: 12px;
 
-    border:
-        1px solid var(--chart-tooltip-border);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.18);
 
-    border-radius:
-        12px;
-
-    box-shadow:
-        0 12px 30px rgba(0, 0, 0, 0.15);
-
-    backdrop-filter:
-        blur(12px);
-
-    -webkit-backdrop-filter:
-        blur(12px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
-
 
 .ppa-chart-tooltip-label {
     margin-bottom: 8px;
 
-    color:
-        var(--text-primary);
+    color: var(--text-primary);
 
-    font-size:
-        0.75rem;
-
+    font-size: 0.75rem;
     font-weight: 700;
 }
 
-
 .ppa-chart-tooltip-items {
     display: flex;
-
     flex-direction: column;
-
     gap: 5px;
 }
 
-
 .ppa-chart-tooltip-row {
     display: grid;
-
-    grid-template-columns:
-        8px minmax(0, 1fr) auto;
-
+    grid-template-columns: 8px minmax(0, 1fr) auto;
     align-items: center;
-
     gap: 7px;
 
     font-size: 0.72rem;
 }
 
-
 .ppa-chart-tooltip-dot {
     width: 7px;
     height: 7px;
-
     border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(128, 203, 196, 0.14);
 }
-
 
 .ppa-chart-tooltip-name {
-    color:
-        var(--text-secondary);
+    color: var(--text-secondary);
 }
 
-
 .ppa-chart-tooltip-value {
-    color:
-        var(--text-primary);
-
+    color: var(--text-primary);
     font-weight: 700;
 }
 
-
 /* ============================================================
-   MOBILE CHART
+   SUMMARY SPEEDOMETER CARD — premium gauge
    ============================================================ */
-
-@media (max-width: 575.98px) {
-
-    .ppa-chart-card {
-        padding:
-            13px 10px 10px;
-
-        border-radius:
-            14px;
-    }
-
-    .ppa-chart-title {
-        font-size:
-            0.82rem;
-    }
-
-    .ppa-chart-card .recharts-cartesian-axis-tick-value {
-        font-size:
-            0.62rem;
-    }
-
-    .ppa-chart-card .recharts-legend-item-text {
-        font-size:
-            0.62rem;
-    }
-}
-
-/* ============================================================
-   MODERN KPI + CHART THEME
-   HANYA MENGUBAH VISUAL CHART
-   ============================================================ */
-
-/* ============================================================
-   LIGHT MODE
-   ============================================================ */
-
-:root[data-theme='light'] {
-    --chart-purple: #7c3aed;
-    --chart-cyan: #0891b2;
-    --chart-blue: #4f46e5;
-    --chart-orange: #ea580c;
-    --chart-pink: #db2777;
-
-    --chart-grid:
-        rgba(100,
-            116,
-            139,
-            0.13);
-
-    --chart-axis-text:
-        #64748b;
-
-    --chart-tooltip-bg:
-        rgba(255,
-            255,
-            255,
-            0.98);
-
-    --chart-tooltip-border:
-        rgba(124,
-            58,
-            237,
-            0.14);
-
-    --chart-hover:
-        rgba(124,
-            58,
-            237,
-            0.045);
-
-    --chart-dot-bg:
-        #ffffff;
-
-    --chart-card-bg:
-        #ffffff;
-
-    --chart-card-border:
-        rgba(99,
-            102,
-            241,
-            0.10);
-
-    --chart-card-shadow:
-        0 8px 25px rgba(72,
-            72,
-            120,
-            0.06);
-
-    --kpi-track:
-        #e5e7eb;
-}
-
-
-/* ============================================================
-   DARK MODE
-   ============================================================ */
-
-:root[data-theme='dark'] {
-    --chart-purple: #a855f7;
-    --chart-cyan: #22d3ee;
-    --chart-blue: #6366f1;
-    --chart-orange: #fb923c;
-    --chart-pink: #f472b6;
-
-    --chart-grid:
-        rgba(148,
-            163,
-            184,
-            0.09);
-
-    --chart-axis-text:
-        #a8b2ce;
-
-    --chart-tooltip-bg:
-        rgba(22,
-            28,
-            58,
-            0.97);
-
-    --chart-tooltip-border:
-        rgba(168,
-            85,
-            247,
-            0.30);
-
-    --chart-hover:
-        rgba(168,
-            85,
-            247,
-            0.06);
-
-    --chart-dot-bg:
-        #181f3f;
-
-    --chart-card-bg:
-        linear-gradient(145deg,
-            rgba(30,
-                38,
-                77,
-                0.98),
-            rgba(24,
-                31,
-                64,
-                0.98));
-
-    --chart-card-border:
-        rgba(168,
-            85,
-            247,
-            0.13);
-
-    --chart-card-shadow:
-        0 10px 30px rgba(0,
-            0,
-            0,
-            0.10);
-
-    --kpi-track:
-        #303a5c;
-}
-
-
-/* ============================================================
-   CHART CARD
-   ============================================================ */
-
-.ppa-chart-card {
-    width: 100%;
-    height: 100%;
-
-    padding:
-        16px 16px 12px;
-
-    background:
-        var(--chart-card-bg);
-
-    border:
-        1px solid var(--chart-card-border);
-
-    border-radius:
-        16px;
-
-    box-shadow:
-        var(--chart-card-shadow);
-}
-
-
-.ppa-chart-header {
-    display: flex;
-
-    align-items: center;
-    justify-content:
-        space-between;
-
-    margin-bottom:
-        8px;
-}
-
-
-.ppa-chart-title {
-    color:
-        var(--text-primary);
-
-    font-size:
-        0.95rem;
-
-    font-weight:
-        700;
-}
-
-
-/* ============================================================
-   CHART EMPTY
-   ============================================================ */
-
-.ppa-chart-empty {
-    display: flex;
-
-    flex-direction:
-        column;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    gap: 8px;
-
-    color:
-        var(--text-muted);
-}
-
-
-.ppa-chart-empty-icon {
-    width: 38px;
-    height: 38px;
-
-    display: flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    border-radius:
-        12px;
-
-    background:
-        rgba(168,
-            85,
-            247,
-            0.10);
-
-    color:
-        var(--chart-purple);
-}
-
-
-/* ============================================================
-   RECHART
-   ============================================================ */
-
-.ppa-chart-card .recharts-cartesian-axis-tick-value {
-    fill:
-        var(--chart-axis-text);
-}
-
-
-.ppa-chart-card .recharts-cartesian-grid line {
-    stroke:
-        var(--chart-grid);
-}
-
-
-.ppa-chart-card .recharts-legend-item-text {
-    color:
-        var(--chart-axis-text) !important;
-}
-
-
-.ppa-chart-card .recharts-legend-item {
-    margin-right:
-        14px !important;
-}
-
-
-/* ============================================================
-   TOOLTIP
-   ============================================================ */
-
-.ppa-chart-tooltip {
-    min-width:
-        165px;
-
-    padding:
-        11px 12px;
-
-    background:
-        var(--chart-tooltip-bg);
-
-    border:
-        1px solid var(--chart-tooltip-border);
-
-    border-radius:
-        12px;
-
-    box-shadow:
-        0 12px 30px rgba(0,
-            0,
-            0,
-            0.15);
-
-    backdrop-filter:
-        blur(12px);
-}
-
-
-.ppa-chart-tooltip-label {
-    margin-bottom:
-        8px;
-
-    color:
-        var(--text-primary);
-
-    font-size:
-        0.75rem;
-
-    font-weight:
-        700;
-}
-
-
-.ppa-chart-tooltip-items {
-    display: flex;
-
-    flex-direction:
-        column;
-
-    gap: 5px;
-}
-
-
-.ppa-chart-tooltip-row {
-    display: grid;
-
-    grid-template-columns:
-        8px minmax(0,
-            1fr) auto;
-
-    align-items:
-        center;
-
-    gap: 7px;
-
-    font-size:
-        0.72rem;
-}
-
-
-.ppa-chart-tooltip-dot {
-    width: 7px;
-    height: 7px;
-
-    border-radius:
-        50%;
-}
-
-
-.ppa-chart-tooltip-name {
-    color:
-        var(--text-secondary);
-}
-
-
-.ppa-chart-tooltip-value {
-    color:
-        var(--text-primary);
-
-    font-weight:
-        700;
-}
-
-
-/* ============================================================
-   KPI MINI DONUT
-   ============================================================ */
-
-.kpi-mini-card {
-    height: 100%;
-
-    display: flex;
-
-    flex-direction:
-        column;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    padding:
-        9px 6px;
-
-    text-align:
-        center;
-
-    border:
-        1px solid var(--border-color);
-
-    border-radius:
-        12px;
-
-    background:
-        rgba(255,
-            255,
-            255,
-            0.015);
-}
-
-
-.kpi-mini-donut {
-    position:
-        relative;
-
-    width: 74px;
-    height: 74px;
-
-    display: flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    margin-bottom:
-        3px;
-}
-
-
-.kpi-mini-value {
-    position:
-        absolute;
-
-    left: 50%;
-    top: 50%;
-
-    transform:
-        translate(-50%,
-            -50%);
-
-    font-size:
-        0.78rem;
-
-    font-weight:
-        800;
-}
-
-
-.kpi-mini-label {
-    color:
-        var(--text-primary);
-
-    font-size:
-        0.74rem;
-
-    font-weight:
-        700;
-
-    margin-top:
-        2px;
-}
-
-
-.kpi-mini-target {
-    margin-top:
-        2px;
-
-    color:
-        var(--text-secondary);
-
-    font-size:
-        0.64rem;
-}
-
-
-.kpi-mini-status {
-    display:
-        inline-flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    margin-top:
-        5px;
-
-    padding:
-        3px 8px;
-
-    border-radius:
-        999px;
-
-    font-size:
-        0.57rem;
-
-    font-weight:
-        700;
-}
-
-
-/* efek glow hanya sedikit */
-:root[data-theme='dark'] .kpi-donut-progress {
-    filter:
-        drop-shadow(0 0 4px rgba(168,
-                85,
-                247,
-                0.20));
-}
-
-
-/* ============================================================
-   MOBILE
-   ============================================================ */
-
-@media (max-width: 575.98px) {
-
-    .ppa-chart-card {
-        padding:
-            13px 10px 10px;
-
-        border-radius:
-            14px;
-    }
-
-    .ppa-chart-title {
-        font-size:
-            0.82rem;
-    }
-
-    .kpi-mini-card {
-        padding:
-            7px 3px;
-    }
-
-    .kpi-mini-donut {
-        width:
-            65px;
-
-        height:
-            65px;
-    }
-
-    .kpi-mini-donut svg {
-        width:
-            65px;
-
-        height:
-            65px;
-    }
-
-    .kpi-mini-value {
-        font-size:
-            0.7rem;
-    }
-
-    .kpi-mini-label {
-        font-size:
-            0.65rem;
-    }
-
-    .kpi-mini-target {
-        font-size:
-            0.57rem;
-    }
-
-    .kpi-mini-status {
-        font-size:
-            0.52rem;
-
-        padding:
-            2px 6px;
-    }
-}
 
 .summary-speedometer-card {
-    background: var(--card-bg, #ffffff);
-    border: 1px solid var(--border-color, rgba(148, 163, 184, 0.18));
-    border-radius: 18px;
-    padding: 18px 18px 16px;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    position: relative;
+
     height: 100%;
+    min-height: 210px;
+
+    padding: 18px 20px 16px;
+
+    display: flex;
+    flex-direction: column;
+
+    background: var(--card-bg);
+    background-image:
+        radial-gradient(circle at 100% 0%,
+            rgba(128, 203, 196, 0.06),
+            transparent 55%);
+
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+
+    box-shadow: var(--shadow-card);
+
+    overflow: hidden;
+
+    transition:
+        box-shadow 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.summary-speedometer-card::after {
+    content: '';
+
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+
+    width: 3px;
+
+    background: var(--status-neutral);
+
+    opacity: 0.85;
+}
+
+.summary-speedometer-card.status-good::after {
+    background: var(--status-good);
+}
+
+.summary-speedometer-card.status-near::after {
+    background: var(--status-warning);
+}
+
+.summary-speedometer-card.status-low::after {
+    background: var(--status-danger);
+}
+
+.summary-speedometer-card.status-no-data::after {
+    background: var(--status-neutral);
+}
+
+.summary-speedometer-card:hover {
+    border-color: rgba(128, 203, 196, 0.24);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.14);
+}
+
+:root[data-theme='light'] .summary-speedometer-card:hover {
+    box-shadow: 0 16px 30px rgba(38, 50, 56, 0.10);
 }
 
 .summary-speedometer-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 14px;
+    gap: 10px;
+
+    margin-bottom: 4px;
+}
+
+.summary-speedometer-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
 }
 
 .summary-speedometer-title {
     margin: 0;
-    font-size: 1.05rem;
+
+    color: var(--text-primary);
+
+    font-size: 0.94rem;
     font-weight: 700;
-    color: var(--text-primary, #0f172a);
+    line-height: 1.3;
 }
 
-.summary-speedometer-badge {
+.summary-speedometer-info-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    white-space: nowrap;
-    border-radius: 999px;
-    padding: 6px 12px;
-    font-size: 0.78rem;
-    font-weight: 700;
-}
 
-.summary-speedometer-body {
-    display: grid;
-    grid-template-columns: 180px 1fr;
-    gap: 16px;
-    align-items: center;
-}
+    width: 20px;
+    height: 20px;
 
-.summary-speedometer-gauge {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+    border-radius: 50%;
 
-.summary-speedometer-info {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 10px;
-}
+    color: var(--text-muted);
+    font-size: 0.72rem;
 
-.summary-speedometer-value-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
+    background: var(--card-bg-hover);
+    border: 1px solid var(--border-color);
 
-.summary-speedometer-value {
-    font-size: 2rem;
-    font-weight: 800;
-    line-height: 1;
-}
-
-.summary-speedometer-sub {
-    font-size: 0.88rem;
-    color: var(--text-secondary, #64748b);
-    font-weight: 500;
-}
-
-.summary-speedometer-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.summary-speedometer-target,
-.summary-speedometer-range {
-    font-size: 0.88rem;
-    color: var(--text-secondary, #64748b);
-}
-
-:root[data-theme='dark'] .summary-speedometer-card {
-    background: rgba(18, 24, 54, 0.96);
-    border: 1px solid rgba(99, 102, 241, 0.14);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
-}
-
-:root[data-theme='dark'] .summary-speedometer-title {
-    color: #f8fafc;
-}
-
-:root[data-theme='dark'] .summary-speedometer-sub,
-:root[data-theme='dark'] .summary-speedometer-target,
-:root[data-theme='dark'] .summary-speedometer-range {
-    color: #a8b2ce;
-}
-
-@media (max-width: 991.98px) {
-    .summary-speedometer-body {
-        grid-template-columns: 1fr;
-        justify-items: center;
-        text-align: center;
-    }
-
-    .summary-speedometer-info {
-        align-items: center;
-    }
-}
-
-@media (max-width: 575.98px) {
-    .summary-speedometer-card {
-        padding: 14px;
-        border-radius: 16px;
-    }
-
-    .summary-speedometer-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
-        margin-bottom: 10px;
-    }
-
-    .summary-speedometer-title {
-        font-size: 0.95rem;
-    }
-
-    .summary-speedometer-badge {
-        font-size: 0.72rem;
-        padding: 5px 10px;
-    }
-
-    .summary-speedometer-gauge svg {
-        width: 150px;
-        height: 105px;
-    }
-
-    .summary-speedometer-value {
-        font-size: 1.65rem;
-    }
-}
-
-/* ============================================================
-   SUMMARY SPEEDOMETER CARD
-   ============================================================ */
-
-:root[data-theme='light'] {
-    --gauge-track:
-        #e8ecf4;
-
-    --gauge-needle:
-        #334155;
-}
-
-:root[data-theme='dark'] {
-    --gauge-track:
-        #303958;
-
-    --gauge-needle:
-        #cbd5e1;
-}
-
-
-.summary-speedometer-card {
-    height: 100%;
-
-    min-height:
-        210px;
-
-    padding:
-        16px 18px;
-
-    background:
-        var(--card-bg);
-
-    border:
-        1px solid var(--border-color);
-
-    border-radius:
-        16px;
-
-    box-shadow:
-        var(--shadow-soft);
-}
-
-
-/* HEADER */
-
-.summary-speedometer-header {
-    display: flex;
-
-    align-items:
-        flex-start;
-
-    justify-content:
-        space-between;
-
-    gap: 10px;
-
-    margin-bottom:
-        8px;
-}
-
-
-.summary-speedometer-title {
-    margin: 0;
-
-    color:
-        var(--text-primary);
-
-    font-size:
-        0.95rem;
-
-    font-weight:
-        700;
-}
-
-
-.summary-speedometer-badge {
     flex-shrink: 0;
-
-    padding:
-        4px 9px;
-
-    border-radius:
-        999px;
-
-    font-size:
-        0.68rem;
-
-    font-weight:
-        700;
-
-    line-height:
-        1.1;
 }
 
+.summary-speedometer-main {
+    flex: 1;
 
-/* ============================================================
-   CONTENT
-   ============================================================ */
-
-.summary-speedometer-content {
-    display: grid;
-
-    grid-template-columns:
-        minmax(145px,
-            0.9fr) minmax(110px,
-            0.65fr);
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    gap:
-        8px;
-
-    min-height:
-        145px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 }
-
-
-/* ============================================================
-   GAUGE
-   ============================================================ */
 
 .summary-speedometer-gauge {
+    position: relative;
+
     width: 100%;
 
     display: flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
+    align-items: center;
+    justify-content: center;
 }
-
 
 .summary-speedometer-svg {
     display: block;
 
     width: 100%;
+    height: 135px;
 
-    max-width:
-        170px;
-
-    height: auto;
+    overflow: visible;
 }
 
+.summary-speedometer-tick-label {
+    fill: var(--text-muted);
+    font-size: 9px;
+    font-weight: 600;
+}
 
-/* ============================================================
-   INFO
-   ============================================================ */
+.summary-speedometer-progress {
+    transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-.summary-speedometer-info {
-    min-width: 0;
+.summary-speedometer-needle {
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
+}
+
+.summary-speedometer-center-value {
+    position: absolute;
+
+    left: 50%;
+    top: 112px;
+
+    transform: translateX(-50%);
 
     display: flex;
+    flex-direction: column;
+    align-items: center;
 
-    flex-direction:
-        column;
+    width: max-content;
 
-    align-items:
-        flex-start;
+    line-height: 1;
+    white-space: nowrap;
 
-    justify-content:
-        center;
+    z-index: 5;
 }
 
+.summary-speedometer-center-value strong {
+    font-size: 1.55rem;
+    font-weight: 800;
+    line-height: 1;
 
-.summary-speedometer-value {
-    font-size:
-        1.75rem;
-
-    font-weight:
-        800;
-
-    line-height:
-        1;
+    letter-spacing: -0.4px;
 }
 
+.summary-speedometer-center-value span {
+    margin-top: 5px;
 
-.summary-speedometer-actual-label {
-    margin-top:
-        4px;
+    color: var(--text-secondary);
 
-    color:
-        var(--text-muted);
-
-    font-size:
-        0.68rem;
-
-    font-weight:
-        500;
+    font-size: 0.66rem;
+    font-weight: 500;
 }
 
+.summary-speedometer-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 
-.summary-speedometer-divider {
-    width:
-        36px;
+    gap: 6px;
 
-    height:
-        1px;
+    margin-top: 15px;
 
-    margin:
-        10px 0;
+    min-height: 40px;
 
-    background:
-        var(--border-color);
+    padding: 6px 12px;
+
+    border: 1px solid;
+    border-radius: 999px;
+
+    font-size: 0.7rem;
+    font-weight: 700;
+
+    white-space: nowrap;
 }
 
-
-.summary-speedometer-target {
-    display: flex;
-
-    flex-direction:
-        column;
-
-    gap:
-        2px;
-
-    color:
-        var(--text-secondary);
-
-    font-size:
-        0.68rem;
+.summary-speedometer-status i {
+    font-size: 0.78rem;
 }
 
-
-.summary-speedometer-target strong {
-    color:
-        var(--text-primary);
-
-    font-size:
-        0.85rem;
+.summary-speedometer-accent {
+    display: none;
 }
-
-
-/* ============================================================
-   LIGHT MODE
-   ============================================================ */
-
-:root[data-theme='light'] .summary-speedometer-card {
-    background:
-        #ffffff;
-
-    box-shadow:
-        0 7px 24px rgba(41,
-            46,
-            90,
-            0.06);
-}
-
-
-/* ============================================================
-   DARK MODE
-   ============================================================ */
-
-:root[data-theme='dark'] .summary-speedometer-card {
-    background:
-        var(--card-bg);
-
-    box-shadow:
-        0 8px 24px rgba(0,
-            0,
-            0,
-            0.12);
-}
-
-
-/* ============================================================
-   TABLET
-   ============================================================ */
-
-@media (max-width: 1199.98px) {
-    .summary-speedometer-content {
-        grid-template-columns:
-            1fr;
-    }
-
-    .summary-speedometer-info {
-        align-items:
-            center;
-
-        text-align:
-            center;
-
-        margin-top:
-            -18px;
-    }
-
-    .summary-speedometer-divider {
-        margin:
-            7px auto;
-    }
-
-    .summary-speedometer-target {
-        align-items:
-            center;
-    }
-}
-
-
-/* ============================================================
-   MOBILE
-   ============================================================ */
 
 @media (max-width: 575.98px) {
     .summary-speedometer-card {
-        min-height:
-            185px;
-
-        padding:
-            13px 14px;
-    }
-
-    .summary-speedometer-header {
-        margin-bottom:
-            3px;
+        min-height: 195px;
+        padding: 15px 16px 13px;
+        border-radius: 15px;
     }
 
     .summary-speedometer-title {
-        font-size:
-            0.82rem;
-    }
-
-    .summary-speedometer-badge {
-        padding:
-            3px 7px;
-
-        font-size:
-            0.58rem;
-    }
-
-    .summary-speedometer-content {
-        grid-template-columns:
-            145px 1fr;
-
-        min-height:
-            125px;
-
-        gap:
-            4px;
+        font-size: 0.85rem;
     }
 
     .summary-speedometer-svg {
-        max-width:
-            145px;
+        max-width: 175px;
     }
 
-    .summary-speedometer-info {
-        align-items:
-            flex-start;
-
-        text-align:
-            left;
-
-        margin-top:
-            0;
+    .summary-speedometer-center-value strong {
+        font-size: 1.15rem;
     }
 
-    .summary-speedometer-value {
-        font-size:
-            1.45rem;
+    .summary-speedometer-center-value span {
+        font-size: 0.6rem;
+    }
+}
+
+/* ============================================================
+   KPI MINI DONUT — compact per-site rings
+   ============================================================ */
+
+.kpi-mini-card {
+    height: 100%;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    padding: 10px 6px;
+
+    text-align: center;
+
+    border: 1px solid var(--border-color);
+    border-radius: 13px;
+
+    background: var(--card-bg-hover);
+
+    transition:
+        border-color 0.18s ease,
+        background-color 0.18s ease;
+}
+
+.kpi-mini-card:hover {
+    border-color: rgba(128, 203, 196, 0.3);
+}
+
+.kpi-mini-donut {
+    position: relative;
+
+    width: 74px;
+    height: 74px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 4px;
+}
+
+.kpi-donut-progress {
+    transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:root[data-theme='dark'] .kpi-donut-progress {
+    filter: drop-shadow(0 0 4px rgba(128, 203, 196, 0.22));
+}
+
+.kpi-mini-value {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+
+    transform: translate(-50%, -50%);
+
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.kpi-mini-label {
+    color: var(--text-primary);
+
+    font-size: 0.73rem;
+    font-weight: 700;
+
+    margin-top: 2px;
+}
+
+.kpi-mini-target {
+    margin-top: 2px;
+
+    color: var(--text-muted);
+
+    font-size: 0.64rem;
+}
+
+.kpi-mini-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-top: 6px;
+
+    padding: 3px 9px;
+
+    border-radius: 999px;
+
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.1px;
+}
+
+@media (max-width: 575.98px) {
+    .kpi-mini-card {
+        padding: 7px 3px;
+        border-radius: 11px;
     }
 
-    .summary-speedometer-target {
-        align-items:
-            flex-start;
+    .kpi-mini-donut {
+        width: 62px;
+        height: 62px;
+    }
+
+    .kpi-mini-donut svg {
+        width: 62px;
+        height: 62px;
+    }
+
+    .kpi-mini-value {
+        font-size: 0.68rem;
+    }
+
+    .kpi-mini-label {
+        font-size: 0.64rem;
+    }
+
+    .kpi-mini-target {
+        font-size: 0.56rem;
+    }
+
+    .kpi-mini-status {
+        font-size: 0.5rem;
+        padding: 2px 6px;
+    }
+}
+
+/* ============================================================
+   SITE KPI CARD (per-site block in "Ringkasan KPI Per Site")
+   ============================================================ */
+
+.site-kpi-card,
+.app-page-content .border.rounded-4 {
+    border: 1px solid var(--border-color) !important;
+    border-radius: 14px !important;
+    background: var(--card-bg);
+    transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.app-page-content .border.rounded-4:hover {
+    border-color: rgba(128, 203, 196, 0.24) !important;
+}
+
+/* ============================================================
+   PLACEHOLDER / LOADING SHIMMER
+   ============================================================ */
+
+.placeholder-glow .placeholder {
+    background: linear-gradient(90deg,
+            var(--card-bg-hover) 25%,
+            var(--border-color) 50%,
+            var(--card-bg-hover) 75%);
+    background-size: 200% 100%;
+    animation: ppaShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes ppaShimmer {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* ============================================================
+   PALETTE RESPONSIVE POLISH — FINAL
+   ============================================================ */
+
+:root[data-theme='light'] .app-main-content {
+    background:
+        radial-gradient(circle at 92% 0%, rgba(127, 199, 204, .08), transparent 28%),
+        var(--app-shell-bg);
+}
+
+:root[data-theme='dark'] .app-main-content {
+    background:
+        radial-gradient(circle at 90% 0%, rgba(127, 199, 204, .055), transparent 28%),
+        var(--app-shell-bg);
+}
+
+:root[data-theme='light'] .app-card,
+:root[data-theme='light'] .ppa-chart-card,
+:root[data-theme='light'] .summary-speedometer-card,
+:root[data-theme='light'] .site-summary-card,
+:root[data-theme='light'] .kpi-mini-card {
+    background: #FFFDFC;
+}
+
+:root[data-theme='dark'] .app-card,
+:root[data-theme='dark'] .ppa-chart-card,
+:root[data-theme='dark'] .summary-speedometer-card,
+:root[data-theme='dark'] .site-summary-card,
+:root[data-theme='dark'] .kpi-mini-card {
+    background: var(--card-bg);
+}
+
+.sidebar-link:hover {
+    background: rgba(127, 199, 204, 0.10);
+}
+
+.sidebar-link-active {
+    background:
+        linear-gradient(90deg,
+            rgba(127, 199, 204, 0.24),
+            rgba(127, 199, 204, 0.08));
+    box-shadow:
+        inset 0 0 0 1px rgba(127, 199, 204, 0.25),
+        0 8px 18px rgba(9, 47, 51, 0.12);
+}
+
+.sidebar-link-active::before {
+    background: #7FC7CC;
+    box-shadow: 0 0 10px rgba(127, 199, 204, 0.50);
+}
+
+:root[data-theme='light'] .sidebar-link-active {
+    color: #092F33 !important;
+}
+
+:root[data-theme='light'] .sidebar-link-active .sidebar-link-label,
+:root[data-theme='light'] .sidebar-link-active i {
+    color: #092F33 !important;
+}
+
+.ppa-target-line {
+    opacity: 0.95;
+}
+
+.ppa-chart-card,
+.summary-speedometer-card,
+.app-card {
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        transform 0.18s ease;
+}
+
+@media (max-width: 991.98px) {
+    .app-page-content {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .summary-speedometer-card {
+        min-width: 0;
+    }
+
+    .ppa-chart-card {
+        min-width: 0;
+        overflow: hidden;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .app-page-content {
+        padding: 0.9rem 0.75rem;
+        padding-bottom: calc(5.25rem + env(safe-area-inset-bottom));
+    }
+
+    .summary-speedometer-card,
+    .ppa-chart-card,
+    .app-card,
+    .site-summary-card {
+        border-radius: 16px;
+    }
+
+    .summary-speedometer-card {
+        min-height: 225px;
+    }
+
+    .summary-speedometer-gauge {
+        max-width: 270px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .kpi-mini-card {
+        min-width: 0;
+    }
+
+    .recharts-responsive-container {
+        min-width: 0 !important;
+    }
+
+    .recharts-wrapper {
+        max-width: 100%;
     }
 }
 
 
-/* EXTRA SMALL */
+/* ============================================================
+   REFINED PALETTE POLISH
+   ============================================================ */
+:root[data-theme='light'] .sidebar-link-active {
+    color: #092F33 !important;
+    background: linear-gradient(90deg, rgba(127, 199, 204, .22), rgba(127, 199, 204, .07));
+}
 
-@media (max-width: 380px) {
-    .summary-speedometer-content {
-        grid-template-columns:
-            130px 1fr;
+:root[data-theme='light'] .sidebar-link-active .sidebar-link-label,
+:root[data-theme='light'] .sidebar-link-active i {
+    color: #092F33 !important;
+}
+
+:root[data-theme='light'] .form-control,
+:root[data-theme='light'] .form-select {
+    background-color: #FFFFFF;
+    border-color: rgba(9, 47, 51, .12);
+}
+
+:root[data-theme='light'] .app-card,
+:root[data-theme='light'] .ppa-chart-card,
+:root[data-theme='light'] .summary-speedometer-card,
+:root[data-theme='light'] .site-summary-card,
+:root[data-theme='light'] .kpi-mini-card {
+    background: #FFFFFF;
+}
+
+:root[data-theme='dark'] .app-card,
+:root[data-theme='dark'] .ppa-chart-card,
+:root[data-theme='dark'] .summary-speedometer-card,
+:root[data-theme='dark'] .site-summary-card,
+:root[data-theme='dark'] .kpi-mini-card {
+    background: #0C3034;
+}
+
+@media (max-width: 575.98px) {
+    .app-page-content {
+        padding: .85rem .7rem;
+        padding-bottom: calc(5.4rem + env(safe-area-inset-bottom));
     }
 
-    .summary-speedometer-svg {
-        max-width:
-            130px;
-    }
-
-    .summary-speedometer-value {
-        font-size:
-            1.25rem;
+    .summary-speedometer-card,
+    .ppa-chart-card,
+    .app-card,
+    .site-summary-card {
+        border-radius: 15px;
     }
 }
 
-/* =========================================================
-   CHART THEME COLORS
-   ========================================================= */
-
-:root[data-theme='light'] {
-    --chart-grid: #e8ecf5;
-    --chart-axis: #64748b;
-    --chart-text: #334155;
-    --chart-card-bg: #ffffff;
-    --chart-tooltip-bg: #ffffff;
-    --chart-tooltip-border: #dbe4f0;
-
-    --chart-blue: #2563eb;
-    --chart-blue-soft: #60a5fa;
-
-    --chart-green: #16a34a;
-    --chart-green-soft: #4ade80;
-
-    --chart-orange: #d97706;
-    --chart-orange-soft: #f59e0b;
-
-    --chart-red: #dc2626;
-    --chart-red-soft: #f87171;
-
-    --chart-purple: #7c3aed;
-    --chart-purple-soft: #a78bfa;
-
-    --chart-cyan: #0891b2;
-    --chart-cyan-soft: #22d3ee;
+/* ============================================================
+   CLEAN CORPORATE POLISH V3
+   ============================================================ */
+.app-main-content {
+    background: var(--app-shell-bg) !important;
 }
 
-:root[data-theme='dark'] {
-    --chart-grid: rgba(148, 163, 184, 0.14);
-    --chart-axis: #94a3b8;
-    --chart-text: #e2e8f0;
-    --chart-card-bg: #1d2550;
-    --chart-tooltip-bg: #111833;
-    --chart-tooltip-border: rgba(148, 163, 184, 0.18);
+.app-sidebar {
+    box-shadow: none;
+}
 
-    --chart-blue: #3b82f6;
-    --chart-blue-soft: #60a5fa;
+.sidebar-link-active {
+    background: rgba(127, 199, 204, .12) !important;
+    box-shadow: inset 0 0 0 1px rgba(127, 199, 204, .16) !important;
+}
 
-    --chart-green: #22c55e;
-    --chart-green-soft: #4ade80;
+.sidebar-link-active::before {
+    background: #7FC7CC !important;
+    box-shadow: none !important;
+}
 
-    --chart-orange: #f59e0b;
-    --chart-orange-soft: #fbbf24;
+:root[data-theme='light'] .sidebar-link-active,
+:root[data-theme='light'] .sidebar-link-active .sidebar-link-label,
+:root[data-theme='light'] .sidebar-link-active i {
+    color: #092F33 !important;
+}
 
-    --chart-red: #ef4444;
-    --chart-red-soft: #f87171;
+.summary-speedometer-card,
+.ppa-chart-card,
+.app-card,
+.site-summary-card,
+.kpi-mini-card {
+    border-color: var(--border-color);
+    box-shadow: var(--shadow-card);
+}
 
-    --chart-purple: #8b5cf6;
-    --chart-purple-soft: #a78bfa;
+:root[data-theme='light'] .summary-speedometer-card,
+:root[data-theme='light'] .ppa-chart-card,
+:root[data-theme='light'] .app-card,
+:root[data-theme='light'] .site-summary-card,
+:root[data-theme='light'] .kpi-mini-card {
+    background: #FFFFFF;
+}
 
-    --chart-cyan: #06b6d4;
-    --chart-cyan-soft: #67e8f9;
+:root[data-theme='dark'] .summary-speedometer-card,
+:root[data-theme='dark'] .ppa-chart-card,
+:root[data-theme='dark'] .app-card,
+:root[data-theme='dark'] .site-summary-card,
+:root[data-theme='dark'] .kpi-mini-card {
+    background: #152428;
+}
+
+:root[data-theme='light'] .form-control,
+:root[data-theme='light'] .form-select {
+    background: #FFFFFF;
+    border-color: rgba(9, 47, 51, .10);
+}
+
+:root[data-theme='dark'] .form-control,
+:root[data-theme='dark'] .form-select {
+    background: #152428;
+    border-color: rgba(255, 255, 255, .08);
+}
+
+/* soften large section borders */
+.site-summary-card,
+.ppa-chart-card,
+.app-card {
+    border-radius: 14px;
+}
+
+/* make warning / critical colors less overpowering */
+.kpi-mini-status,
+.summary-speedometer-status {
+    font-weight: 700;
+}
+
+/* Mobile */
+@media (max-width: 575.98px) {
+    .app-page-content {
+        padding: .8rem .7rem;
+        padding-bottom: calc(5.3rem + env(safe-area-inset-bottom));
+    }
+
+    .summary-speedometer-card,
+    .ppa-chart-card,
+    .app-card,
+    .site-summary-card {
+        border-radius: 14px;
+    }
+}
+
+.notification-dropdown {
+    position: fixed !important;
+
+    top: 68px;
+    right: 16px;
+    left: auto;
+
+    width: 390px;
+    max-width: calc(100vw - 32px);
+
+    max-height: calc(100vh - 84px);
+
+    overflow: hidden;
+
+    background: var(--card-bg);
+    color: var(--text-primary);
+
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+
+    box-shadow:
+        0 18px 42px rgba(0, 0, 0, 0.24);
+
+    z-index: 9999;
+}
+
+
+/* LIGHT */
+:root[data-theme='light'] .notification-dropdown {
+    background: #ffffff;
+}
+
+
+/* DARK */
+:root[data-theme='dark'] .notification-dropdown {
+    background: var(--card-bg);
+}
+
+
+/* MOBILE */
+@media (max-width: 575.98px) {
+
+    .notification-dropdown {
+        top: 66px;
+
+        left: 12px;
+        right: 12px;
+
+        width: auto;
+        max-width: none;
+
+        max-height: calc(100vh - 82px);
+    }
+}
+
+@media (max-width: 767.98px) {
+
+    .app-main-content,
+    .app-page-content {
+        padding-bottom: calc(110px + env(safe-area-inset-bottom)) !important;
+    }
+
+    .app-footer {
+        margin-bottom: calc(90px + env(safe-area-inset-bottom));
+    }
+}
+
+.filter-reset-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    padding: 6px 10px;
+
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+
+    background: var(--card-bg);
+    color: var(--text-secondary);
+
+    font-size: 0.72rem;
+    font-weight: 600;
+
+    transition: 0.2s ease;
+}
+
+.filter-reset-btn:hover {
+    background: var(--card-bg-hover);
+    color: var(--text-primary);
+}
+
+@media (max-width: 575.98px) {
+    .filter-reset-btn {
+        width: 100%;
+        justify-content: center;
+    }
 }

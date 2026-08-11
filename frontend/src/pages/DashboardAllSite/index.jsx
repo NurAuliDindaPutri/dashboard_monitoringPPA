@@ -571,97 +571,55 @@ function KpiDonut({
         }
     }
 
+    /**
+ * PATCH — DashboardAllSite.jsx
+ * ---------------------------------------------------------------
+ * Ganti isi object `visualMap` di dalam komponen `KpiDonut`
+ * (satu-satunya tempat di file JSX yang pakai warna hex hardcoded,
+ * bukan CSS variable) dengan versi palette baru di bawah ini.
+ * Tidak ada perubahan logic — murni styling/warna.
+ * ---------------------------------------------------------------
+ */
+
     const visualMap = {
         achieved: {
-            label:
-                'Memenuhi',
-
-            start:
-                '#22d3ee',
-
-            middle:
-                '#6366f1',
-
-            end:
-                '#d946ef',
-
-            text:
-                '#38bdf8',
-
-            badgeBg:
-                'rgba(34, 197, 94, 0.15)',
-
-            badgeText:
-                '#4ade80',
+            label: 'Memenuhi',
+            start: '#7FC7CC',
+            middle: '#7FC7CC',
+            end: '#7FC7CC',
+            text: '#4F9DA3',
+            badgeBg: 'rgba(127, 199, 204, 0.14)',
+            badgeText: '#4F9DA3',
         },
 
         near: {
-            label:
-                'Mendekati',
-
-            start:
-                '#f59e0b',
-
-            middle:
-                '#fb7185',
-
-            end:
-                '#d946ef',
-
-            text:
-                '#f59e0b',
-
-            badgeBg:
-                'rgba(245, 158, 11, 0.15)',
-
-            badgeText:
-                '#fbbf24',
+            label: 'Mendekati',
+            start: '#EA8913',
+            middle: '#EA8913',
+            end: '#EA8913',
+            text: '#D9780A',
+            badgeBg: 'rgba(234, 137, 19, 0.13)',
+            badgeText: '#C96E08',
         },
 
         below: {
-            label:
-                'Belum Target',
-
-            start:
-                '#991b1b',
-
-            middle:
-                '#dc2626',
-
-            end:
-                '#7e22ce',
-
-            text:
-                '#ef4444',
-
-            badgeBg:
-                'rgba(239, 68, 68, 0.14)',
-
-            badgeText:
-                '#f87171',
+            label: 'Belum Target',
+            start: '#980204',
+            middle: '#980204',
+            end: '#980204',
+            text: '#980204',
+            badgeBg: 'rgba(152, 2, 4, 0.09)',
+            badgeText: '#980204',
         },
 
         'no-data': {
-            label:
-                'Belum Ada',
-
-            start:
-                '#475569',
-
-            middle:
-                '#64748b',
-
-            end:
-                '#94a3b8',
-
-            text:
-                '#94a3b8',
-
-            badgeBg:
-                'rgba(148, 163, 184, 0.14)',
-
-            badgeText:
-                '#94a3b8',
+            label: 'Belum Ada',
+            start: '#A8B4B5',
+            middle: '#A8B4B5',
+            end: '#A8B4B5',
+            text: '#879597',
+            badgeBg: 'rgba(135, 149, 151, 0.12)',
+            badgeText: '#718083',
         },
     };
 
@@ -815,7 +773,6 @@ function KpiDonut({
 // ============================================================================
 // PERFORMANCE CHART
 // ============================================================================
-
 function PerformanceBarChart({
     title,
     data,
@@ -828,30 +785,27 @@ function PerformanceBarChart({
             (item) =>
                 data.some(
                     (row) =>
-                        row[
-                        item.key
-                        ] !== null &&
-                        row[
-                        item.key
-                        ] !== undefined
+                        row[item.key] !== null &&
+                        row[item.key] !== undefined
                 )
         );
+
+    const safeTitleId = String(title)
+        .replace(/[^a-zA-Z0-9]/g, '-');
 
     return (
         <div className="app-card p-3 h-100">
             <div
                 className="fw-semibold mb-3"
                 style={{
-                    color:
-                        'var(--text-primary)',
+                    color: 'var(--text-primary)',
                 }}
             >
                 {title}
             </div>
 
             {data.length === 0 ||
-                availableSeries.length ===
-                0 ? (
+                availableSeries.length === 0 ? (
                 <div
                     className="d-flex flex-column align-items-center justify-content-center text-center text-muted"
                     style={{
@@ -861,8 +815,7 @@ function PerformanceBarChart({
                     <i className="bi bi-bar-chart fs-3" />
 
                     <small className="mt-2">
-                        Data belum
-                        tersedia
+                        Data belum tersedia
                     </small>
                 </div>
             ) : (
@@ -879,6 +832,57 @@ function PerformanceBarChart({
                             bottom: 5,
                         }}
                     >
+                        {/* =========================
+                            GRADIENT
+                        ========================= */}
+                        <defs>
+                            {availableSeries.map(
+                                (item, index) => {
+                                    const gradientId =
+                                        `performance-gradient-${safeTitleId}-${item.key}-${index}`;
+
+                                    return (
+                                        <linearGradient
+                                            key={gradientId}
+                                            id={gradientId}
+                                            x1="0"
+                                            y1="0"
+                                            x2="0"
+                                            y2="1"
+                                        >
+                                            <stop
+                                                offset="0%"
+                                                stopColor={
+                                                    item.color
+                                                }
+                                                stopOpacity={1}
+                                            />
+
+                                            <stop
+                                                offset="55%"
+                                                stopColor={
+                                                    item.color
+                                                }
+                                                stopOpacity={
+                                                    0.72
+                                                }
+                                            />
+
+                                            <stop
+                                                offset="100%"
+                                                stopColor={
+                                                    item.color
+                                                }
+                                                stopOpacity={
+                                                    0.25
+                                                }
+                                            />
+                                        </linearGradient>
+                                    );
+                                }
+                            )}
+                        </defs>
+
                         <CartesianGrid
                             strokeDasharray="3 3"
                             stroke="var(--chart-grid)"
@@ -909,8 +913,7 @@ function PerformanceBarChart({
                                 border:
                                     '1px solid var(--border-color)',
 
-                                borderRadius:
-                                    10,
+                                borderRadius: 10,
 
                                 color:
                                     'var(--text-primary)',
@@ -919,10 +922,8 @@ function PerformanceBarChart({
                                 value,
                                 name
                             ) => [
-                                    value ===
-                                        null ||
-                                        value ===
-                                        undefined
+                                    value === null ||
+                                        value === undefined
                                         ? '-'
                                         : `${value}${unit}`,
                                     name,
@@ -935,34 +936,42 @@ function PerformanceBarChart({
                             }}
                         />
 
+                        {/* =========================
+                            BAR
+                        ========================= */}
                         {availableSeries.map(
-                            (
-                                item
-                            ) => (
-                                <Bar
-                                    key={
-                                        item.key
-                                    }
-                                    dataKey={
-                                        item.key
-                                    }
-                                    name={
-                                        item.label
-                                    }
-                                    fill={
-                                        item.color
-                                    }
-                                    radius={[
-                                        5,
-                                        5,
-                                        0,
-                                        0,
-                                    ]}
-                                    maxBarSize={
-                                        42
-                                    }
-                                />
-                            )
+                            (item, index) => {
+                                const gradientId =
+                                    `performance-gradient-${safeTitleId}-${item.key}-${index}`;
+
+                                return (
+                                    <Bar
+                                        key={item.key}
+                                        dataKey={
+                                            item.key
+                                        }
+                                        name={
+                                            item.label
+                                        }
+                                        fill={`url(#${gradientId})`}
+                                        stroke={
+                                            item.color
+                                        }
+                                        strokeWidth={
+                                            0.5
+                                        }
+                                        radius={[
+                                            6,
+                                            6,
+                                            1,
+                                            1,
+                                        ]}
+                                        maxBarSize={
+                                            42
+                                        }
+                                    />
+                                );
+                            }
                         )}
                     </BarChart>
                 </ResponsiveContainer>
@@ -989,6 +998,11 @@ function DashboardAllSite() {
     ] = useState(
         DEFAULT_YEAR
     );
+
+    function handleResetFilter() {
+        setMonth(DEFAULT_MONTH);
+        setYear(DEFAULT_YEAR);
+    }
 
     const [
         selectedUnitModel,
@@ -1318,6 +1332,17 @@ function DashboardAllSite() {
                 showMonthFilter
                 showYearFilter
             />
+
+            <div className="d-flex justify-content-end mb-3">
+                <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={handleResetFilter}
+                >
+                    <i className="bi bi-arrow-counterclockwise me-1" />
+                    Reset Filter
+                </button>
+            </div>
 
             {/* KPI UTAMA */}
             <div className="row g-3 mb-4">
@@ -1693,7 +1718,7 @@ function DashboardAllSite() {
                                 label:
                                     'Actual Readiness',
                                 color:
-                                    'var(--chart-purple)',
+                                    '#5f5aa5',
                                 renderAs:
                                     'bar',
                             },
@@ -1703,7 +1728,7 @@ function DashboardAllSite() {
                                 label:
                                     'Target Readiness',
                                 color:
-                                    'var(--chart-pink)',
+                                    '#baacec',
                                 renderAs:
                                     'line',
                                 dashed:
@@ -1731,7 +1756,7 @@ function DashboardAllSite() {
                                 label:
                                     'Actual Availability',
                                 color:
-                                    'var(--chart-cyan)',
+                                    '#7FC7CC',
                             },
 
                             {
@@ -1766,8 +1791,7 @@ function DashboardAllSite() {
                             key: 'actual',
                             label:
                                 'Actual Lead Time Supply',
-                            color:
-                                'var(--chart-orange)',
+                            color: '#FDABA5',
                             renderAs:
                                 'bar',
                         },
@@ -1924,7 +1948,7 @@ function DashboardAllSite() {
                                         label:
                                             'PA (%)',
                                         color:
-                                            'var(--chart-purple)',
+                                            '#0A3991',
                                     },
 
                                     {
@@ -1932,7 +1956,7 @@ function DashboardAllSite() {
                                         label:
                                             'UA (%)',
                                         color:
-                                            'var(--chart-cyan)',
+                                            '#9CC6ED',
                                     },
                                 ]}
                                 height={
@@ -1953,7 +1977,7 @@ function DashboardAllSite() {
                                         label:
                                             'MTBF',
                                         color:
-                                            'var(--chart-purple)',
+                                            '#6A0B23',
                                     },
 
                                     {
@@ -1961,7 +1985,7 @@ function DashboardAllSite() {
                                         label:
                                             'MTTR',
                                         color:
-                                            'var(--chart-pink)',
+                                            '#F2AFBC',
                                     },
                                 ]}
                                 height={
@@ -1982,7 +2006,7 @@ function DashboardAllSite() {
                                         label:
                                             'Fuel',
                                         color:
-                                            'var(--chart-cyan)',
+                                            '#F2913D',
                                     },
                                 ]}
                                 height={
@@ -2006,7 +2030,7 @@ function DashboardAllSite() {
                                             'Productivity',
 
                                         color:
-                                            'var(--chart-orange)',
+                                            '#7EA336',
                                     },
                                 ]}
                                 height={

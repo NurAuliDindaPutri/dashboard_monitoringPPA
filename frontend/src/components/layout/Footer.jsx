@@ -11,7 +11,7 @@ function Footer() {
             }}
         >
             <small style={{ color: 'var(--text-muted)' }}>
-                &copy; {year} Monitoring Performance PPA. All rights reserved.
+                &copy; {year} PPA NEXUS | Developed by Nur Aulia Dinda Putri
             </small>
         </footer>
     );
