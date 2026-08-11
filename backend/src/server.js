@@ -8,9 +8,9 @@ async function startServer() {
 
         console.log('Database berhasil terhubung');
 
-        app.listen(env.port, () => {
+        app.listen(env.port, '0.0.0.0', () => {
             console.log(
-                `Server berjalan di http://localhost:${env.port}`
+                `Server berjalan diport ${env.port}`
             );
         });
     } catch (err) {
