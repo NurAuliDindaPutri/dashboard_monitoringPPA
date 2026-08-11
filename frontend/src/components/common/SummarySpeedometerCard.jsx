@@ -1,3 +1,4 @@
+/* Palette UI dikontrol dari CSS utama: Sand / Sky Blue / Deep Sea / Moss / Terracotta / Cherry / Red Wine / Sunshine. */
 function toPercent(value) {
     if (
         value === null ||
@@ -7,12 +8,9 @@ function toPercent(value) {
         return null;
     }
 
-    const number =
-        Number(value);
+    const number = Number(value);
 
-    if (
-        !Number.isFinite(number)
-    ) {
+    if (!Number.isFinite(number)) {
         return null;
     }
 
@@ -21,9 +19,7 @@ function toPercent(value) {
             ? number * 100
             : number;
 
-    return Number(
-        result.toFixed(1)
-    );
+    return Number(result.toFixed(1));
 }
 
 function getGaugeStatus(
@@ -33,15 +29,16 @@ function getGaugeStatus(
     if (actual === null) {
         return {
             key: 'no-data',
-
-            label:
-                'Belum Ada Data',
+            label: 'Belum Ada Data',
 
             color:
-                '#94a3b8',
+                'var(--status-neutral)',
 
             soft:
-                'rgba(148, 163, 184, 0.14)',
+                'var(--status-neutral-soft)',
+
+            icon:
+                'bi-dash-circle',
         };
     }
 
@@ -51,15 +48,16 @@ function getGaugeStatus(
     ) {
         return {
             key: 'good',
-
-            label:
-                'Memenuhi Target',
+            label: 'Memenuhi Target',
 
             color:
-                '#16a34a',
+                'var(--status-good)',
 
             soft:
-                'rgba(22, 163, 74, 0.12)',
+                'var(--status-good-soft)',
+
+            icon:
+                'bi-check-circle',
         };
     }
 
@@ -69,29 +67,31 @@ function getGaugeStatus(
     ) {
         return {
             key: 'near',
-
-            label:
-                'Mendekati Target',
+            label: 'Mendekati Target',
 
             color:
-                '#d97706',
+                'var(--status-warning)',
 
             soft:
-                'rgba(217, 119, 6, 0.12)',
+                'var(--status-warning-soft)',
+
+            icon:
+                'bi-exclamation-circle',
         };
     }
 
     return {
         key: 'low',
-
-        label:
-            'Belum Target',
+        label: 'Belum Target',
 
         color:
-            '#b91c1c',
+            'var(--status-danger)',
 
         soft:
-            'rgba(185, 28, 28, 0.12)',
+            'var(--status-danger-soft)',
+
+        icon:
+            'bi-x-circle',
     };
 }
 
@@ -113,6 +113,29 @@ function SummarySpeedometerCard({
             targetPercent
         );
 
+    const gaugeGradient = {
+        good: {
+            start: '#5FAFB5',
+            middle: '#7FC7CC',
+            end: '#7FC7CC',
+        },
+        near: {
+            start: '#E4CBA9',
+            middle: '#EA8913',
+            end: '#EA8913',
+        },
+        low: {
+            start: '#FDABA5',
+            middle: '#AF5031',
+            end: '#980204',
+        },
+        'no-data': {
+            start: '#A8B4B5',
+            middle: '#A8B4B5',
+            end: '#A8B4B5',
+        },
+    }[status.key];
+
     const value =
         actualPercent === null
             ? 0
@@ -125,35 +148,28 @@ function SummarySpeedometerCard({
             );
 
     /*
-     * Gauge dari kiri ke kanan:
-     * -140deg sampai -40deg
-     *
-     * Bentuknya dibuat lebih kecil
-     * dan clean seperti referensi.
+     * Gauge setengah lingkaran.
+     * -180° = sisi kiri
+     * 0°    = sisi kanan
      */
-    const minAngle = -140;
-    const maxAngle = -40;
+    const minAngle = -180;
+    const maxAngle = 0;
 
     const angle =
         minAngle +
         (value / 100) *
-        (maxAngle -
-            minAngle);
+        (maxAngle - minAngle);
 
-    /*
-     * SVG geometry
-     */
-    const cx = 72;
-    const cy = 72;
-    const radius = 48;
+    const cx = 120;
+    const cy = 105;
+    const radius = 82;
 
     function polar(
         degrees,
         r = radius
     ) {
         const radians =
-            (degrees *
-                Math.PI) /
+            (degrees * Math.PI) /
             180;
 
         return {
@@ -175,16 +191,19 @@ function SummarySpeedometerCard({
 
     function arcPath(
         startAngle,
-        endAngle
+        endAngle,
+        r = radius
     ) {
         const start =
             polar(
-                startAngle
+                startAngle,
+                r
             );
 
         const end =
             polar(
-                endAngle
+                endAngle,
+                r
             );
 
         const largeArc =
@@ -197,37 +216,29 @@ function SummarySpeedometerCard({
 
         return [
             `M ${start.x} ${start.y}`,
-            `A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y}`,
+            `A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`,
         ].join(' ');
     }
 
-    /*
-     * Zona gauge
-     *
-     * merah  : 0 - 90
-     * orange : 90 - 98
-     * hijau  : 98 - 100
-     *
-     * Warnanya tetap status-oriented,
-     * bukan pink.
-     */
-    const redEnd =
-        minAngle +
-        0.9 *
-        (maxAngle -
-            minAngle);
-
-    const orangeEnd =
-        minAngle +
-        0.98 *
-        (maxAngle -
-            minAngle);
+    const needleInner =
+        polar(
+            angle,
+            30
+        );
 
     const needle =
         polar(
             angle,
-            40
+            66
         );
+
+    const ticks = [
+        0,
+        25,
+        50,
+        75,
+        100,
+    ];
 
     if (loading) {
         return (
@@ -240,38 +251,82 @@ function SummarySpeedometerCard({
     }
 
     return (
-        <div className="summary-speedometer-card">
+        <div
+            className={[
+                'summary-speedometer-card',
+                `status-${status.key}`,
+            ].join(' ')}
+        >
             {/* HEADER */}
             <div className="summary-speedometer-header">
-                <h6 className="summary-speedometer-title">
-                    {title}
-                </h6>
+                <div className="summary-speedometer-title-wrap">
+                    <h6 className="summary-speedometer-title">
+                        {title}
+                    </h6>
 
-                <span
-                    className="summary-speedometer-badge"
-                    style={{
-                        color:
-                            status.color,
-
-                        background:
-                            status.soft,
-                    }}
-                >
-                    {
-                        status.label
-                    }
-                </span>
+                    <span
+                        className="summary-speedometer-info-icon"
+                        title="Nilai aktual dibandingkan dengan target"
+                    >
+                        <i className="bi bi-info-circle" />
+                    </span>
+                </div>
             </div>
 
-            {/* CONTENT */}
-            <div className="summary-speedometer-content">
-                {/* GAUGE */}
+            {/* GAUGE */}
+            <div className="summary-speedometer-main">
                 <div className="summary-speedometer-gauge">
                     <svg
-                        viewBox="0 0 144 100"
+                        viewBox="0 0 240 135"
                         className="summary-speedometer-svg"
+                        aria-hidden="true"
                     >
-                        {/* BASE */}
+                        <defs>
+                            <linearGradient
+                                id={`gauge-${status.key}`}
+                                x1="0%"
+                                y1="0%"
+                                x2="100%"
+                                y2="0%"
+                            >
+                                <stop
+                                    offset="0%"
+                                    stopColor={gaugeGradient.start}
+                                />
+
+                                <stop
+                                    offset="52%"
+                                    stopColor={gaugeGradient.middle}
+                                />
+
+                                <stop
+                                    offset="100%"
+                                    stopColor={
+                                        gaugeGradient.end
+                                    }
+                                />
+                            </linearGradient>
+
+                            <filter
+                                id={`gauge-glow-${status.key}`}
+                                x="-30%"
+                                y="-30%"
+                                width="160%"
+                                height="160%"
+                            >
+                                <feGaussianBlur
+                                    stdDeviation="4"
+                                    result="blur"
+                                />
+
+                                <feMerge>
+                                    <feMergeNode in="blur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+
+                        {/* BASE TRACK */}
                         <path
                             d={arcPath(
                                 minAngle,
@@ -279,44 +334,137 @@ function SummarySpeedometerCard({
                             )}
                             fill="none"
                             stroke="var(--gauge-track)"
-                            strokeWidth="12"
+                            strokeWidth="14"
                             strokeLinecap="round"
                         />
 
-                        {/* RED ZONE */}
-                        <path
-                            d={arcPath(
-                                minAngle,
-                                redEnd
+                        {/* ACTIVE ARC */}
+                        {actualPercent !==
+                            null && (
+                                <path
+                                    d={arcPath(
+                                        minAngle,
+                                        angle
+                                    )}
+                                    fill="none"
+                                    stroke={`url(#gauge-${status.key})`}
+                                    strokeWidth="14"
+                                    strokeLinecap="round"
+                                    filter={`url(#gauge-glow-${status.key})`}
+                                    className="summary-speedometer-progress"
+                                />
                             )}
-                            fill="none"
-                            stroke="#dc2626"
-                            strokeWidth="12"
-                            strokeLinecap="round"
-                        />
 
-                        {/* ORANGE ZONE */}
-                        <path
-                            d={arcPath(
-                                redEnd,
-                                orangeEnd
-                            )}
-                            fill="none"
-                            stroke="#d97706"
-                            strokeWidth="12"
-                        />
+                        {/* TICK MARKS */}
+                        {Array.from({
+                            length: 21,
+                        }).map(
+                            (
+                                _,
+                                index
+                            ) => {
+                                const tickValue =
+                                    index *
+                                    5;
 
-                        {/* GREEN ZONE */}
-                        <path
-                            d={arcPath(
-                                orangeEnd,
-                                maxAngle
-                            )}
-                            fill="none"
-                            stroke="#16a34a"
-                            strokeWidth="12"
-                            strokeLinecap="round"
-                        />
+                                const tickAngle =
+                                    minAngle +
+                                    (tickValue /
+                                        100) *
+                                    (maxAngle -
+                                        minAngle);
+
+                                const isMajor =
+                                    tickValue %
+                                    25 ===
+                                    0;
+
+                                const outer =
+                                    polar(
+                                        tickAngle,
+                                        72
+                                    );
+
+                                const inner =
+                                    polar(
+                                        tickAngle,
+                                        isMajor
+                                            ? 63
+                                            : 67
+                                    );
+
+                                return (
+                                    <line
+                                        key={
+                                            tickValue
+                                        }
+                                        x1={
+                                            inner.x
+                                        }
+                                        y1={
+                                            inner.y
+                                        }
+                                        x2={
+                                            outer.x
+                                        }
+                                        y2={
+                                            outer.y
+                                        }
+                                        stroke={
+                                            isMajor
+                                                ? 'var(--gauge-tick-major)'
+                                                : 'var(--gauge-tick)'
+                                        }
+                                        strokeWidth={
+                                            isMajor
+                                                ? 1.8
+                                                : 1
+                                        }
+                                    />
+                                );
+                            }
+                        )}
+
+                        {/* NUMBER LABELS */}
+                        {ticks.map(
+                            (
+                                tickValue
+                            ) => {
+                                const tickAngle =
+                                    minAngle +
+                                    (tickValue /
+                                        100) *
+                                    (maxAngle -
+                                        minAngle);
+
+                                const point =
+                                    polar(
+                                        tickAngle,
+                                        99
+                                    );
+
+                                return (
+                                    <text
+                                        key={
+                                            tickValue
+                                        }
+                                        x={
+                                            point.x
+                                        }
+                                        y={
+                                            point.y +
+                                            4
+                                        }
+                                        textAnchor="middle"
+                                        className="summary-speedometer-tick-label"
+                                    >
+                                        {
+                                            tickValue
+                                        }
+                                    </text>
+                                );
+                            }
+                        )}
 
                         {/* NEEDLE */}
                         {actualPercent !==
@@ -324,10 +472,10 @@ function SummarySpeedometerCard({
                                 <>
                                     <line
                                         x1={
-                                            cx
+                                            needleInner.x
                                         }
                                         y1={
-                                            cy
+                                            needleInner.y
                                         }
                                         x2={
                                             needle.x
@@ -338,55 +486,85 @@ function SummarySpeedometerCard({
                                         stroke="var(--gauge-needle)"
                                         strokeWidth="5"
                                         strokeLinecap="round"
+                                        className="summary-speedometer-needle"
                                     />
 
                                     <circle
-                                        cx={
-                                            cx
-                                        }
-                                        cy={
-                                            cy
-                                        }
+                                        cx={cx}
+                                        cy={cy}
                                         r="5"
                                         fill="var(--gauge-needle)"
                                     />
+
+                                    <circle
+                                        cx={cx}
+                                        cy={cy}
+                                        r="2.2"
+                                        fill="var(--gauge-center)"
+                                    />
                                 </>
                             )}
+
                     </svg>
-                </div>
 
-                {/* INFO */}
-                <div className="summary-speedometer-info">
-                    <div
-                        className="summary-speedometer-value"
-                        style={{
-                            color:
-                                status.color,
-                        }}
-                    >
-                        {actualPercent ===
-                            null
-                            ? 'N/A'
-                            : `${actualPercent}%`}
-                    </div>
+                    <div className="summary-speedometer-center-value">
+                        <strong
+                            style={{
+                                color:
+                                    status.color,
+                            }}
+                        >
+                            {actualPercent ===
+                                null
+                                ? 'N/A'
+                                : `${actualPercent}%`}
+                        </strong>
 
-                    <div className="summary-speedometer-actual-label">
-                        Actual
-                    </div>
-
-                    <div className="summary-speedometer-divider" />
-
-                    <div className="summary-speedometer-target">
-                        Target
-
-                        <strong>
+                        <span>
+                            Target:{' '}
                             {targetPercent ===
                                 null
                                 ? '-'
                                 : `${targetPercent}%`}
-                        </strong>
+                        </span>
                     </div>
                 </div>
+
+                {/* STATUS */}
+                <div
+                    className="summary-speedometer-status"
+                    style={{
+                        color:
+                            status.color,
+
+                        background:
+                            status.soft,
+
+                        borderColor:
+                            status.color,
+                    }}
+                >
+                    <i
+                        className={`bi ${status.icon}`}
+                    />
+
+                    <span>
+                        {status.label}
+                    </span>
+                </div>
+            </div>
+
+            {/* VISUAL ACCENT - bukan data trend */}
+            <div
+                className="summary-speedometer-accent"
+                aria-hidden="true"
+            >
+                <span
+                    style={{
+                        background:
+                            status.color,
+                    }}
+                />
             </div>
         </div>
     );
