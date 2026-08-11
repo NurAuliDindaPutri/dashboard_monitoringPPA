@@ -321,7 +321,6 @@ function DashboardPerSite() {
         DEFAULT_YEAR
     );
 
-
     // RESET FILTER
     function handleResetFilter() {
         setSiteId('');
