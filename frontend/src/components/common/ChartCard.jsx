@@ -3,7 +3,6 @@ import {
     ResponsiveContainer,
     ComposedChart,
     Bar,
-    Cell,
     Line,
     Area,
     XAxis,
@@ -21,18 +20,6 @@ const DEFAULT_COLORS = [
     '#5f5aa5',
     '#baacec',
 ];
-
-const getColorByIndex = (index) => {
-    return DEFAULT_COLORS[index % DEFAULT_COLORS.length];
-};
-
-const isSingleBarSeries = (series = [], type = 'line') => {
-    const barSeries = series.filter(
-        (item) => (item.renderAs || type) === 'bar'
-    );
-
-    return barSeries.length === 1;
-};
 
 function sanitizeId(value) {
     return String(value ?? 'series').replace(/[^a-zA-Z0-9-_]/g, '-');
@@ -101,8 +88,6 @@ function ChartCard({
     height = 280,
     showBarValues = true,
 }) {
-    const useMultiColorBars =
-        isSingleBarSeries(series, type);
 
     return (
         <div className="ppa-chart-card">
