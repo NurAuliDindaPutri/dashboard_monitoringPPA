@@ -124,7 +124,7 @@ function ChartCard({
                                 return (
                                     <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
                                         {/*highlight */}
-                                        <stop offset="0%" stopColor='#ffffff' stopOpacity="0.35" />
+                                        <stop offset="0%" stopColor={color} stopOpacity="0.35" />
 
                                         {/*warna utama */}
                                         <stop offset="20%" stopColor={color} stopOpacity="1" />

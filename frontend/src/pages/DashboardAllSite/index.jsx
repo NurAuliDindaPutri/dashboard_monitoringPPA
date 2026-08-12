@@ -773,6 +773,126 @@ function KpiDonut({
 // ============================================================================
 // PERFORMANCE CHART
 // ============================================================================
+function ThreeDBarShape({
+    x,
+    y,
+    width,
+    height,
+    fill,
+    color,
+    shadowId,
+}) {
+    const safeX = Number(x) || 0;
+    const safeY = Number(y) || 0;
+    const safeWidth = Number(width) || 0;
+    const safeHeight = Number(height) || 0;
+
+    if (
+        safeWidth <= 0 ||
+        safeHeight <= 0
+    ) {
+        return null;
+    }
+
+    const depth = Math.min(
+        7,
+        Math.max(4, safeWidth * 0.14)
+    );
+
+    const frontWidth = Math.max(
+        safeWidth - depth,
+        1
+    );
+
+    const frontHeight = Math.max(
+        safeHeight - depth,
+        1
+    );
+
+    const frontY =
+        safeY + depth;
+
+    const frontBottom =
+        frontY + frontHeight;
+
+    const radius = Math.min(
+        8,
+        frontWidth / 4,
+        frontHeight / 4
+    );
+
+    return (
+        <g
+            filter={
+                shadowId
+                    ? `url(#${shadowId})`
+                    : undefined
+            }
+        >
+            {/* SISI DEPAN */}
+            <rect
+                x={safeX}
+                y={frontY}
+                width={frontWidth}
+                height={frontHeight}
+                rx={radius}
+                ry={radius}
+                fill={fill}
+                stroke={color}
+                strokeWidth="0.8"
+            />
+
+            {/* SISI KANAN / DEPTH */}
+            <polygon
+                points={[
+                    `${safeX + frontWidth},${frontY}`,
+                    `${safeX + safeWidth},${safeY}`,
+                    `${safeX + safeWidth},${safeY + safeHeight - depth}`,
+                    `${safeX + frontWidth},${frontBottom}`,
+                ].join(' ')}
+                fill={color}
+                opacity="0.72"
+            />
+
+            {/* PERMUKAAN ATAS */}
+            <polygon
+                points={[
+                    `${safeX},${frontY}`,
+                    `${safeX + frontWidth},${frontY}`,
+                    `${safeX + safeWidth},${safeY}`,
+                    `${safeX + depth},${safeY}`,
+                ].join(' ')}
+                fill={color}
+                opacity="0.30"
+            />
+
+            {/* GLOSS TIPIS DI DEPAN */}
+            <rect
+                x={safeX + 2}
+                y={frontY + 2}
+                width={Math.max(
+                    frontWidth * 0.22,
+                    2
+                )}
+                height={Math.max(
+                    frontHeight - 4,
+                    1
+                )}
+                rx={Math.min(
+                    5,
+                    radius
+                )}
+                fill="#ffffff"
+                opacity="0.08"
+            />
+        </g>
+    );
+}
+
+
+// ============================================================================
+// PERFORMANCE CHART
+// ============================================================================
 function PerformanceBarChart({
     title,
     data,
@@ -790,15 +910,25 @@ function PerformanceBarChart({
                 )
         );
 
-    const safeTitleId = String(title)
-        .replace(/[^a-zA-Z0-9]/g, '-');
+    const safeTitleId =
+        String(title)
+            .replace(
+                /[^a-zA-Z0-9]/g,
+                '-'
+            )
+            .replace(
+                /-+/g,
+                '-'
+            )
+            .toLowerCase();
 
     return (
         <div className="app-card p-3 h-100">
             <div
                 className="fw-semibold mb-3"
                 style={{
-                    color: 'var(--text-primary)',
+                    color:
+                        'var(--text-primary)',
                 }}
             >
                 {title}
@@ -826,58 +956,92 @@ function PerformanceBarChart({
                     <BarChart
                         data={data}
                         margin={{
-                            top: 10,
-                            right: 10,
+                            top: 18,
+                            right: 18,
                             left: -5,
                             bottom: 5,
                         }}
+                        barGap={6}
                     >
-                        {/* =========================
-                            GRADIENT
-                        ========================= */}
                         <defs>
                             {availableSeries.map(
-                                (item, index) => {
+                                (
+                                    item,
+                                    index
+                                ) => {
+                                    const color =
+                                        item.color;
+
                                     const gradientId =
-                                        `performance-gradient-${safeTitleId}-${item.key}-${index}`;
+                                        `perf-gradient-${safeTitleId}-${index}`;
+
+                                    const shadowId =
+                                        `perf-shadow-${safeTitleId}-${index}`;
 
                                     return (
-                                        <linearGradient
-                                            key={gradientId}
-                                            id={gradientId}
-                                            x1="0"
-                                            y1="0"
-                                            x2="0"
-                                            y2="1"
+                                        <g
+                                            key={
+                                                item.key
+                                            }
                                         >
-                                            <stop
-                                                offset="0%"
-                                                stopColor={
-                                                    item.color
+                                            <linearGradient
+                                                id={
+                                                    gradientId
                                                 }
-                                                stopOpacity={1}
-                                            />
+                                                x1="0"
+                                                y1="0"
+                                                x2="1"
+                                                y2="1"
+                                            >
+                                                <stop
+                                                    offset="0%"
+                                                    stopColor="#ffffff"
+                                                    stopOpacity="0.34"
+                                                />
 
-                                            <stop
-                                                offset="55%"
-                                                stopColor={
-                                                    item.color
-                                                }
-                                                stopOpacity={
-                                                    0.72
-                                                }
-                                            />
+                                                <stop
+                                                    offset="18%"
+                                                    stopColor={
+                                                        color
+                                                    }
+                                                    stopOpacity="1"
+                                                />
 
-                                            <stop
-                                                offset="100%"
-                                                stopColor={
-                                                    item.color
+                                                <stop
+                                                    offset="58%"
+                                                    stopColor={
+                                                        color
+                                                    }
+                                                    stopOpacity="0.94"
+                                                />
+
+                                                <stop
+                                                    offset="100%"
+                                                    stopColor={
+                                                        color
+                                                    }
+                                                    stopOpacity="0.58"
+                                                />
+                                            </linearGradient>
+
+                                            <filter
+                                                id={
+                                                    shadowId
                                                 }
-                                                stopOpacity={
-                                                    0.25
-                                                }
-                                            />
-                                        </linearGradient>
+                                                x="-25%"
+                                                y="-25%"
+                                                width="160%"
+                                                height="170%"
+                                            >
+                                                <feDropShadow
+                                                    dx="3"
+                                                    dy="7"
+                                                    stdDeviation="3.5"
+                                                    floodColor="#000000"
+                                                    floodOpacity="0.22"
+                                                />
+                                            </filter>
+                                        </g>
                                     );
                                 }
                             )}
@@ -886,10 +1050,13 @@ function PerformanceBarChart({
                         <CartesianGrid
                             strokeDasharray="3 3"
                             stroke="var(--chart-grid)"
+                            vertical={false}
                         />
 
                         <XAxis
                             dataKey="site"
+                            axisLine={false}
+                            tickLine={false}
                             tick={{
                                 fontSize: 12,
                                 fill:
@@ -898,6 +1065,8 @@ function PerformanceBarChart({
                         />
 
                         <YAxis
+                            axisLine={false}
+                            tickLine={false}
                             tick={{
                                 fontSize: 12,
                                 fill:
@@ -906,6 +1075,10 @@ function PerformanceBarChart({
                         />
 
                         <Tooltip
+                            cursor={{
+                                fill:
+                                    'var(--chart-hover)',
+                            }}
                             contentStyle={{
                                 backgroundColor:
                                     'var(--card-bg)',
@@ -931,22 +1104,29 @@ function PerformanceBarChart({
                         />
 
                         <Legend
+                            iconType="circle"
+                            iconSize={7}
                             wrapperStyle={{
                                 fontSize: 12,
                             }}
                         />
 
-                        {/* =========================
-                            BAR
-                        ========================= */}
                         {availableSeries.map(
-                            (item, index) => {
+                            (
+                                item,
+                                index
+                            ) => {
                                 const gradientId =
-                                    `performance-gradient-${safeTitleId}-${item.key}-${index}`;
+                                    `perf-gradient-${safeTitleId}-${index}`;
+
+                                const shadowId =
+                                    `perf-shadow-${safeTitleId}-${index}`;
 
                                 return (
                                     <Bar
-                                        key={item.key}
+                                        key={
+                                            item.key
+                                        }
                                         dataKey={
                                             item.key
                                         }
@@ -954,21 +1134,24 @@ function PerformanceBarChart({
                                             item.label
                                         }
                                         fill={`url(#${gradientId})`}
-                                        stroke={
-                                            item.color
-                                        }
-                                        strokeWidth={
-                                            0.5
-                                        }
-                                        radius={[
-                                            6,
-                                            6,
-                                            1,
-                                            1,
-                                        ]}
                                         maxBarSize={
-                                            42
+                                            52
                                         }
+                                        shape={(
+                                            props
+                                        ) => (
+                                            <ThreeDBarShape
+                                                {...props}
+                                                fill={`url(#${gradientId})`}
+                                                color={
+                                                    item.color
+                                                }
+                                                shadowId={
+                                                    shadowId
+                                                }
+                                            />
+                                        )}
+                                        isAnimationActive
                                     />
                                 );
                             }
