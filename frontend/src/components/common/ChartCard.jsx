@@ -156,21 +156,28 @@ function ChartCard({
                                 );
                             })}
 
-                            <filter
-                                id={`shadow-${gradientId}`}
-                                x="-20%"
-                                y="-20%"
-                                width="140%"
-                                height="150%"
-                            >
-                                <feDropShadow
-                                    dx="3"
-                                    dy="5"
-                                    stdDeviation="4"
-                                    floodColor="#000000"
-                                    floodOpacity="0.22"
-                                />
-                            </filter>
+                            {series.map((item, index) => {
+                                const gradientId = `gradient-${sanitizeId(item.key)}-${index}`;
+
+                                return (
+                                    <filter
+                                        key={`shadow-${gradientId}`}
+                                        id={`shadow-${gradientId}`}
+                                        x="-20%"
+                                        y="-20%"
+                                        width="140%"
+                                        height="150%"
+                                    >
+                                        <feDropShadow
+                                            dx="3"
+                                            dy="5"
+                                            stdDeviation="4"
+                                            floodColor="#000000"
+                                            floodOpacity="0.22"
+                                        />
+                                    </filter>
+                                );
+                            })}
 
                             {series.map((item, index) => {
                                 const color = item.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length];
