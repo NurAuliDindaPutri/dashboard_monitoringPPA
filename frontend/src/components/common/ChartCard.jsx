@@ -124,18 +124,30 @@ function ChartCard({
                                 return (
                                     <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
                                         {/*highlight */}
-                                        <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+                                        <stop offset="0%" stopColor={color} stopOpacity="0.40" />
 
                                         {/*warna utama */}
-                                        <stop offset="20%" stopColor={color} stopOpacity="1" />
+                                        <stop offset="10%" stopColor={color} stopOpacity="1" />
 
                                         <stop offset="65%" stopColor={color} stopOpacity="0.9" />
 
                                         {/* bagian bawah lebih gelap */}
                                         <stop
+                                            offset="85%"
+                                            stopColor={color}
+                                            stopOpacity="0.72"
+                                        />
+
+                                        <stop
                                             offset="100%"
                                             stopColor={color}
-                                            stopOpacity="0.55"
+                                            stopOpacity="0.88"
+                                        />
+
+                                        <stop
+                                            offset="100%"
+                                            stopColor={color}
+                                            stopOpacity="0.72"
                                         />
                                     </linearGradient>
                                 );
@@ -177,7 +189,12 @@ function ChartCard({
                             })}
                         </defs>
 
-                        <CartesianGrid strokeDasharray="3 6" stroke="var(--chart-grid)" vertical={false} />
+                        <CartesianGrid
+                            strokeDasharray="5 4"
+                            stroke="var(--chart-grid-strong)"
+                            strokeWidth={1.4}
+                            vertical={false}
+                        />
 
                         <XAxis
                             dataKey={xKey}

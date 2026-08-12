@@ -1162,7 +1162,9 @@ CHART / RECHARTS
 }
 
 .recharts-cartesian-grid line {
-    stroke: var(--chart-grid);
+    stroke: var(--chart-grid-strong) !important;
+    stroke-width: 1.8px !important;
+    stroke-opacity: 1 !important;
 }
 
 .recharts-default-tooltip {
@@ -2802,7 +2804,9 @@ VERY SMALL MOBILE
 
 .ppa-chart-card .recharts-cartesian-grid line,
 .app-card .recharts-cartesian-grid line {
-    stroke: var(--chart-grid);
+    stroke: var(--chart-grid-strong) !important;
+    stroke-width: 1.8px !important;
+    stroke-opacity: 1 !important;
 }
 
 .ppa-chart-card .recharts-legend-item,
@@ -3673,4 +3677,16 @@ VERY SMALL MOBILE
         width: 100%;
         justify-content: center;
     }
+}
+
+:root[data-theme='dark'] {
+    /* Chart */
+    --chart-grid: rgba(255, 255, 255, 0.08);
+    --chart-grid-strong: rgba(255, 255, 255, 0.18);
+}
+
+:root[data-theme='light'] {
+    /* Chart */
+    --chart-grid: rgba(9, 47, 51, 0.08);
+    --chart-grid-strong: rgba(9, 47, 51, 0.18);
 }

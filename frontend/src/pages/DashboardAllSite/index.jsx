@@ -773,115 +773,6 @@ function KpiDonut({
 // ============================================================================
 // PERFORMANCE CHART
 // ============================================================================
-function ThreeDBarShape({
-    x,
-    y,
-    width,
-    height,
-    fill,
-    color,
-    shadowId,
-}) {
-    const safeX = Number(x) || 0;
-    const safeY = Number(y) || 0;
-    const safeWidth = Number(width) || 0;
-    const safeHeight = Number(height) || 0;
-
-    if (
-        safeWidth <= 0 ||
-        safeHeight <= 0
-    ) {
-        return null;
-    }
-
-    const depthX = 6;
-    const depthY = 4;
-
-    const frontWidth =
-        Math.max(
-            safeWidth - depthX,
-            1
-        );
-
-    const radius =
-        Math.min(
-            7,
-            frontWidth / 4
-        );
-
-    return (
-        <g
-            filter={
-                shadowId
-                    ? `url(#${shadowId})`
-                    : undefined
-            }
-        >
-            {/* DEPAN */}
-            <rect
-                x={safeX}
-                y={safeY + depthY}
-                width={frontWidth}
-                height={Math.max(
-                    safeHeight - depthY,
-                    1
-                )}
-                rx={radius}
-                ry={radius}
-                fill={fill}
-                stroke={color}
-                strokeWidth="0.8"
-            />
-
-            {/* SISI KANAN */}
-            <path
-                d={`
-                    M ${safeX + frontWidth} ${safeY + depthY}
-                    L ${safeX + safeWidth} ${safeY}
-                    L ${safeX + safeWidth} ${safeY + safeHeight - depthY}
-                    L ${safeX + frontWidth} ${safeY + safeHeight}
-                    Z
-                `}
-                fill={color}
-                opacity="0.72"
-            />
-
-            {/* BAGIAN ATAS */}
-            <path
-                d={`
-                    M ${safeX + radius} ${safeY + depthY}
-                    L ${safeX + frontWidth} ${safeY + depthY}
-                    L ${safeX + safeWidth} ${safeY}
-                    L ${safeX + radius + depthX} ${safeY}
-                    Q ${safeX + 2} ${safeY}
-                      ${safeX} ${safeY + depthY}
-                    Z
-                `}
-                fill={color}
-                opacity="0.62"
-            />
-
-            {/* HIGHLIGHT KIRI TIPIS */}
-            <rect
-                x={safeX + 3}
-                y={safeY + depthY + 5}
-                width="3"
-                height={Math.max(
-                    safeHeight - depthY - 10,
-                    1
-                )}
-                rx="2"
-                fill="#ffffff"
-                opacity="0.10"
-            />
-        </g>
-    );
-}
-
-
-// ============================================================================
-// PERFORMANCE CHART
-// ============================================================================
 function PerformanceBarChart({
     title,
     data,
@@ -932,7 +823,6 @@ function PerformanceBarChart({
                     }}
                 >
                     <i className="bi bi-bar-chart fs-3" />
-
                     <small className="mt-2">
                         Data belum tersedia
                     </small>
@@ -950,7 +840,7 @@ function PerformanceBarChart({
                             left: -5,
                             bottom: 5,
                         }}
-                        barGap={6}
+                        barGap={8}
                     >
                         <defs>
                             {availableSeries.map(
@@ -979,17 +869,17 @@ function PerformanceBarChart({
                                                 }
                                                 x1="0"
                                                 y1="0"
-                                                x2="1"
+                                                x2="0"
                                                 y2="1"
                                             >
                                                 <stop
                                                     offset="0%"
-                                                    stopColor="#ffffff"
-                                                    stopOpacity="0.34"
+                                                    stopColor={color}
+                                                    stopOpacity="0.40"
                                                 />
 
                                                 <stop
-                                                    offset="18%"
+                                                    offset="10%"
                                                     stopColor={
                                                         color
                                                     }
@@ -997,37 +887,46 @@ function PerformanceBarChart({
                                                 />
 
                                                 <stop
-                                                    offset="58%"
+                                                    offset="55%"
                                                     stopColor={
                                                         color
                                                     }
-                                                    stopOpacity="0.94"
+                                                    stopOpacity="0.98"
+                                                />
+
+                                                <stop
+                                                    offset="85%"
+                                                    stopColor={color}
+                                                    stopOpacity="0.72"
                                                 />
 
                                                 <stop
                                                     offset="100%"
-                                                    stopColor={
-                                                        color
-                                                    }
-                                                    stopOpacity="0.58"
+                                                    stopColor={color}
+                                                    stopOpacity="0.88"
+                                                />
+
+                                                <stop
+                                                    offset="100%"
+                                                    stopColor={color}
+                                                    stopOpacity="0.72"
                                                 />
                                             </linearGradient>
 
                                             <filter
-                                                id={
-                                                    shadowId
-                                                }
-                                                x="-25%"
-                                                y="-25%"
-                                                width="160%"
-                                                height="170%"
+                                                key={`shadow-${gradientId}`}
+                                                id={`shadow-${gradientId}`}
+                                                x="-20%"
+                                                y="-20%"
+                                                width="140%"
+                                                height="150%"
                                             >
                                                 <feDropShadow
-                                                    dx="3"
-                                                    dy="6"
-                                                    stdDeviation="3"
+                                                    dx="2"
+                                                    dy="5"
+                                                    stdDeviation="4"
                                                     floodColor="#000000"
-                                                    floodOpacity="0.18"
+                                                    floodOpacity="0.22"
                                                 />
                                             </filter>
                                         </g>
@@ -1037,8 +936,7 @@ function PerformanceBarChart({
                         </defs>
 
                         <CartesianGrid
-                            strokeDasharray="3 3"
-                            stroke="var(--chart-grid)"
+                            strokeDasharray="5 4"
                             vertical={false}
                         />
 
@@ -1071,12 +969,9 @@ function PerformanceBarChart({
                             contentStyle={{
                                 backgroundColor:
                                     'var(--card-bg)',
-
                                 border:
                                     '1px solid var(--border-color)',
-
                                 borderRadius: 10,
-
                                 color:
                                     'var(--text-primary)',
                             }}
@@ -1123,23 +1018,22 @@ function PerformanceBarChart({
                                             item.label
                                         }
                                         fill={`url(#${gradientId})`}
+                                        stroke={
+                                            item.color
+                                        }
+                                        strokeWidth={
+                                            1
+                                        }
+                                        radius={[
+                                            10,
+                                            10,
+                                            3,
+                                            3,
+                                        ]}
+                                        filter={`url(#${shadowId})`}
                                         maxBarSize={
                                             48
                                         }
-                                        shape={(
-                                            props
-                                        ) => (
-                                            <ThreeDBarShape
-                                                {...props}
-                                                fill={`url(#${gradientId})`}
-                                                color={
-                                                    item.color
-                                                }
-                                                shadowId={
-                                                    shadowId
-                                                }
-                                            />
-                                        )}
                                         isAnimationActive
                                     />
                                 );
