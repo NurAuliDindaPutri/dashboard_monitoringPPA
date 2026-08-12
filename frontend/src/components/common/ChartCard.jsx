@@ -138,12 +138,39 @@ function ChartCard({
 
                                 return (
                                     <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor={color} stopOpacity="0.95" />
-                                        <stop offset="58%" stopColor={color} stopOpacity="0.68" />
-                                        <stop offset="100%" stopColor={color} stopOpacity="0.26" />
+                                        {/*highlight */}
+                                        <stop offset="0%" stopColor='#ffffff' stopOpacity="0.35" />
+
+                                        {/*warna utama */}
+                                        <stop offset="20%" stopColor={color} stopOpacity="1" />
+
+                                        <stop offset="65%" stopColor={color} stopOpacity="0.9" />
+
+                                        {/* bagian bawah lebih gelap */}
+                                        <stop
+                                            offset="100%"
+                                            stopColor={color}
+                                            stopOpacity="0.55"
+                                        />
                                     </linearGradient>
                                 );
                             })}
+
+                            <filter
+                                id={`shadow-${gradientId}`}
+                                x="-20%"
+                                y="-20%"
+                                width="140%"
+                                height="150%"
+                            >
+                                <feDropShadow
+                                    dx="3"
+                                    dy="5"
+                                    stdDeviation="4"
+                                    floodColor="#000000"
+                                    floodOpacity="0.22"
+                                />
+                            </filter>
 
                             {series.map((item, index) => {
                                 const color = item.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length];
@@ -241,21 +268,24 @@ function ChartCard({
 
                             return (
                                 <Bar
-                                    key={item.key}
                                     dataKey={item.key}
                                     name={item.label}
                                     fill={`url(#${gradientId})`}
-                                    stroke={color}
-                                    strokeWidth={0.6}
-                                    radius={[8, 8, 2, 2]}
-                                    maxBarSize={34}
+                                    stroke={item.color}
+                                    strokeWidth={1}
+                                    radius={[10, 10, 3, 3]}
+                                    filter={`url(#shadow-${gradientId})`}
+                                    maxBarSize={48}
                                 >
-                                    {showBarValues && (
-                                        <LabelList
-                                            dataKey={item.key}
-                                            content={<BarValueLabel />}
-                                        />
-                                    )}
+                                    <LabelList
+                                        dataKey={item.key}
+                                        position="top"
+                                        style={{
+                                            fill: 'var(--text-primary)',
+                                            fontSize: 11,
+                                            fontWeight: 600,
+                                        }}
+                                    />
                                 </Bar>
                             );
                         })}
