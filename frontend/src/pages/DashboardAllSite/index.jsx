@@ -794,32 +794,20 @@ function ThreeDBarShape({
         return null;
     }
 
-    const depth = Math.min(
-        7,
-        Math.max(4, safeWidth * 0.14)
-    );
+    const depthX = 6;
+    const depthY = 4;
 
-    const frontWidth = Math.max(
-        safeWidth - depth,
-        1
-    );
+    const frontWidth =
+        Math.max(
+            safeWidth - depthX,
+            1
+        );
 
-    const frontHeight = Math.max(
-        safeHeight - depth,
-        1
-    );
-
-    const frontY =
-        safeY + depth;
-
-    const frontBottom =
-        frontY + frontHeight;
-
-    const radius = Math.min(
-        8,
-        frontWidth / 4,
-        frontHeight / 4
-    );
+    const radius =
+        Math.min(
+            7,
+            frontWidth / 4
+        );
 
     return (
         <g
@@ -829,12 +817,15 @@ function ThreeDBarShape({
                     : undefined
             }
         >
-            {/* SISI DEPAN */}
+            {/* DEPAN */}
             <rect
                 x={safeX}
-                y={frontY}
+                y={safeY + depthY}
                 width={frontWidth}
-                height={frontHeight}
+                height={Math.max(
+                    safeHeight - depthY,
+                    1
+                )}
                 rx={radius}
                 ry={radius}
                 fill={fill}
@@ -842,48 +833,46 @@ function ThreeDBarShape({
                 strokeWidth="0.8"
             />
 
-            {/* SISI KANAN / DEPTH */}
-            <polygon
-                points={[
-                    `${safeX + frontWidth},${frontY}`,
-                    `${safeX + safeWidth},${safeY}`,
-                    `${safeX + safeWidth},${safeY + safeHeight - depth}`,
-                    `${safeX + frontWidth},${frontBottom}`,
-                ].join(' ')}
+            {/* SISI KANAN */}
+            <path
+                d={`
+                    M ${safeX + frontWidth} ${safeY + depthY}
+                    L ${safeX + safeWidth} ${safeY}
+                    L ${safeX + safeWidth} ${safeY + safeHeight - depthY}
+                    L ${safeX + frontWidth} ${safeY + safeHeight}
+                    Z
+                `}
                 fill={color}
                 opacity="0.72"
             />
 
-            {/* PERMUKAAN ATAS */}
-            <polygon
-                points={[
-                    `${safeX},${frontY}`,
-                    `${safeX + frontWidth},${frontY}`,
-                    `${safeX + safeWidth},${safeY}`,
-                    `${safeX + depth},${safeY}`,
-                ].join(' ')}
+            {/* BAGIAN ATAS */}
+            <path
+                d={`
+                    M ${safeX + radius} ${safeY + depthY}
+                    L ${safeX + frontWidth} ${safeY + depthY}
+                    L ${safeX + safeWidth} ${safeY}
+                    L ${safeX + radius + depthX} ${safeY}
+                    Q ${safeX + 2} ${safeY}
+                      ${safeX} ${safeY + depthY}
+                    Z
+                `}
                 fill={color}
-                opacity="0.30"
+                opacity="0.62"
             />
 
-            {/* GLOSS TIPIS DI DEPAN */}
+            {/* HIGHLIGHT KIRI TIPIS */}
             <rect
-                x={safeX + 2}
-                y={frontY + 2}
-                width={Math.max(
-                    frontWidth * 0.22,
-                    2
-                )}
+                x={safeX + 3}
+                y={safeY + depthY + 5}
+                width="3"
                 height={Math.max(
-                    frontHeight - 4,
+                    safeHeight - depthY - 10,
                     1
                 )}
-                rx={Math.min(
-                    5,
-                    radius
-                )}
+                rx="2"
                 fill="#ffffff"
-                opacity="0.08"
+                opacity="0.10"
             />
         </g>
     );
@@ -1035,10 +1024,10 @@ function PerformanceBarChart({
                                             >
                                                 <feDropShadow
                                                     dx="3"
-                                                    dy="7"
-                                                    stdDeviation="3.5"
+                                                    dy="6"
+                                                    stdDeviation="3"
                                                     floodColor="#000000"
-                                                    floodOpacity="0.22"
+                                                    floodOpacity="0.18"
                                                 />
                                             </filter>
                                         </g>
@@ -1135,7 +1124,7 @@ function PerformanceBarChart({
                                         }
                                         fill={`url(#${gradientId})`}
                                         maxBarSize={
-                                            52
+                                            48
                                         }
                                         shape={(
                                             props
