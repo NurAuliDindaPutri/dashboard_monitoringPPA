@@ -6,7 +6,6 @@ const unitModelRoutes = require('./unitModel.routes');
 const monthlyKpiSummaryRoutes = require('./monthlyKpiSummary.routes');
 const monthlyUnitPerformanceRoutes = require('./monthlyUnitPerformance.routes');
 const pendingSupplyRoutes = require('./pendingSupply.routes');
-const criticalItemRoutes = require('./criticalItem.routes');
 const importRoutes = require('./import.routes');
 
 
@@ -26,7 +25,6 @@ router.use('/unit-models', unitModelRoutes);
 router.use('/kpi-summary', monthlyKpiSummaryRoutes);
 router.use('/unit-performance', monthlyUnitPerformanceRoutes);
 router.use('/pending-supply', pendingSupplyRoutes);
-router.use('/critical-items', criticalItemRoutes);
 router.use('/import', importRoutes);
 router.use('/monthly-unit-performance', monthlyUnitPerformanceRoutes);
 

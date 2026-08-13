@@ -7,12 +7,6 @@ import {
     dummyCriticalItems,
     filterDummyByPeriod,
 } from '../../data/dummyData';
-import {
-    getCriticalItems,
-    createCriticalItem,
-    updateCriticalItem,
-    deleteCriticalItem,
-} from '../../api/criticalItem.api';
 
 
 const EMPTY_FORM = {

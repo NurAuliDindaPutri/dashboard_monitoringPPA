@@ -1,10 +1,6 @@
 const XLSX = require('xlsx');
 
 const {
-    importCriticalItemSheet,
-} = require('../services/import/criticalItem.service');
-
-const {
     findSheetName,
     sheetToMatrix,
 } = require('../utils/excelHelpers');
@@ -51,9 +47,6 @@ async function importExcel(req, res) {
 
             pending_supply:
                 'Sheet "Pending Supply" tidak ditemukan, dilewati',
-
-            critical_items:
-                'Sheet "Critical Items" tidak ditemukan, dilewati',
 
             detail_lt_supply:
                 'Sheet "Detail LT Supply" tidak ditemukan, dilewati',
@@ -159,35 +152,6 @@ async function importExcel(req, res) {
         } else {
             result.skipped.push({
                 sheet: 'Pending Supply',
-                reason: 'Sheet tidak ditemukan',
-            });
-        }
-
-        const criticalSheetName = findSheetName(
-            workbook,
-            'Critical Items',
-            'Critical Item'
-        );
-
-        if (criticalSheetName) {
-            const rows = sheetToMatrix(
-                workbook,
-                criticalSheetName
-            );
-
-            const {
-                summary,
-                skippedDetails,
-            } = await importCriticalItemSheet(rows);
-
-            result.critical_items = summary;
-
-            if (Array.isArray(skippedDetails)) {
-                result.skipped.push(...skippedDetails);
-            }
-        } else {
-            result.skipped.push({
-                sheet: 'Critical Items',
                 reason: 'Sheet tidak ditemukan',
             });
         }

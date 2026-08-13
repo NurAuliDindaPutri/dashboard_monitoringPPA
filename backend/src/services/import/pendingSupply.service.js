@@ -1,85 +1,302 @@
 const { pool } = require('../../config/db');
-const { findHeaderRowIndex, buildColumnIndexMap, toNumberOrNull, toDateStringOrNull } = require('../../utils/excelHelpers');
+
+const {
+    findHeaderRowIndex,
+    buildColumnIndexMap,
+    toNumberOrNull,
+    toDateStringOrNull,
+} = require('../../utils/excelHelpers');
+
 const { ensureSiteId } = require('./resolvers');
 
 const COLUMN_LABELS = {
-    partsNumber: ['Parts Number', 'Part Number', 'No Part', 'PARTS NUMBER'],
-    description: ['Description', 'DESCRIPTION'],
-    qty: ['Qty', 'QTY'],
-    noPo: ['No PO', 'NO PO', 'PO'],
-    site: ['Site', 'SITE'],
-    eta: ['ETA'],
-    remarks: ['Remarks', 'REMARKS'],
+    partsNumber: [
+        'parts_number',
+        'Parts Number',
+        'Part Number',
+        'No Part',
+    ],
+
+    description: [
+        'description',
+        'Description',
+    ],
+
+    qty: [
+        'qty',
+        'Qty',
+    ],
+
+    noPo: [
+        'no_po',
+        'No PO',
+        'PO',
+    ],
+
+    site: [
+        'site_code',
+        'Site',
+        'SITE',
+    ],
+
+    eta: [
+        'eta',
+        'ETA',
+    ],
+
+    remarks: [
+        'remarks',
+        'Remarks',
+    ],
 };
 
-/**
- * Parse sheet "Pending Supply". Header: No, Parts Number, Description, Qty, No PO, Site, ETA, Remarks.
- * Baris kosong dilewati. Setiap baris valid dimasukkan ke tabel pending_supply.
- */
 async function importPendingSupplySheet(matrix) {
-    let headerRowIdx = findHeaderRowIndex(matrix, 'Parts Number');
+    let headerRowIdx = findHeaderRowIndex(
+        matrix,
+        'parts_number'
+    );
+
     if (headerRowIdx === -1) {
-        headerRowIdx = findHeaderRowIndex(matrix, 'SITE');
+        headerRowIdx = findHeaderRowIndex(
+            matrix,
+            'site_code'
+        );
+    }
+
+    // Support template lama
+    if (headerRowIdx === -1) {
+        headerRowIdx = findHeaderRowIndex(
+            matrix,
+            'Parts Number'
+        );
     }
 
     if (headerRowIdx === -1) {
         return {
-            summary: 'Sheet Pending Supply kosong, dilewati',
+            summary:
+                '0 ditambahkan, 0 diperbarui, 0 dilewati',
             skippedDetails: [],
         };
     }
 
     const headerRow = matrix[headerRowIdx];
-    const colIdx = buildColumnIndexMap(headerRow, COLUMN_LABELS);
 
-    let successCount = 0;
+    const colIdx = buildColumnIndexMap(
+        headerRow,
+        COLUMN_LABELS
+    );
+
+    let addedCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
+
     const skippedDetails = [];
 
-    for (let r = headerRowIdx + 1; r < matrix.length; r += 1) {
+    for (
+        let r = headerRowIdx + 1;
+        r < matrix.length;
+        r += 1
+    ) {
         const row = matrix[r] || [];
 
         const partsNumber =
-            colIdx.partsNumber >= 0 && row[colIdx.partsNumber] !== null && row[colIdx.partsNumber] !== undefined
-                ? String(row[colIdx.partsNumber]).trim()
+            colIdx.partsNumber >= 0 &&
+                row[colIdx.partsNumber] !== null &&
+                row[colIdx.partsNumber] !== undefined
+                ? String(
+                    row[colIdx.partsNumber]
+                ).trim()
                 : '';
+
         const siteCode =
-            colIdx.site >= 0 && row[colIdx.site] !== null && row[colIdx.site] !== undefined
-                ? String(row[colIdx.site]).trim()
+            colIdx.site >= 0 &&
+                row[colIdx.site] !== null &&
+                row[colIdx.site] !== undefined
+                ? String(
+                    row[colIdx.site]
+                )
+                    .trim()
+                    .toUpperCase()
                 : '';
 
-        // Skip baris kosong
-        if (!partsNumber && !siteCode) continue;
-
-        if (!partsNumber || !siteCode) {
-            skippedDetails.push({
-                sheet: 'Pending Supply',
-                row: { rowIndex: r + 1, partsNumber, siteCode },
-                reason: 'Kolom Parts Number atau Site kosong',
-            });
+        // Baris benar-benar kosong tidak dianggap dilewati
+        if (!partsNumber && !siteCode) {
             continue;
         }
 
-        const siteId = await ensureSiteId(siteCode);
-        const description = colIdx.description >= 0 ? row[colIdx.description] : null;
-        const qty = colIdx.qty >= 0 ? toNumberOrNull(row[colIdx.qty]) ?? 0 : 0;
-        const noPo = colIdx.noPo >= 0 ? row[colIdx.noPo] : null;
-        const etaRaw = colIdx.eta >= 0 ? row[colIdx.eta] : null;
-        const eta = toDateStringOrNull(etaRaw);
-        const remarks = colIdx.remarks >= 0 ? row[colIdx.remarks] : null;
+        // Data wajib tidak lengkap
+        if (!partsNumber || !siteCode) {
+            skippedCount += 1;
 
-        await pool.query(
-            `INSERT INTO pending_supply (site_id, parts_number, description, qty, no_po, eta, remarks)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [siteId, partsNumber, description, qty, noPo, eta, remarks]
-        );
+            skippedDetails.push({
+                sheet: 'Pending Supply',
+                row: r + 1,
+                reason:
+                    'site_code atau parts_number kosong',
+            });
 
-        successCount += 1;
+            continue;
+        }
+
+        try {
+            const siteId =
+                await ensureSiteId(siteCode);
+
+            const description =
+                colIdx.description >= 0 &&
+                    row[colIdx.description] !== null &&
+                    row[colIdx.description] !== undefined
+                    ? String(
+                        row[colIdx.description]
+                    ).trim() || null
+                    : null;
+
+            const qty =
+                colIdx.qty >= 0
+                    ? toNumberOrNull(
+                        row[colIdx.qty]
+                    ) ?? 0
+                    : 0;
+
+            const noPo =
+                colIdx.noPo >= 0 &&
+                    row[colIdx.noPo] !== null &&
+                    row[colIdx.noPo] !== undefined
+                    ? String(
+                        row[colIdx.noPo]
+                    ).trim() || null
+                    : null;
+
+            const etaRaw =
+                colIdx.eta >= 0
+                    ? row[colIdx.eta]
+                    : null;
+
+            const eta =
+                toDateStringOrNull(
+                    etaRaw
+                );
+
+            const remarks =
+                colIdx.remarks >= 0 &&
+                    row[colIdx.remarks] !== null &&
+                    row[colIdx.remarks] !== undefined
+                    ? String(
+                        row[colIdx.remarks]
+                    ).trim() || null
+                    : null;
+
+            /*
+             * Identitas satu Pending Supply:
+             *
+             * site_id
+             * + parts_number
+             * + no_po
+             *
+             * Kalau kombinasi ini sudah ada:
+             * UPDATE, bukan INSERT baru.
+             */
+            const [existingRows] =
+                await pool.query(
+                    `
+                    SELECT id
+                    FROM pending_supply
+                    WHERE site_id = ?
+                      AND parts_number = ?
+                      AND (
+                            no_po = ?
+                            OR (
+                                no_po IS NULL
+                                AND ? IS NULL
+                            )
+                      )
+                    LIMIT 1
+                    `,
+                    [
+                        siteId,
+                        partsNumber,
+                        noPo,
+                        noPo,
+                    ]
+                );
+
+            const existing =
+                existingRows[0];
+
+            if (existing) {
+                await pool.query(
+                    `
+                    UPDATE pending_supply
+                    SET
+                        description = ?,
+                        qty = ?,
+                        no_po = ?,
+                        eta = ?,
+                        remarks = ?
+                    WHERE id = ?
+                    `,
+                    [
+                        description,
+                        qty,
+                        noPo,
+                        eta,
+                        remarks,
+                        existing.id,
+                    ]
+                );
+
+                updatedCount += 1;
+            } else {
+                await pool.query(
+                    `
+                    INSERT INTO pending_supply
+                    (
+                        site_id,
+                        parts_number,
+                        description,
+                        qty,
+                        no_po,
+                        eta,
+                        remarks
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    `,
+                    [
+                        siteId,
+                        partsNumber,
+                        description,
+                        qty,
+                        noPo,
+                        eta,
+                        remarks,
+                    ]
+                );
+
+                addedCount += 1;
+            }
+        } catch (err) {
+            skippedCount += 1;
+
+            skippedDetails.push({
+                sheet: 'Pending Supply',
+                row: r + 1,
+                reason:
+                    err.message ||
+                    'Baris gagal diproses',
+            });
+        }
     }
 
     return {
-        summary: `${successCount} baris pending supply berhasil diproses`,
+        summary:
+            `${addedCount} ditambahkan, ` +
+            `${updatedCount} diperbarui, ` +
+            `${skippedCount} dilewati`,
+
         skippedDetails,
     };
 }
 
-module.exports = { importPendingSupplySheet };
+module.exports = {
+    importPendingSupplySheet,
+};

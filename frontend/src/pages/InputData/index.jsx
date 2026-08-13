@@ -709,6 +709,21 @@ function KpiSummaryForm({
 
     const rowsPerPage = 20;
 
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+    const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+    const [selectMode, setSelectMode] = useState(false);
+
+    const handleToggleSelectMode = () => {
+        setSelectMode((previous) => {
+            if (previous) {
+                setSelectedIds(new Set());
+            }
+
+            return !previous;
+        });
+    };
+
     useEffect(() => {
         if (!result) {
             return undefined;
@@ -1002,6 +1017,12 @@ function KpiSummaryForm({
                     null
                 );
 
+                setSelectedIds((previous) => {
+                    const next = new Set(previous);
+                    next.delete(row.id);
+                    return next;
+                });
+
                 await fetchList();
             } catch (
             error
@@ -1022,6 +1043,103 @@ function KpiSummaryForm({
                 );
             }
         };
+
+    // ============================================================
+    // SELEKSI & HAPUS MASSAL KPI
+    // ============================================================
+
+    const toggleSelectRow = (id) => {
+        setSelectedIds((previous) => {
+            const next = new Set(previous);
+
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+
+            return next;
+        });
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) {
+            return;
+        }
+
+        setShowBulkDeleteConfirm(true);
+    };
+
+    const handleConfirmBulkDelete = async () => {
+        const ids = Array.from(selectedIds);
+
+        if (ids.length === 0) {
+            setShowBulkDeleteConfirm(false);
+            return;
+        }
+
+        setBulkDeleting(true);
+
+        try {
+            const results = await Promise.allSettled(
+                ids.map((id) =>
+                    axiosClient.delete(`/kpi-summary/${id}`)
+                )
+            );
+
+            const failedCount = results.filter(
+                (item) => item.status === 'rejected'
+            ).length;
+
+            const successCount = ids.length - failedCount;
+
+            if (successCount > 0) {
+                setResult({
+                    type: failedCount > 0 ? 'error' : 'success',
+
+                    message:
+                        failedCount > 0
+                            ? `${successCount} data berhasil dihapus, ${failedCount} data gagal dihapus.`
+                            : `${successCount} data KPI Summary berhasil dihapus.`,
+                });
+
+                addNotification({
+                    title: 'KPI Summary dihapus',
+
+                    message: `${successCount} data KPI Summary berhasil dihapus.`,
+
+                    type: 'danger',
+
+                    link: '/input-data',
+                });
+
+                window.dispatchEvent(
+                    new CustomEvent('dashboard-data-changed')
+                );
+            } else {
+                setResult({
+                    type: 'error',
+                    message: 'Gagal menghapus data yang dipilih.',
+                });
+            }
+
+            if (editingId && ids.includes(editingId)) {
+                resetForm();
+            }
+
+            setSelectedIds(new Set());
+            setShowBulkDeleteConfirm(false);
+
+            await fetchList();
+        } catch {
+            setResult({
+                type: 'error',
+                message: 'Gagal menghapus data yang dipilih.',
+            });
+        } finally {
+            setBulkDeleting(false);
+        }
+    };
 
     const PERCENT_FIELDS = [
         'readyness_actual',
@@ -1300,6 +1418,24 @@ function KpiSummaryForm({
             startIndex,
             endIndex
         );
+
+    const isAllPageSelected =
+        paginatedList.length > 0 &&
+        paginatedList.every((row) => selectedIds.has(row.id));
+
+    const toggleSelectAllPage = () => {
+        setSelectedIds((previous) => {
+            const next = new Set(previous);
+
+            if (isAllPageSelected) {
+                paginatedList.forEach((row) => next.delete(row.id));
+            } else {
+                paginatedList.forEach((row) => next.add(row.id));
+            }
+
+            return next;
+        });
+    };
 
     useEffect(() => {
         if (
@@ -1643,9 +1779,45 @@ function KpiSummaryForm({
             </div>
 
             <div className="app-card p-4 mt-3">
-                <div className="fw-semibold mb-3">
-                    <i className="bi bi-table text-primary-custom me-2" />
-                    Data KPI Summary Terbaru
+                <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                    <div className="fw-semibold">
+                        <i className="bi bi-table text-primary-custom me-2" />
+                        Data KPI Summary Terbaru
+                    </div>
+
+                    <div className="d-flex gap-2">
+                        {selectMode && selectedIds.size > 0 && (
+                            <button
+                                type="button"
+                                className="btn btn-outline-danger btn-sm"
+                                onClick={handleBulkDelete}
+                                disabled={bulkDeleting}
+                            >
+                                <i className="bi bi-trash3 me-2" />
+                                Hapus Terpilih ({selectedIds.size})
+                            </button>
+                        )}
+
+                        <button
+                            type="button"
+                            className={`btn btn-sm ${selectMode
+                                ? 'btn-secondary'
+                                : 'btn-outline-secondary'
+                                }`}
+                            onClick={handleToggleSelectMode}
+                            disabled={bulkDeleting}
+                        >
+                            <i
+                                className={`bi ${selectMode
+                                    ? 'bi-x-lg'
+                                    : 'bi-check2-square'
+                                    } me-2`}
+                            />
+                            {selectMode
+                                ? 'Batal Pilih'
+                                : 'Pilih'}
+                        </button>
+                    </div>
                 </div>
 
                 {loadingList ? (
@@ -1659,6 +1831,18 @@ function KpiSummaryForm({
                             <table className="table table-sm table-hover align-middle mb-0">
                                 <thead>
                                     <tr>
+                                        {selectMode && (
+                                            <th style={{ width: '32px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="form-check-input"
+                                                    checked={isAllPageSelected}
+                                                    onChange={toggleSelectAllPage}
+                                                    aria-label="Pilih semua"
+                                                />
+                                            </th>
+                                        )}
+
                                         <th>
                                             Site
                                         </th>
@@ -1711,6 +1895,18 @@ function KpiSummaryForm({
                                                     row.id
                                                 }
                                             >
+                                                {selectMode && (
+                                                    <td>
+                                                        <input
+                                                            type="checkbox"
+                                                            className="form-check-input"
+                                                            checked={selectedIds.has(row.id)}
+                                                            onChange={() => toggleSelectRow(row.id)}
+                                                            aria-label={`Pilih baris ${row.id}`}
+                                                        />
+                                                    </td>
+                                                )}
+
                                                 <td>
                                                     {
                                                         row.site_code
@@ -1869,6 +2065,21 @@ function KpiSummaryForm({
                     handleConfirmDelete
                 }
             />
+
+            <ConfirmModal
+                show={showBulkDeleteConfirm}
+                title="Hapus data terpilih?"
+                message={`${selectedIds.size} data KPI Summary yang dipilih akan dihapus permanen.`}
+                confirmText="Hapus"
+                cancelText="Batal"
+                loading={bulkDeleting}
+                onCancel={() => {
+                    if (!bulkDeleting) {
+                        setShowBulkDeleteConfirm(false);
+                    }
+                }}
+                onConfirm={handleConfirmBulkDelete}
+            />
         </>
     );
 }
@@ -1957,6 +2168,21 @@ function UnitPerformanceForm({
     ] = useState(1);
 
     const rowsPerPage = 20;
+
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+    const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+    const [selectMode, setSelectMode] = useState(false);
+
+    const handleToggleSelectMode = () => {
+        setSelectMode((previous) => {
+            if (previous) {
+                setSelectedIds(new Set());
+            }
+
+            return !previous;
+        });
+    };
 
     // Site yang sedang dipilih pada form Performa Unit.
     const selectedSite = sites.find(
@@ -2376,6 +2602,12 @@ function UnitPerformanceForm({
                     null
                 );
 
+                setSelectedIds((previous) => {
+                    const next = new Set(previous);
+                    next.delete(item.id);
+                    return next;
+                });
+
                 await fetchUnitPerformances();
             } catch (
             error
@@ -2395,6 +2627,103 @@ function UnitPerformanceForm({
                 );
             }
         };
+
+    // ============================================================
+    // SELEKSI & HAPUS MASSAL PERFORMA UNIT
+    // ============================================================
+
+    const toggleSelectRow = (id) => {
+        setSelectedIds((previous) => {
+            const next = new Set(previous);
+
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+
+            return next;
+        });
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) {
+            return;
+        }
+
+        setShowBulkDeleteConfirm(true);
+    };
+
+    const handleConfirmBulkDelete = async () => {
+        const ids = Array.from(selectedIds);
+
+        if (ids.length === 0) {
+            setShowBulkDeleteConfirm(false);
+            return;
+        }
+
+        setBulkDeleting(true);
+
+        try {
+            const results = await Promise.allSettled(
+                ids.map((id) =>
+                    axiosClient.delete(`/monthly-unit-performance/${id}`)
+                )
+            );
+
+            const failedCount = results.filter(
+                (item) => item.status === 'rejected'
+            ).length;
+
+            const successCount = ids.length - failedCount;
+
+            if (successCount > 0) {
+                setResult({
+                    type: failedCount > 0 ? 'error' : 'success',
+
+                    message:
+                        failedCount > 0
+                            ? `${successCount} data berhasil dihapus, ${failedCount} data gagal dihapus.`
+                            : `${successCount} data performa unit berhasil dihapus.`,
+                });
+
+                addNotification({
+                    title: 'Performa Unit dihapus',
+
+                    message: `${successCount} data performa unit berhasil dihapus.`,
+
+                    type: 'danger',
+
+                    link: '/input-data',
+                });
+
+                window.dispatchEvent(
+                    new CustomEvent('dashboard-data-changed')
+                );
+            } else {
+                setResult({
+                    type: 'error',
+                    message: 'Gagal menghapus data yang dipilih.',
+                });
+            }
+
+            if (editingId && ids.includes(editingId)) {
+                resetForm();
+            }
+
+            setSelectedIds(new Set());
+            setShowBulkDeleteConfirm(false);
+
+            await fetchUnitPerformances();
+        } catch {
+            setResult({
+                type: 'error',
+                message: 'Gagal menghapus data yang dipilih.',
+            });
+        } finally {
+            setBulkDeleting(false);
+        }
+    };
 
     const handleSubmit =
         async (
@@ -2674,6 +3003,24 @@ function UnitPerformanceForm({
             startIndex,
             endIndex
         );
+
+    const isAllPageSelected =
+        paginatedList.length > 0 &&
+        paginatedList.every((item) => selectedIds.has(item.id));
+
+    const toggleSelectAllPage = () => {
+        setSelectedIds((previous) => {
+            const next = new Set(previous);
+
+            if (isAllPageSelected) {
+                paginatedList.forEach((item) => next.delete(item.id));
+            } else {
+                paginatedList.forEach((item) => next.add(item.id));
+            }
+
+            return next;
+        });
+    };
 
     return (
         <>
@@ -2963,21 +3310,55 @@ function UnitPerformanceForm({
             </div>
 
             <div className="app-card p-4 mt-3">
-                <div className="d-flex justify-content-between mb-3">
+                <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                     <div className="fw-semibold">
                         Data Performa Unit
                     </div>
 
-                    <button
-                        type="button"
-                        className="btn btn-outline-primary btn-sm"
-                        onClick={
-                            fetchUnitPerformances
-                        }
-                    >
-                        <i className="bi bi-arrow-clockwise me-2" />
-                        Refresh
-                    </button>
+                    <div className="d-flex gap-2">
+                        {selectMode && selectedIds.size > 0 && (
+                            <button
+                                type="button"
+                                className="btn btn-outline-danger btn-sm"
+                                onClick={handleBulkDelete}
+                                disabled={bulkDeleting}
+                            >
+                                <i className="bi bi-trash3 me-2" />
+                                Hapus Terpilih ({selectedIds.size})
+                            </button>
+                        )}
+
+                        <button
+                            type="button"
+                            className={`btn btn-sm ${selectMode
+                                ? 'btn-secondary'
+                                : 'btn-outline-secondary'
+                                }`}
+                            onClick={handleToggleSelectMode}
+                            disabled={bulkDeleting}
+                        >
+                            <i
+                                className={`bi ${selectMode
+                                    ? 'bi-x-lg'
+                                    : 'bi-check2-square'
+                                    } me-2`}
+                            />
+                            {selectMode
+                                ? 'Batal Pilih'
+                                : 'Pilih'}
+                        </button>
+
+                        <button
+                            type="button"
+                            className="btn btn-outline-primary btn-sm"
+                            onClick={
+                                fetchUnitPerformances
+                            }
+                        >
+                            <i className="bi bi-arrow-clockwise me-2" />
+                            Refresh
+                        </button>
+                    </div>
                 </div>
 
                 {dataError && (
@@ -2998,6 +3379,18 @@ function UnitPerformanceForm({
                             <table className="table table-sm table-hover align-middle">
                                 <thead>
                                     <tr>
+                                        {selectMode && (
+                                            <th style={{ width: '32px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="form-check-input"
+                                                    checked={isAllPageSelected}
+                                                    onChange={toggleSelectAllPage}
+                                                    aria-label="Pilih semua"
+                                                />
+                                            </th>
+                                        )}
+
                                         <th>
                                             Site
                                         </th>
@@ -3050,6 +3443,18 @@ function UnitPerformanceForm({
                                                     item.id
                                                 }
                                             >
+                                                {selectMode && (
+                                                    <td>
+                                                        <input
+                                                            type="checkbox"
+                                                            className="form-check-input"
+                                                            checked={selectedIds.has(item.id)}
+                                                            onChange={() => toggleSelectRow(item.id)}
+                                                            aria-label={`Pilih baris ${item.id}`}
+                                                        />
+                                                    </td>
+                                                )}
+
                                                 <td>
                                                     {
                                                         item.site_code
@@ -3118,6 +3523,7 @@ function UnitPerformanceForm({
                                                                 )
                                                             }
                                                         >
+                                                            <i className="bi bi-pencil me-1" />
                                                             Edit
                                                         </button>
 
@@ -3129,7 +3535,12 @@ function UnitPerformanceForm({
                                                                     item
                                                                 )
                                                             }
+                                                            disabled={
+                                                                deletingId ===
+                                                                item.id
+                                                            }
                                                         >
+                                                            <i className="bi bi-trash me-1" />
                                                             Hapus
                                                         </button>
                                                     </div>
@@ -3189,6 +3600,19 @@ function UnitPerformanceForm({
                 onConfirm={
                     handleConfirmDelete
                 }
+            />
+
+            <ConfirmModal
+                show={showBulkDeleteConfirm}
+                title="Hapus data terpilih?"
+                message={`${selectedIds.size} data performa unit yang dipilih akan dihapus permanen.`}
+                loading={bulkDeleting}
+                onCancel={() => {
+                    if (!bulkDeleting) {
+                        setShowBulkDeleteConfirm(false);
+                    }
+                }}
+                onConfirm={handleConfirmBulkDelete}
             />
         </>
     );
@@ -3259,6 +3683,21 @@ function PendingSupplyForm({
     ] = useState(1);
 
     const rowsPerPage = 20;
+
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+    const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+    const [selectMode, setSelectMode] = useState(false);
+
+    const handleToggleSelectMode = () => {
+        setSelectMode((previous) => {
+            if (previous) {
+                setSelectedIds(new Set());
+            }
+
+            return !previous;
+        });
+    };
 
     const fetchList =
         async () => {
@@ -3467,6 +3906,12 @@ function PendingSupplyForm({
                     null
                 );
 
+                setSelectedIds((previous) => {
+                    const next = new Set(previous);
+                    next.delete(row.id);
+                    return next;
+                });
+
                 await fetchList();
             } catch (
             error
@@ -3486,6 +3931,103 @@ function PendingSupplyForm({
                 );
             }
         };
+
+    // ============================================================
+    // SELEKSI & HAPUS MASSAL PENDING SUPPLY
+    // ============================================================
+
+    const toggleSelectRow = (id) => {
+        setSelectedIds((previous) => {
+            const next = new Set(previous);
+
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+
+            return next;
+        });
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) {
+            return;
+        }
+
+        setShowBulkDeleteConfirm(true);
+    };
+
+    const handleConfirmBulkDelete = async () => {
+        const ids = Array.from(selectedIds);
+
+        if (ids.length === 0) {
+            setShowBulkDeleteConfirm(false);
+            return;
+        }
+
+        setBulkDeleting(true);
+
+        try {
+            const results = await Promise.allSettled(
+                ids.map((id) =>
+                    axiosClient.delete(`/pending-supply/${id}`)
+                )
+            );
+
+            const failedCount = results.filter(
+                (item) => item.status === 'rejected'
+            ).length;
+
+            const successCount = ids.length - failedCount;
+
+            if (successCount > 0) {
+                setResult({
+                    type: failedCount > 0 ? 'error' : 'success',
+
+                    message:
+                        failedCount > 0
+                            ? `${successCount} data berhasil dihapus, ${failedCount} data gagal dihapus.`
+                            : `${successCount} data Pending Supply berhasil dihapus.`,
+                });
+
+                addNotification({
+                    title: 'Pending Supply dihapus',
+
+                    message: `${successCount} data Pending Supply berhasil dihapus.`,
+
+                    type: 'danger',
+
+                    link: '/pending-supply',
+                });
+
+                window.dispatchEvent(
+                    new CustomEvent('dashboard-data-changed')
+                );
+            } else {
+                setResult({
+                    type: 'error',
+                    message: 'Gagal menghapus data yang dipilih.',
+                });
+            }
+
+            if (editingId && ids.includes(editingId)) {
+                resetForm();
+            }
+
+            setSelectedIds(new Set());
+            setShowBulkDeleteConfirm(false);
+
+            await fetchList();
+        } catch {
+            setResult({
+                type: 'error',
+                message: 'Gagal menghapus data yang dipilih.',
+            });
+        } finally {
+            setBulkDeleting(false);
+        }
+    };
 
     const handleSubmit =
         async (
@@ -3670,6 +4212,24 @@ function PendingSupplyForm({
             endIndex
         );
 
+    const isAllPageSelected =
+        paginatedList.length > 0 &&
+        paginatedList.every((row) => selectedIds.has(row.id));
+
+    const toggleSelectAllPage = () => {
+        setSelectedIds((previous) => {
+            const next = new Set(previous);
+
+            if (isAllPageSelected) {
+                paginatedList.forEach((row) => next.delete(row.id));
+            } else {
+                paginatedList.forEach((row) => next.add(row.id));
+            }
+
+            return next;
+        });
+    };
+
     return (
         <>
             <div className="app-card p-4">
@@ -3839,20 +4399,54 @@ function PendingSupplyForm({
             </div>
 
             <div className="app-card p-4 mt-3">
-                <div className="d-flex justify-content-between mb-3">
+                <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                     <div className="fw-semibold">
                         Data Pending Supply
                     </div>
 
-                    <button
-                        type="button"
-                        className="btn btn-outline-primary btn-sm"
-                        onClick={
-                            fetchList
-                        }
-                    >
-                        Refresh
-                    </button>
+                    <div className="d-flex gap-2">
+                        {selectMode && selectedIds.size > 0 && (
+                            <button
+                                type="button"
+                                className="btn btn-outline-danger btn-sm"
+                                onClick={handleBulkDelete}
+                                disabled={bulkDeleting}
+                            >
+                                <i className="bi bi-trash3 me-2" />
+                                Hapus Terpilih ({selectedIds.size})
+                            </button>
+                        )}
+
+                        <button
+                            type="button"
+                            className={`btn btn-sm ${selectMode
+                                ? 'btn-secondary'
+                                : 'btn-outline-secondary'
+                                }`}
+                            onClick={handleToggleSelectMode}
+                            disabled={bulkDeleting}
+                        >
+                            <i
+                                className={`bi ${selectMode
+                                    ? 'bi-x-lg'
+                                    : 'bi-check2-square'
+                                    } me-2`}
+                            />
+                            {selectMode
+                                ? 'Batal Pilih'
+                                : 'Pilih'}
+                        </button>
+
+                        <button
+                            type="button"
+                            className="btn btn-outline-primary btn-sm"
+                            onClick={
+                                fetchList
+                            }
+                        >
+                            Refresh
+                        </button>
+                    </div>
                 </div>
 
                 {loadingList ? (
@@ -3865,6 +4459,18 @@ function PendingSupplyForm({
                             <table className="table table-sm table-hover align-middle">
                                 <thead>
                                     <tr>
+                                        {selectMode && (
+                                            <th style={{ width: '32px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="form-check-input"
+                                                    checked={isAllPageSelected}
+                                                    onChange={toggleSelectAllPage}
+                                                    aria-label="Pilih semua"
+                                                />
+                                            </th>
+                                        )}
+
                                         <th>
                                             Site
                                         </th>
@@ -3909,6 +4515,18 @@ function PendingSupplyForm({
                                                     row.id
                                                 }
                                             >
+                                                {selectMode && (
+                                                    <td>
+                                                        <input
+                                                            type="checkbox"
+                                                            className="form-check-input"
+                                                            checked={selectedIds.has(row.id)}
+                                                            onChange={() => toggleSelectRow(row.id)}
+                                                            aria-label={`Pilih baris ${row.id}`}
+                                                        />
+                                                    </td>
+                                                )}
+
                                                 <td>
                                                     {
                                                         row.site_code
@@ -3962,6 +4580,7 @@ function PendingSupplyForm({
                                                                 )
                                                             }
                                                         >
+                                                            <i className="bi bi-pencil me-1" />
                                                             Edit
                                                         </button>
 
@@ -3974,6 +4593,7 @@ function PendingSupplyForm({
                                                                 )
                                                             }
                                                         >
+                                                            <i className="bi bi-trash me-1" />
                                                             Hapus
                                                         </button>
                                                     </div>
@@ -4026,6 +4646,19 @@ function PendingSupplyForm({
                 onConfirm={
                     handleConfirmDelete
                 }
+            />
+
+            <ConfirmModal
+                show={showBulkDeleteConfirm}
+                title="Hapus data terpilih?"
+                message={`${selectedIds.size} data Pending Supply yang dipilih akan dihapus permanen.`}
+                loading={bulkDeleting}
+                onCancel={() => {
+                    if (!bulkDeleting) {
+                        setShowBulkDeleteConfirm(false);
+                    }
+                }}
+                onConfirm={handleConfirmBulkDelete}
             />
         </>
     );
@@ -4214,4 +4847,4 @@ function InputData() {
     );
 }
 
-export default InputData;   
+export default InputData;

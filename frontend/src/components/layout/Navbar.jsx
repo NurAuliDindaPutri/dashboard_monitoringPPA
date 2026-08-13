@@ -19,10 +19,6 @@ import {
 } from '../../api/pendingSupply.api';
 
 import {
-    getCriticalItems,
-} from '../../api/criticalItem.api';
-
-import {
     getNotifications,
     markAllNotificationsAsRead,
     removeNotification,

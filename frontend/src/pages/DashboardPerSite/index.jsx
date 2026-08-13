@@ -9,7 +9,6 @@ import { getUnitModels } from '../../api/unitModel.api';
 import { getKpiSummary } from '../../api/kpiSummary.api';
 import { getUnitPerformances } from '../../api/unitPerformance.api';
 import { getPendingSupply } from '../../api/pendingSupply.api';
-import { getCriticalItems } from '../../api/criticalItem.api';
 
 import FilterBar from '../../components/common/FilterBar';
 import BigStatCard from '../../components/common/BigStatCard';
@@ -358,11 +357,6 @@ function DashboardPerSite() {
         setSupplyRows,
     ] = useState([]);
 
-    const [
-        criticalRows,
-        setCriticalRows,
-    ] = useState([]);
-
     // ------------------------------------------------------------------------
     // LOADING
     // ------------------------------------------------------------------------
@@ -390,11 +384,6 @@ function DashboardPerSite() {
     const [
         loadingSupply,
         setLoadingSupply,
-    ] = useState(false);
-
-    const [
-        loadingCritical,
-        setLoadingCritical,
     ] = useState(false);
 
     const [
@@ -639,46 +628,6 @@ function DashboardPerSite() {
                         false
                     );
                 });
-
-            // CRITICAL
-            setLoadingCritical(
-                true
-            );
-
-            getCriticalItems({
-                site_id:
-                    siteId,
-            })
-                .then(
-                    (response) => {
-                        setCriticalRows(
-                            extractRows(
-                                response
-                            )
-                        );
-                    }
-                )
-                .catch(
-                    (err) => {
-                        console.error(
-                            'Gagal memuat critical item:',
-                            err
-                        );
-
-                        setCriticalRows(
-                            []
-                        );
-
-                        setError(
-                            'Gagal memuat data critical item'
-                        );
-                    }
-                )
-                .finally(() => {
-                    setLoadingCritical(
-                        false
-                    );
-                });
         }, [
             siteId,
             month,
@@ -714,12 +663,6 @@ function DashboardPerSite() {
             ? supplyRows
             : [];
 
-    const safeCriticalRows =
-        Array.isArray(
-            criticalRows
-        )
-            ? criticalRows
-            : [];
 
     // =========================================================================
     // KPI SUMMARY
@@ -789,24 +732,6 @@ function DashboardPerSite() {
         sumPendingQty(
             safeSupplyRows
         );
-
-    const totalCriticalItems =
-        countPendingSupply(
-            safeCriticalRows
-        );
-
-    const totalCriticalQty =
-        sumPendingQty(
-            safeCriticalRows
-        );
-
-    const totalCombinedItems =
-        totalPendingSupply +
-        totalCriticalItems;
-
-    const totalCombinedQty =
-        totalPendingQty +
-        totalCriticalQty;
 
     // =========================================================================
     // OVERALL PERFORMANCE
@@ -1323,66 +1248,53 @@ function DashboardPerSite() {
         },
     ];
 
-    // =========================================================================
-    // PENDING + CRITICAL
+    // ============================================================================
+    // PENDING SUPPLY TABLE
     // ============================================================================
 
-    const combinedItems = [
-        ...safeSupplyRows.map(
-            (row) => ({
-                id:
-                    `ps-${row.id}`,
+    const safePendingRows = safeSupplyRows.map((row) => ({
+        id: row.id,
+        parts_number: row.parts_number,
+        description: row.description,
+        qty: row.qty,
+        no_po: row.no_po,
+        eta: row.eta,
+        remarks: row.remarks,
+    }));
 
-                category:
-                    'Pending Supply',
-
-                parts_number:
-                    row.parts_number,
-
-                description:
-                    row.description,
-
-                qty:
-                    row.qty,
-
-                no_po:
-                    row.no_po,
-
-                date:
-                    row.eta,
-
-                remarks:
-                    row.remarks,
-            })
-        ),
-
-        ...safeCriticalRows.map(
-            (row) => ({
-                id:
-                    `ci-${row.id}`,
-
-                category:
-                    'Critical Item',
-
-                parts_number:
-                    row.parts_number,
-
-                description:
-                    row.description,
-
-                qty:
-                    row.qty,
-
-                no_po:
-                    row.no_po,
-
-                date:
-                    row.estimasi,
-
-                remarks:
-                    null,
-            })
-        ),
+    const pendingColumns = [
+        {
+            key: 'parts_number',
+            label: 'Part No.',
+            align: 'left',
+        },
+        {
+            key: 'description',
+            label: 'Deskripsi',
+            align: 'left',
+        },
+        {
+            key: 'qty',
+            label: 'Qty',
+            align: 'center',
+        },
+        {
+            key: 'no_po',
+            label: 'No. PO',
+            align: 'left',
+        },
+        {
+            key: 'eta',
+            label: 'ETA',
+            align: 'center',
+            render: (row) => formatDateID(row.eta),
+        },
+        {
+            key: 'remarks',
+            label: 'Keterangan',
+            align: 'left',
+            render: (row) => row.remarks || '-',
+        },
     ];
 
     const combinedColumns = [
@@ -1510,8 +1422,7 @@ function DashboardPerSite() {
     const isLoading =
         loadingKpi ||
         loadingPerf ||
-        loadingSupply ||
-        loadingCritical;
+        loadingSupply;
 
     // =========================================================================
     // RENDER
@@ -1759,18 +1670,14 @@ function DashboardPerSite() {
                         <div className="col-6 col-lg-3">
                             <KpiCard
                                 icon="bi-hourglass-split"
-                                label="Pending Supply & Critical Item"
+                                label="Pending Supply"
                                 value={
-                                    loadingSupply ||
-                                        loadingCritical
+                                    loadingSupply
                                         ? null
-                                        : totalCombinedItems
+                                        : totalPendingSupply
                                 }
                                 suffix="item"
-                                loading={
-                                    loadingSupply ||
-                                    loadingCritical
-                                }
+                                loading={loadingSupply}
                                 variant="warning"
                             />
                         </div>
@@ -2239,18 +2146,11 @@ function DashboardPerSite() {
 
                     <div className="mb-3">
                         <DataTable
-                            title={`Pending Supply & Critical Item — ${totalCombinedItems} item (${totalCombinedQty} pcs)`}
-                            columns={
-                                combinedColumns
-                            }
-                            data={
-                                combinedItems
-                            }
-                            loading={
-                                loadingSupply ||
-                                loadingCritical
-                            }
-                            emptyMessage="Tidak ada pending supply maupun critical item untuk site ini"
+                            title={`Pending Supply — ${safePendingRows.length} item (${totalPendingQty} pcs)`}
+                            columns={pendingColumns}
+                            data={safePendingRows}
+                            loading={loadingSupply}
+                            emptyMessage="Tidak ada pending supply untuk site ini"
                             rowKey="id"
                         />
                     </div>
