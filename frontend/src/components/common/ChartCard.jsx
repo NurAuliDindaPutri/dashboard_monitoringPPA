@@ -89,6 +89,7 @@ function ChartCard({
     showBarValues = true,
 }) {
 
+    const chartId = sanitizeId(title);
     return (
         <div className="ppa-chart-card">
             {/* HEADER */}
@@ -178,7 +179,7 @@ function ChartCard({
 
                             {series.map((item, index) => {
                                 const color = item.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length];
-                                const id = `area-${sanitizeId(item.key)}-${index}`;
+                                const id = `area-${chartId}-${sanitizeId(item.key)}-${index}`;
 
                                 return (
                                     <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
@@ -224,7 +225,7 @@ function ChartCard({
                             const renderType = item.renderAs || type;
                             if (renderType !== 'line' || item.dashed) return null;
 
-                            const id = `area-${sanitizeId(item.key)}-${index}`;
+                            const id = `area-${chartId}-${sanitizeId(item.key)}-${index}`;
 
                             return (
                                 <Area
@@ -273,7 +274,7 @@ function ChartCard({
                                 );
                             }
 
-                            const gradientId = `gradient-${sanitizeId(item.key)}-${index}`;
+                            const gradientId = `gradient-${chartId}-${sanitizeId(item.key)}-${index}`;
 
                             return (
                                 <Bar

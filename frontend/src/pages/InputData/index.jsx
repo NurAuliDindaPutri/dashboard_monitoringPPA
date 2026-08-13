@@ -1552,6 +1552,7 @@ function KpiSummaryForm({
                                                     min="0"
                                                     max="100"
                                                     step="0.1"
+                                                    placeholder="Contoh: 95.5"
                                                     disabled={
                                                         saving
                                                     }
@@ -1586,6 +1587,7 @@ function KpiSummaryForm({
                                                     min="0"
                                                     max="100"
                                                     step="0.1"
+                                                    placeholder="Contoh: 98"
                                                     disabled={
                                                         saving
                                                     }
@@ -2865,65 +2867,61 @@ function UnitPerformanceForm({
                             [
                                 'physical_availability',
                                 'Physical Availability (%)',
+                                'Contoh: 97.8',
                             ],
 
                             [
                                 'unit_availability',
                                 'Unit Availability (%)',
+                                'Contoh: 65.4',
                             ],
 
                             [
                                 'mtbf',
                                 'MTBF',
+                                'Contoh: 145',
                             ],
 
                             [
                                 'mttr',
                                 'MTTR',
+                                'Contoh: 2.4',
                             ],
 
                             [
                                 'productivity',
                                 'Productivity',
+                                'Contoh: 68.5',
                             ],
 
                             [
                                 'fuel_consumption',
                                 'Fuel Consumption',
+                                'Contoh: 42.7',
                             ],
                         ].map(
                             ([
                                 name,
                                 label,
+                                placeholder,
                             ]) => (
                                 <div
-                                    key={
-                                        name
-                                    }
+                                    key={name}
                                     className="col-6 col-md-4"
                                 >
                                     <label className="form-label small text-secondary">
-                                        {
-                                            label
-                                        }
+                                        {label}
                                     </label>
 
                                     <input
                                         type="number"
                                         className="form-control"
-                                        name={
-                                            name
-                                        }
-                                        value={
-                                            form[
-                                            name
-                                            ]
-                                        }
-                                        onChange={
-                                            handleChange
-                                        }
+                                        name={name}
+                                        value={form[name]}
+                                        onChange={handleChange}
                                         min="0"
                                         step="0.01"
+                                        placeholder={placeholder}
                                     />
                                 </div>
                             )
@@ -3748,71 +3746,65 @@ function PendingSupplyForm({
                             [
                                 'parts_number',
                                 'Part Number',
+                                'Contoh: 123-4567',
                             ],
 
                             [
                                 'description',
                                 'Deskripsi',
+                                'Contoh: Filter Hydraulic',
                             ],
 
                             [
                                 'qty',
                                 'Qty',
+                                'Contoh: 5',
                             ],
 
                             [
                                 'no_po',
                                 'No. PO',
+                                'Contoh: PO-2026-00125',
                             ],
 
                             [
                                 'eta',
                                 'ETA',
+                                '',
                             ],
 
                             [
                                 'remarks',
                                 'Keterangan',
+                                'Contoh: Menunggu pengiriman vendor',
                             ],
                         ].map(
                             ([
                                 name,
                                 label,
+                                placeholder,
                             ]) => (
                                 <div
-                                    key={
-                                        name
-                                    }
+                                    key={name}
                                     className="col-12 col-md-4"
                                 >
                                     <label className="form-label">
-                                        {
-                                            label
-                                        }
+                                        {label}
                                     </label>
 
                                     <input
                                         type={
-                                            name ===
-                                                'eta'
+                                            name === 'eta'
                                                 ? 'date'
-                                                : name ===
-                                                    'qty'
+                                                : name === 'qty'
                                                     ? 'number'
                                                     : 'text'
                                         }
                                         className="form-control"
-                                        name={
-                                            name
-                                        }
-                                        value={
-                                            form[
-                                            name
-                                            ]
-                                        }
-                                        onChange={
-                                            handleChange
-                                        }
+                                        name={name}
+                                        value={form[name]}
+                                        onChange={handleChange}
+                                        placeholder={placeholder}
                                     />
                                 </div>
                             )

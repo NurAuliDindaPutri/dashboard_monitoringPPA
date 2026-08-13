@@ -3690,3 +3690,15 @@ VERY SMALL MOBILE
     --chart-grid: rgba(9, 47, 51, 0.08);
     --chart-grid-strong: rgba(9, 47, 51, 0.18);
 }
+
+.form-select {
+    appearance: auto !important;
+    -webkit-appearance: auto !important;
+    -moz-appearance: auto !important;
+
+    padding-right: 2.5rem !important;
+
+    background-color: var(--input-bg);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
