@@ -1,5 +1,11 @@
-const monthlyUnitPerformanceModel = require('../models/monthlyUnitPerformance.model');
-const { success, error } = require('../utils/response');
+const monthlyUnitPerformanceModel = require(
+    '../models/monthlyUnitPerformance.model'
+);
+
+const {
+    success,
+    error,
+} = require('../utils/response');
 
 const NON_NEGATIVE_FIELDS = [
     'mtbf',
@@ -11,7 +17,10 @@ const NON_NEGATIVE_FIELDS = [
 function parsePositiveInteger(value) {
     const number = Number(value);
 
-    if (!Number.isInteger(number) || number <= 0) {
+    if (
+        !Number.isInteger(number) ||
+        number <= 0
+    ) {
         return null;
     }
 
@@ -21,7 +30,11 @@ function parsePositiveInteger(value) {
 function parsePeriodYear(value) {
     const year = Number(value);
 
-    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+    if (
+        !Number.isInteger(year) ||
+        year < 2000 ||
+        year > 2100
+    ) {
         return null;
     }
 
@@ -31,41 +44,49 @@ function parsePeriodYear(value) {
 function parsePeriodMonth(value) {
     const month = Number(value);
 
-    if (!Number.isInteger(month) || month < 1 || month > 12) {
+    if (
+        !Number.isInteger(month) ||
+        month < 1 ||
+        month > 12
+    ) {
         return null;
     }
 
     return month;
 }
 
-/**
- * Nilai PA dan UA disimpan dalam format desimal 0–1.
- *
- * Contoh:
- * 0.95 -> 0.95
- * 95   -> 0.95
- * null -> null
- */
-function normalizePercentageValue(value) {
+function normalizePercentageValue(
+    value
+) {
     if (
         value === null ||
         value === undefined ||
         value === ''
     ) {
-        return { value: null };
-    }
-
-    let number = Number(value);
-
-    if (!Number.isFinite(number)) {
         return {
-            validationError: 'harus berupa angka',
+            value: null,
         };
     }
 
-    if (number < 0 || number > 100) {
+    let number =
+        Number(value);
+
+    if (
+        !Number.isFinite(number)
+    ) {
         return {
-            validationError: 'harus berada antara 0 sampai 100',
+            validationError:
+                'harus berupa angka',
+        };
+    }
+
+    if (
+        number < 0 ||
+        number > 100
+    ) {
+        return {
+            validationError:
+                'harus berada antara 0 sampai 100',
         };
     }
 
@@ -73,45 +94,65 @@ function normalizePercentageValue(value) {
         number /= 100;
     }
 
-    return { value: number };
+    return {
+        value: number,
+    };
 }
 
-function normalizeNonNegativeValue(value) {
+function normalizeNonNegativeValue(
+    value
+) {
     if (
         value === null ||
         value === undefined ||
         value === ''
     ) {
-        return { value: null };
+        return {
+            value: null,
+        };
     }
 
-    const number = Number(value);
+    const number =
+        Number(value);
 
-    if (!Number.isFinite(number)) {
+    if (
+        !Number.isFinite(number)
+    ) {
         return {
-            validationError: 'harus berupa angka',
+            validationError:
+                'harus berupa angka',
         };
     }
 
     if (number < 0) {
         return {
-            validationError: 'tidak boleh negatif',
+            validationError:
+                'tidak boleh negatif',
         };
     }
 
-    return { value: number };
+    return {
+        value: number,
+    };
 }
+
+// ============================================================
+// QUERY
+// ============================================================
 
 function validateQuery(query = {}) {
     const filter = {};
 
+    // MODEL UNIT
     if (
-        query.unit_model_id !== undefined &&
+        query.unit_model_id !==
+        undefined &&
         query.unit_model_id !== ''
     ) {
-        const unitModelId = parsePositiveInteger(
-            query.unit_model_id
-        );
+        const unitModelId =
+            parsePositiveInteger(
+                query.unit_model_id
+            );
 
         if (!unitModelId) {
             return {
@@ -120,14 +161,19 @@ function validateQuery(query = {}) {
             };
         }
 
-        filter.unit_model_id = unitModelId;
+        filter.unit_model_id =
+            unitModelId;
     }
 
+    // SITE
     if (
         query.site_id !== undefined &&
         query.site_id !== ''
     ) {
-        const siteId = parsePositiveInteger(query.site_id);
+        const siteId =
+            parsePositiveInteger(
+                query.site_id
+            );
 
         if (!siteId) {
             return {
@@ -136,16 +182,20 @@ function validateQuery(query = {}) {
             };
         }
 
-        filter.site_id = siteId;
+        filter.site_id =
+            siteId;
     }
 
+    // TAHUN
     if (
-        query.period_year !== undefined &&
+        query.period_year !==
+        undefined &&
         query.period_year !== ''
     ) {
-        const periodYear = parsePeriodYear(
-            query.period_year
-        );
+        const periodYear =
+            parsePeriodYear(
+                query.period_year
+            );
 
         if (!periodYear) {
             return {
@@ -154,16 +204,23 @@ function validateQuery(query = {}) {
             };
         }
 
-        filter.period_year = periodYear;
+        filter.period_year =
+            periodYear;
     }
 
+    // ========================================================
+    // BULAN TUNGGAL
+    // ========================================================
+
     if (
-        query.period_month !== undefined &&
+        query.period_month !==
+        undefined &&
         query.period_month !== ''
     ) {
-        const periodMonth = parsePeriodMonth(
-            query.period_month
-        );
+        const periodMonth =
+            parsePeriodMonth(
+                query.period_month
+            );
 
         if (!periodMonth) {
             return {
@@ -172,21 +229,123 @@ function validateQuery(query = {}) {
             };
         }
 
-        filter.period_month = periodMonth;
+        filter.period_month =
+            periodMonth;
     }
 
-    return { filter };
+    // ========================================================
+    // RENTANG BULAN
+    // ========================================================
+
+    if (
+        query.start_month !==
+        undefined &&
+        query.start_month !== ''
+    ) {
+        const startMonth =
+            parsePeriodMonth(
+                query.start_month
+            );
+
+        if (!startMonth) {
+            return {
+                validationError:
+                    'start_month harus berada antara 1-12',
+            };
+        }
+
+        filter.start_month =
+            startMonth;
+    }
+
+    if (
+        query.end_month !==
+        undefined &&
+        query.end_month !== ''
+    ) {
+        const endMonth =
+            parsePeriodMonth(
+                query.end_month
+            );
+
+        if (!endMonth) {
+            return {
+                validationError:
+                    'end_month harus berada antara 1-12',
+            };
+        }
+
+        filter.end_month =
+            endMonth;
+    }
+
+    const hasStart =
+        filter.start_month !==
+        undefined;
+
+    const hasEnd =
+        filter.end_month !==
+        undefined;
+
+    if (hasStart !== hasEnd) {
+        return {
+            validationError:
+                'start_month dan end_month harus dikirim bersamaan',
+        };
+    }
+
+    if (
+        hasStart &&
+        hasEnd &&
+        filter.start_month >
+        filter.end_month
+    ) {
+        return {
+            validationError:
+                'start_month tidak boleh lebih besar dari end_month',
+        };
+    }
+
+    if (
+        filter.period_month !==
+        undefined &&
+        (
+            hasStart ||
+            hasEnd
+        )
+    ) {
+        return {
+            validationError:
+                'Gunakan period_month atau start_month/end_month, bukan keduanya',
+        };
+    }
+
+    return {
+        filter,
+    };
 }
 
-function validatePayload(body = {}) {
-    const unitModelId = parsePositiveInteger(
-        body.unit_model_id
-    );
+// ============================================================
+// PAYLOAD
+// ============================================================
 
-    const periodYear = parsePeriodYear(body.period_year);
-    const periodMonth = parsePeriodMonth(
-        body.period_month
-    );
+function validatePayload(
+    body = {}
+) {
+    const unitModelId =
+        parsePositiveInteger(
+            body.unit_model_id
+        );
+
+    const periodYear =
+        parsePeriodYear(
+            body.period_year
+        );
+
+    const periodMonth =
+        parsePeriodMonth(
+            body.period_month
+        );
 
     if (!unitModelId) {
         return {
@@ -214,7 +373,10 @@ function validatePayload(body = {}) {
             body.physical_availability
         );
 
-    if (physicalAvailability.validationError) {
+    if (
+        physicalAvailability
+            .validationError
+    ) {
         return {
             validationError:
                 `physical_availability ${physicalAvailability.validationError}`,
@@ -226,7 +388,10 @@ function validatePayload(body = {}) {
             body.unit_availability
         );
 
-    if (unitAvailability.validationError) {
+    if (
+        unitAvailability
+            .validationError
+    ) {
         return {
             validationError:
                 `unit_availability ${unitAvailability.validationError}`,
@@ -234,38 +399,73 @@ function validatePayload(body = {}) {
     }
 
     const data = {
-        unit_model_id: unitModelId,
-        period_year: periodYear,
-        period_month: periodMonth,
-        physical_availability: physicalAvailability.value,
-        unit_availability: unitAvailability.value,
+        unit_model_id:
+            unitModelId,
+
+        period_year:
+            periodYear,
+
+        period_month:
+            periodMonth,
+
+        physical_availability:
+            physicalAvailability.value,
+
+        unit_availability:
+            unitAvailability.value,
     };
 
-    for (const field of NON_NEGATIVE_FIELDS) {
-        const result = normalizeNonNegativeValue(
-            body[field]
-        );
+    for (
+        const field of
+        NON_NEGATIVE_FIELDS
+    ) {
+        const result =
+            normalizeNonNegativeValue(
+                body[field]
+            );
 
-        if (result.validationError) {
+        if (
+            result.validationError
+        ) {
             return {
                 validationError:
                     `${field} ${result.validationError}`,
             };
         }
 
-        data[field] = result.value;
+        data[field] =
+            result.value;
     }
 
-    return { data };
+    return {
+        data,
+    };
 }
 
-async function getAll(req, res, next) {
+// ============================================================
+// GET ALL
+// ============================================================
+
+async function getAll(
+    req,
+    res,
+    next
+) {
     try {
-        const { filter, validationError } =
-            validateQuery(req.query);
+        const {
+            filter,
+            validationError,
+        } =
+            validateQuery(
+                req.query
+            );
 
         if (validationError) {
-            return error(res, validationError, 400);
+            return error(
+                res,
+                validationError,
+                400
+            );
         }
 
         const data =
@@ -283,9 +483,20 @@ async function getAll(req, res, next) {
     }
 }
 
-async function getById(req, res, next) {
+// ============================================================
+// GET BY ID
+// ============================================================
+
+async function getById(
+    req,
+    res,
+    next
+) {
     try {
-        const id = parsePositiveInteger(req.params.id);
+        const id =
+            parsePositiveInteger(
+                req.params.id
+            );
 
         if (!id) {
             return error(
@@ -296,7 +507,9 @@ async function getById(req, res, next) {
         }
 
         const data =
-            await monthlyUnitPerformanceModel.findById(id);
+            await monthlyUnitPerformanceModel.findById(
+                id
+            );
 
         if (!data) {
             return error(
@@ -316,17 +529,36 @@ async function getById(req, res, next) {
     }
 }
 
-async function create(req, res, next) {
+// ============================================================
+// CREATE
+// ============================================================
+
+async function create(
+    req,
+    res,
+    next
+) {
     try {
-        const { data, validationError } =
-            validatePayload(req.body);
+        const {
+            data,
+            validationError,
+        } =
+            validatePayload(
+                req.body
+            );
 
         if (validationError) {
-            return error(res, validationError, 400);
+            return error(
+                res,
+                validationError,
+                400
+            );
         }
 
         const created =
-            await monthlyUnitPerformanceModel.create(data);
+            await monthlyUnitPerformanceModel.create(
+                data
+            );
 
         return success(
             res,
@@ -335,7 +567,10 @@ async function create(req, res, next) {
             201
         );
     } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
+        if (
+            err.code ===
+            'ER_DUP_ENTRY'
+        ) {
             return error(
                 res,
                 'Data unit untuk periode tersebut sudah tersedia',
@@ -343,7 +578,10 @@ async function create(req, res, next) {
             );
         }
 
-        if (err.code === 'ER_NO_REFERENCED_ROW_2') {
+        if (
+            err.code ===
+            'ER_NO_REFERENCED_ROW_2'
+        ) {
             return error(
                 res,
                 'unit_model_id tidak ditemukan',
@@ -355,9 +593,20 @@ async function create(req, res, next) {
     }
 }
 
-async function update(req, res, next) {
+// ============================================================
+// UPDATE
+// ============================================================
+
+async function update(
+    req,
+    res,
+    next
+) {
     try {
-        const id = parsePositiveInteger(req.params.id);
+        const id =
+            parsePositiveInteger(
+                req.params.id
+            );
 
         if (!id) {
             return error(
@@ -368,7 +617,9 @@ async function update(req, res, next) {
         }
 
         const existing =
-            await monthlyUnitPerformanceModel.findById(id);
+            await monthlyUnitPerformanceModel.findById(
+                id
+            );
 
         if (!existing) {
             return error(
@@ -378,11 +629,20 @@ async function update(req, res, next) {
             );
         }
 
-        const { data, validationError } =
-            validatePayload(req.body);
+        const {
+            data,
+            validationError,
+        } =
+            validatePayload(
+                req.body
+            );
 
         if (validationError) {
-            return error(res, validationError, 400);
+            return error(
+                res,
+                validationError,
+                400
+            );
         }
 
         const updated =
@@ -397,7 +657,10 @@ async function update(req, res, next) {
             'Data performa unit berhasil diperbarui'
         );
     } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
+        if (
+            err.code ===
+            'ER_DUP_ENTRY'
+        ) {
             return error(
                 res,
                 'Data unit untuk periode tersebut sudah tersedia',
@@ -405,7 +668,10 @@ async function update(req, res, next) {
             );
         }
 
-        if (err.code === 'ER_NO_REFERENCED_ROW_2') {
+        if (
+            err.code ===
+            'ER_NO_REFERENCED_ROW_2'
+        ) {
             return error(
                 res,
                 'unit_model_id tidak ditemukan',
@@ -417,9 +683,20 @@ async function update(req, res, next) {
     }
 }
 
-async function remove(req, res, next) {
+// ============================================================
+// DELETE
+// ============================================================
+
+async function remove(
+    req,
+    res,
+    next
+) {
     try {
-        const id = parsePositiveInteger(req.params.id);
+        const id =
+            parsePositiveInteger(
+                req.params.id
+            );
 
         if (!id) {
             return error(
@@ -430,7 +707,9 @@ async function remove(req, res, next) {
         }
 
         const existing =
-            await monthlyUnitPerformanceModel.findById(id);
+            await monthlyUnitPerformanceModel.findById(
+                id
+            );
 
         if (!existing) {
             return error(
@@ -440,7 +719,9 @@ async function remove(req, res, next) {
             );
         }
 
-        await monthlyUnitPerformanceModel.remove(id);
+        await monthlyUnitPerformanceModel.remove(
+            id
+        );
 
         return success(
             res,

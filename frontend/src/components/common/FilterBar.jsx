@@ -5,15 +5,20 @@ import { MONTHS, YEARS } from '../../utils/constants';
  * @param {string|number} siteId Site terpilih ('' = semua site)
  * @param {Array<{id:number|string, label:string}>} units Daftar unit (opsional, untuk site terpilih)
  * @param {string|number} unitId Unit terpilih ('' = semua unit)
- * @param {number} month Bulan terpilih
+ * @param {number} month Bulan terpilih (mode bulan tunggal)
  * @param {number} year Tahun terpilih
+ * @param {number} startMonth Bulan awal (mode rentang bulan)
+ * @param {number} endMonth Bulan akhir (mode rentang bulan)
  * @param {Function} onSiteChange
  * @param {Function} onUnitChange
  * @param {Function} onMonthChange
  * @param {Function} onYearChange
+ * @param {Function} onStartMonthChange
+ * @param {Function} onEndMonthChange
  * @param {boolean} showSiteFilter Tampilkan filter site atau tidak
  * @param {boolean} showUnitFilter Tampilkan filter unit atau tidak
- * @param {boolean} showMonthFilter Tampilkan filter bulan atau tidak
+ * @param {boolean} showMonthFilter Tampilkan filter bulan tunggal atau tidak
+ * @param {boolean} showMonthRangeFilter Tampilkan filter Dari Bulan - Sampai Bulan (menggantikan showMonthFilter jika true)
  * @param {boolean} showYearFilter Tampilkan filter tahun atau tidak
  */
 function FilterBar({
@@ -23,16 +28,27 @@ function FilterBar({
     unitId = '',
     month,
     year,
+    startMonth,
+    endMonth,
     onSiteChange,
     onUnitChange,
     onMonthChange,
     onYearChange,
+    onStartMonthChange,
+    onEndMonthChange,
     showSiteFilter = true,
     showUnitFilter = false,
     showMonthFilter = true,
+    showMonthRangeFilter = false,
     showYearFilter = true,
 }) {
-    const visibleCount = [showSiteFilter, showUnitFilter, showMonthFilter, showYearFilter].filter(Boolean).length;
+    const isSingleMonthVisible = showMonthFilter && !showMonthRangeFilter;
+
+    const visibleCount =
+        [showSiteFilter, showUnitFilter, showYearFilter].filter(Boolean).length +
+        (isSingleMonthVisible ? 1 : 0) +
+        (showMonthRangeFilter ? 2 : 0);
+
     const colClass =
         visibleCount <= 1
             ? 'col-12 col-md-6'
@@ -40,7 +56,9 @@ function FilterBar({
                 ? 'col-6 col-md-6'
                 : visibleCount === 3
                     ? 'col-6 col-md-4'
-                    : 'col-6 col-md-3';
+                    : visibleCount === 4
+                        ? 'col-6 col-md-3'
+                        : 'col-6 col-md-2';
 
     return (
         <div className="app-card p-3 mb-3">
@@ -65,7 +83,7 @@ function FilterBar({
 
                 {showUnitFilter && (
                     <div className={colClass}>
-                        <label className="form-label small text-secondary mb-1">Unit</label>
+                        <label className="form-label small text-secondary mb-1">Model Unit</label>
                         <select
                             className="form-select"
                             value={unitId}
@@ -76,23 +94,6 @@ function FilterBar({
                             {units.map((unit) => (
                                 <option key={unit.id} value={unit.id}>
                                     {unit.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                )}
-
-                {showMonthFilter && (
-                    <div className={colClass}>
-                        <label className="form-label small text-secondary mb-1">Bulan</label>
-                        <select
-                            className="form-select"
-                            value={month}
-                            onChange={(e) => onMonthChange(Number(e.target.value))}
-                        >
-                            {MONTHS.map((m) => (
-                                <option key={m.value} value={m.value}>
-                                    {m.label}
                                 </option>
                             ))}
                         </select>
@@ -114,6 +115,57 @@ function FilterBar({
                             ))}
                         </select>
                     </div>
+                )}
+
+                {isSingleMonthVisible && (
+                    <div className={colClass}>
+                        <label className="form-label small text-secondary mb-1">Bulan</label>
+                        <select
+                            className="form-select"
+                            value={month}
+                            onChange={(e) => onMonthChange(Number(e.target.value))}
+                        >
+                            {MONTHS.map((m) => (
+                                <option key={m.value} value={m.value}>
+                                    {m.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
+                {showMonthRangeFilter && (
+                    <>
+                        <div className={colClass}>
+                            <label className="form-label small text-secondary mb-1">Dari Bulan</label>
+                            <select
+                                className="form-select"
+                                value={startMonth}
+                                onChange={(e) => onStartMonthChange(Number(e.target.value))}
+                            >
+                                {MONTHS.map((m) => (
+                                    <option key={m.value} value={m.value}>
+                                        {m.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className={colClass}>
+                            <label className="form-label small text-secondary mb-1">Sampai Bulan</label>
+                            <select
+                                className="form-select"
+                                value={endMonth}
+                                onChange={(e) => onEndMonthChange(Number(e.target.value))}
+                            >
+                                {MONTHS.map((m) => (
+                                    <option key={m.value} value={m.value}>
+                                        {m.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </>
                 )}
             </div>
         </div>

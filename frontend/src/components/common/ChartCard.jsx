@@ -138,6 +138,38 @@ function BarValueLabel({
     );
 }
 
+function LineValueLabel({
+    x,
+    y,
+    value,
+}) {
+    if (
+        value === null ||
+        value === undefined ||
+        !Number.isFinite(
+            Number(value)
+        )
+    ) {
+        return null;
+    }
+
+    return (
+        <text
+            x={Number(x)}
+            y={Number(y) - 11}
+            textAnchor="middle"
+            className="ppa-chart-bar-value"
+        >
+            {Number(value).toFixed(
+                Number(value) % 1 ===
+                    0
+                    ? 0
+                    : 1
+            )}
+        </text>
+    );
+}
+
 function ChartCard({
     title,
     type = 'line',
@@ -627,6 +659,14 @@ function ChartCard({
                                                 item.dashed
                                                     ? 'ppa-target-line'
                                                     : 'ppa-data-line'
+                                            }
+                                            label={
+                                                !item.dashed &&
+                                                    showBarValues
+                                                    ? (
+                                                        <LineValueLabel />
+                                                    )
+                                                    : false
                                             }
                                         />
                                     );

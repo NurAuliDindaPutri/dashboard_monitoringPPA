@@ -9,6 +9,7 @@ import { getUnitModels } from '../../api/unitModel.api';
 import { getKpiSummary } from '../../api/kpiSummary.api';
 import { getUnitPerformances } from '../../api/unitPerformance.api';
 import { getPendingSupply } from '../../api/pendingSupply.api';
+import { MONTHS } from '../../utils/constants';
 
 import FilterBar from '../../components/common/FilterBar';
 import BigStatCard from '../../components/common/BigStatCard';
@@ -33,9 +34,7 @@ import {
 
 import {
     buildUnitOptions,
-    groupRowsByUnit,
     filterRowsByUnitGroup,
-    getUnitGroupOrder,
 } from '../../utils/unitFilter';
 
 const NOW = new Date();
@@ -45,6 +44,98 @@ const DEFAULT_YEAR =
 
 const DEFAULT_MONTH =
     NOW.getMonth() + 1;
+
+// ============================================================================
+// LABEL BULAN SINGKAT (untuk sumbu chart tren)
+// ============================================================================
+
+const ID_MONTH_SHORT = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'Mei',
+    'Jun',
+    'Jul',
+    'Agu',
+    'Sep',
+    'Okt',
+    'Nov',
+    'Des',
+];
+
+function monthShortLabel(monthValue) {
+    return (
+        ID_MONTH_SHORT[
+        Number(monthValue) - 1
+        ] || String(monthValue)
+    );
+}
+
+function monthLongLabel(monthValue) {
+    const found = MONTHS.find(
+        (m) =>
+            Number(m.value) ===
+            Number(monthValue)
+    );
+
+    return found
+        ? found.label
+        : String(monthValue);
+}
+
+// Bangun daftar bulan dari startMonth s.d endMonth (inklusif, satu tahun yang sama).
+function buildMonthRange(
+    startMonth,
+    endMonth
+) {
+    const safeStart = Math.min(
+        Number(startMonth),
+        Number(endMonth)
+    );
+
+    const safeEnd = Math.max(
+        Number(startMonth),
+        Number(endMonth)
+    );
+
+    const months = [];
+
+    for (
+        let m = safeStart;
+        m <= safeEnd;
+        m += 1
+    ) {
+        months.push(m);
+    }
+
+    return months;
+}
+
+// Pembulatan aman untuk nilai numerik non-persen (MTBF, MTTR, Productivity, Fuel).
+function roundOrNull(
+    value,
+    decimals = 1
+) {
+    if (
+        value === null ||
+        value === undefined ||
+        !Number.isFinite(
+            Number(value)
+        )
+    ) {
+        return null;
+    }
+
+    const factor =
+        10 ** decimals;
+
+    return (
+        Math.round(
+            Number(value) * factor
+        ) / factor
+    );
+}
 
 // ============================================================================
 // NORMALISASI SITE AGAR SAMA DENGAN DASHBOARD ALL SITE
@@ -306,9 +397,15 @@ function DashboardPerSite() {
         setUnitId,
     ] = useState('');
 
+    // Rentang bulan: default Januari s.d bulan berjalan (Year-to-Date).
     const [
-        month,
-        setMonth,
+        startMonth,
+        setStartMonth,
+    ] = useState(1);
+
+    const [
+        endMonth,
+        setEndMonth,
     ] = useState(
         DEFAULT_MONTH
     );
@@ -320,11 +417,33 @@ function DashboardPerSite() {
         DEFAULT_YEAR
     );
 
+    // Jaga supaya "Dari Bulan" tidak pernah melewati "Sampai Bulan", dan sebaliknya.
+    function handleStartMonthChange(
+        value
+    ) {
+        setStartMonth(value);
+
+        if (value > endMonth) {
+            setEndMonth(value);
+        }
+    }
+
+    function handleEndMonthChange(
+        value
+    ) {
+        setEndMonth(value);
+
+        if (value < startMonth) {
+            setStartMonth(value);
+        }
+    }
+
     // RESET FILTER
     function handleResetFilter() {
         setSiteId('');
         setUnitId('');
-        setMonth(DEFAULT_MONTH);
+        setStartMonth(1);
+        setEndMonth(DEFAULT_MONTH);
         setYear(DEFAULT_YEAR);
     }
 
@@ -498,32 +617,44 @@ function DashboardPerSite() {
                 return;
             }
 
-            const periodParams = {
-                site_id:
-                    siteId,
-
-                period_year:
-                    year,
-
-                period_month:
-                    month,
-            };
+            const monthsInRange =
+                buildMonthRange(
+                    startMonth,
+                    endMonth
+                );
 
             setError(null);
 
-            // KPI
+            // KPI — ambil per bulan dalam rentang, lalu digabung.
             setLoadingKpi(
                 true
             );
 
-            getKpiSummary(
-                periodParams
+            Promise.all(
+                monthsInRange.map(
+                    (m) =>
+                        getKpiSummary({
+                            site_id:
+                                siteId,
+
+                            period_year:
+                                year,
+
+                            period_month:
+                                m,
+                        })
+                )
             )
                 .then(
-                    (response) => {
+                    (responses) => {
                         setKpiRows(
-                            extractRows(
-                                response
+                            responses.flatMap(
+                                (
+                                    response
+                                ) =>
+                                    extractRows(
+                                        response
+                                    )
                             )
                         );
                     }
@@ -550,19 +681,36 @@ function DashboardPerSite() {
                     );
                 });
 
-            // UNIT PERFORMANCE
+            // UNIT PERFORMANCE — sama, ambil per bulan dalam rentang.
             setLoadingPerf(
                 true
             );
 
-            getUnitPerformances(
-                periodParams
+            Promise.all(
+                monthsInRange.map(
+                    (m) =>
+                        getUnitPerformances({
+                            site_id:
+                                siteId,
+
+                            period_year:
+                                year,
+
+                            period_month:
+                                m,
+                        })
+                )
             )
                 .then(
-                    (response) => {
+                    (responses) => {
                         setPerfRows(
-                            extractRows(
-                                response
+                            responses.flatMap(
+                                (
+                                    response
+                                ) =>
+                                    extractRows(
+                                        response
+                                    )
                             )
                         );
                     }
@@ -589,7 +737,7 @@ function DashboardPerSite() {
                     );
                 });
 
-            // PENDING SUPPLY
+            // PENDING SUPPLY — tidak terikat periode, tetap seperti semula.
             setLoadingSupply(
                 true
             );
@@ -630,7 +778,8 @@ function DashboardPerSite() {
                 });
         }, [
             siteId,
-            month,
+            startMonth,
+            endMonth,
             year,
         ]);
 
@@ -663,16 +812,6 @@ function DashboardPerSite() {
             ? supplyRows
             : [];
 
-
-    // =========================================================================
-    // KPI SUMMARY
-    // =========================================================================
-
-    const kpiSummary =
-        aggregateKpiSummary(
-            safeKpiRows
-        );
-
     // =========================================================================
     // SELECTED SITE + UNIT
     // =========================================================================
@@ -684,14 +823,6 @@ function DashboardPerSite() {
                 String(siteId)
         );
 
-    const selectedUnit =
-        unitId
-            ? {
-                id: unitId,
-                label: unitId,
-            }
-            : null;
-
     // =========================================================================
     // UNIT OPTIONS
     // =========================================================================
@@ -702,13 +833,67 @@ function DashboardPerSite() {
             selectedSite?.site_code
         );
 
+    const selectedUnit =
+        unitId
+            ? unitOptions.find(
+                (option) =>
+                    String(
+                        option.id
+                    ) ===
+                    String(unitId)
+            ) || {
+                id: unitId,
+                label: unitId,
+            }
+            : null;
+
     // =========================================================================
-    // FILTER UNIT GROUP
+    // KPI SUMMARY — snapshot bulan akhir + rata-rata sepanjang rentang
     // =========================================================================
+
+    const kpiRowsSnapshot =
+        safeKpiRows.filter(
+            (row) =>
+                Number(
+                    row.period_year
+                ) ===
+                Number(year) &&
+                Number(
+                    row.period_month
+                ) ===
+                Number(endMonth)
+        );
+
+    const kpiSummary =
+        aggregateKpiSummary(
+            kpiRowsSnapshot
+        );
+
+    const kpiSummaryRangeAvg =
+        aggregateKpiSummary(
+            safeKpiRows
+        );
+
+    // =========================================================================
+    // FILTER UNIT GROUP — snapshot bulan akhir (dipakai untuk ringkasan & tabel)
+    // =========================================================================
+
+    const rawPerfRowsSnapshot =
+        rawPerfRows.filter(
+            (row) =>
+                Number(
+                    row.period_year
+                ) ===
+                Number(year) &&
+                Number(
+                    row.period_month
+                ) ===
+                Number(endMonth)
+        );
 
     const safePerfRows =
         filterRowsByUnitGroup(
-            rawPerfRows,
+            rawPerfRowsSnapshot,
             selectedSite
                 ?.site_code,
             unitId
@@ -864,177 +1049,140 @@ function DashboardPerSite() {
     ];
 
     // =========================================================================
-    // PERFORMANCE BY MODEL
+    // TREN PERFORMA MODEL TERPILIH (Dari Bulan – Sampai Bulan)
     // ============================================================================
+    //
+    // Chart tren cuma berlaku kalau user sudah memilih 1 Model Unit spesifik
+    // (bukan "Semua Unit"), karena tren per bulan cuma masuk akal untuk satu
+    // model — bukan campuran beberapa model sekaligus.
 
-    const perfGroups =
-        groupRowsByUnit(
-            safePerfRows,
-            selectedSite
-                ?.site_code
+    const monthsInRange =
+        buildMonthRange(
+            startMonth,
+            endMonth
         );
 
-    const unitByModel =
-        getUnitGroupOrder(
-            selectedSite
-                ?.site_code
-        )
-            .filter(
-                (
-                    groupLabel
-                ) =>
-                    perfGroups.has(
-                        groupLabel
-                    )
+    const modelTrendSourceRows =
+        unitId
+            ? filterRowsByUnitGroup(
+                rawPerfRows,
+                selectedSite
+                    ?.site_code,
+                unitId
             )
-            .map(
-                (
-                    groupLabel
-                ) => {
-                    const rows =
-                        perfGroups.get(
-                            groupLabel
-                        );
+            : [];
 
-                    const pa =
-                        safeAvg(
-                            rows.map(
-                                (
-                                    row
-                                ) =>
-                                    row.physical_availability
-                            )
-                        );
-
-                    const ua =
-                        safeAvg(
-                            rows.map(
-                                (
-                                    row
-                                ) =>
-                                    row.unit_availability
-                            )
-                        );
-
-                    const mtbf =
-                        safeAvg(
-                            rows.map(
-                                (
-                                    row
-                                ) =>
-                                    row.mtbf
-                            )
-                        );
-
-                    const mttr =
-                        safeAvg(
-                            rows.map(
-                                (
-                                    row
-                                ) =>
-                                    row.mttr
-                            )
-                        );
-
-                    const productivity =
-                        safeAvg(
-                            rows.map(
-                                (
-                                    row
-                                ) =>
-                                    row.productivity
-                            )
-                        );
-
-                    const fuelConsumption =
-                        safeAvg(
-                            rows.map(
-                                (
-                                    row
-                                ) =>
-                                    row.fuel_consumption
-                            )
+    const perfTrendByMonth =
+        unitId
+            ? monthsInRange.map(
+                (m) => {
+                    const rowsForMonth =
+                        modelTrendSourceRows.filter(
+                            (
+                                row
+                            ) =>
+                                Number(
+                                    row.period_year
+                                ) ===
+                                Number(
+                                    year
+                                ) &&
+                                Number(
+                                    row.period_month
+                                ) ===
+                                Number(
+                                    m
+                                )
                         );
 
                     return {
-                        model_name:
-                            groupLabel,
+                        month_label:
+                            monthShortLabel(
+                                m
+                            ),
 
                         physical_availability:
                             toPct(
-                                pa
+                                safeAvg(
+                                    rowsForMonth.map(
+                                        (
+                                            row
+                                        ) =>
+                                            row.physical_availability
+                                    )
+                                )
                             ),
 
                         unit_availability:
                             toPct(
-                                ua
+                                safeAvg(
+                                    rowsForMonth.map(
+                                        (
+                                            row
+                                        ) =>
+                                            row.unit_availability
+                                    )
+                                )
                             ),
 
                         mtbf:
-                            mtbf !==
-                                null &&
-                                mtbf !==
-                                undefined
-                                ? Number(
-                                    Number(
-                                        mtbf
-                                    ).toFixed(
-                                        1
+                            roundOrNull(
+                                safeAvg(
+                                    rowsForMonth.map(
+                                        (
+                                            row
+                                        ) =>
+                                            row.mtbf
                                     )
                                 )
-                                : null,
+                            ),
 
                         mttr:
-                            mttr !==
-                                null &&
-                                mttr !==
-                                undefined
-                                ? Number(
-                                    Number(
-                                        mttr
-                                    ).toFixed(
-                                        1
+                            roundOrNull(
+                                safeAvg(
+                                    rowsForMonth.map(
+                                        (
+                                            row
+                                        ) =>
+                                            row.mttr
                                     )
                                 )
-                                : null,
+                            ),
 
                         productivity:
-                            productivity !==
-                                null &&
-                                productivity !==
-                                undefined
-                                ? Number(
-                                    Number(
-                                        productivity
-                                    ).toFixed(
-                                        1
+                            roundOrNull(
+                                safeAvg(
+                                    rowsForMonth.map(
+                                        (
+                                            row
+                                        ) =>
+                                            row.productivity
                                     )
                                 )
-                                : null,
+                            ),
 
                         fuel_consumption:
-                            fuelConsumption !==
-                                null &&
-                                fuelConsumption !==
-                                undefined
-                                ? Number(
-                                    Number(
-                                        fuelConsumption
-                                    ).toFixed(
-                                        1
+                            roundOrNull(
+                                safeAvg(
+                                    rowsForMonth.map(
+                                        (
+                                            row
+                                        ) =>
+                                            row.fuel_consumption
                                     )
                                 )
-                                : null,
+                            ),
                     };
                 }
-            );
+            )
+            : [];
 
     // =========================================================================
     // DATA AVAILABILITY
     // ============================================================================
 
     const hasProductivity =
-        unitByModel.some(
+        perfTrendByMonth.some(
             (item) =>
                 item.productivity !==
                 null &&
@@ -1043,7 +1191,7 @@ function DashboardPerSite() {
         );
 
     const hasFuelConsumption =
-        unitByModel.some(
+        perfTrendByMonth.some(
             (item) =>
                 item.fuel_consumption !==
                 null &&
@@ -1466,6 +1614,29 @@ function DashboardPerSite() {
                             }`
                             : 'Pilih site untuk melihat detail performa'}
                     </p>
+
+                    {selectedSite && (
+                        <p
+                            className="text-secondary mb-0"
+                            style={{
+                                fontSize:
+                                    '0.8rem',
+                            }}
+                        >
+                            <i className="bi bi-calendar-range me-1" />
+                            Menampilkan data:{' '}
+                            {monthLongLabel(
+                                startMonth
+                            )}
+                            {startMonth !==
+                                endMonth
+                                ? ` – ${monthLongLabel(
+                                    endMonth
+                                )}`
+                                : ''}{' '}
+                            {year}
+                        </p>
+                    )}
                 </div>
 
                 {isLoading && (
@@ -1534,11 +1705,14 @@ function DashboardPerSite() {
                 unitId={
                     unitId
                 }
-                month={
-                    month
-                }
                 year={
                     year
+                }
+                startMonth={
+                    startMonth
+                }
+                endMonth={
+                    endMonth
                 }
                 onSiteChange={
                     setSiteId
@@ -1546,14 +1720,19 @@ function DashboardPerSite() {
                 onUnitChange={
                     setUnitId
                 }
-                onMonthChange={
-                    setMonth
-                }
                 onYearChange={
                     setYear
                 }
+                onStartMonthChange={
+                    handleStartMonthChange
+                }
+                onEndMonthChange={
+                    handleEndMonthChange
+                }
                 showSiteFilter
                 showUnitFilter
+                showMonthFilter={false}
+                showMonthRangeFilter
             />
 
             <div className="d-flex justify-content-end mb-3">
@@ -1762,6 +1941,9 @@ function DashboardPerSite() {
 
                                         target:
                                             kpiSummary.readyness_target,
+
+                                        rangeAvg:
+                                            kpiSummaryRangeAvg.readyness_actual,
                                     },
 
                                     {
@@ -1773,6 +1955,9 @@ function DashboardPerSite() {
 
                                         target:
                                             kpiSummary.availability_target,
+
+                                        rangeAvg:
+                                            kpiSummaryRangeAvg.availability_actual,
                                     },
 
                                     {
@@ -1784,6 +1969,9 @@ function DashboardPerSite() {
 
                                         target:
                                             kpiSummary.leadtime_target,
+
+                                        rangeAvg:
+                                            kpiSummaryRangeAvg.leadtime_actual,
                                     },
                                 ].map(
                                     (
@@ -1830,6 +2018,26 @@ function DashboardPerSite() {
                                                             item.target
                                                         )}
                                                     </small>
+
+                                                    {startMonth !==
+                                                        endMonth && (
+                                                            <div>
+                                                                <small className="text-muted">
+                                                                    Rata-rata{' '}
+                                                                    {monthShortLabel(
+                                                                        startMonth
+                                                                    )}
+                                                                    –
+                                                                    {monthShortLabel(
+                                                                        endMonth
+                                                                    )}
+                                                                    :{' '}
+                                                                    {formatPercent(
+                                                                        item.rangeAvg
+                                                                    )}
+                                                                </small>
+                                                            </div>
+                                                        )}
                                                 </div>
                                             </div>
                                         </div>
@@ -1851,131 +2059,153 @@ function DashboardPerSite() {
                                     'var(--text-primary)',
                             }}
                         >
-                            Performa Unit per
-                            Model
+                            Tren Performa Unit
+                            {selectedUnit
+                                ? ` — ${selectedUnit.label}`
+                                : ''}
                         </div>
 
-                        <div className="row g-3">
-                            {/* PA */}
-                            <div className="col-12 col-lg-6 col-xl-3">
-                                <ChartCard
-                                    title="Physical Availability (%)"
-                                    type="bar"
-                                    data={
-                                        unitByModel
-                                    }
-                                    xKey="model_name"
-                                    series={[
-                                        {
-                                            key:
-                                                'physical_availability',
+                        {!unitId ? (
+                            <div className="d-flex flex-column align-items-center justify-content-center text-center py-5">
+                                <i className="bi bi-cursor fs-2 text-muted mb-2" />
 
-                                            label:
-                                                'PA (%)',
+                                <span className="fw-semibold text-secondary small">
+                                    Pilih Model
+                                    Unit
+                                </span>
 
-                                            color:
-                                                '#0A3991',
-                                        },
-                                    ]}
-                                    loading={
-                                        loadingPerf
-                                    }
-                                    height={
-                                        250
-                                    }
-                                />
+                                <small className="text-muted">
+                                    Pilih Model
+                                    Unit di filter
+                                    atas untuk
+                                    menampilkan
+                                    grafik tren
+                                    per bulan
+                                </small>
                             </div>
+                        ) : (
+                            <div className="row g-3">
+                                {/* PA */}
+                                <div className="col-12 col-lg-6 col-xl-3">
+                                    <ChartCard
+                                        title={`Physical Availability (%) — ${selectedUnit.label}`}
+                                        type="line"
+                                        data={
+                                            perfTrendByMonth
+                                        }
+                                        xKey="month_label"
+                                        series={[
+                                            {
+                                                key:
+                                                    'physical_availability',
 
-                            {/* UA */}
-                            <div className="col-12 col-lg-6 col-xl-3">
-                                <ChartCard
-                                    title="Unit Availability (%)"
-                                    type="bar"
-                                    data={
-                                        unitByModel
-                                    }
-                                    xKey="model_name"
-                                    series={[
-                                        {
-                                            key:
-                                                'unit_availability',
+                                                label:
+                                                    'PA (%)',
 
-                                            label:
-                                                'UA (%)',
+                                                color:
+                                                    '#0A3991',
+                                            },
+                                        ]}
+                                        loading={
+                                            loadingPerf
+                                        }
+                                        height={
+                                            250
+                                        }
+                                    />
+                                </div>
 
-                                            color:
-                                                '#9CC6ED',
-                                        },
-                                    ]}
-                                    loading={
-                                        loadingPerf
-                                    }
-                                    height={
-                                        250
-                                    }
-                                />
+                                {/* UA */}
+                                <div className="col-12 col-lg-6 col-xl-3">
+                                    <ChartCard
+                                        title={`Unit Availability (%) — ${selectedUnit.label}`}
+                                        type="line"
+                                        data={
+                                            perfTrendByMonth
+                                        }
+                                        xKey="month_label"
+                                        series={[
+                                            {
+                                                key:
+                                                    'unit_availability',
+
+                                                label:
+                                                    'UA (%)',
+
+                                                color:
+                                                    '#9CC6ED',
+                                            },
+                                        ]}
+                                        loading={
+                                            loadingPerf
+                                        }
+                                        height={
+                                            250
+                                        }
+                                    />
+                                </div>
+
+                                {/* MTBF */}
+                                <div className="col-12 col-lg-6 col-xl-3">
+                                    <ChartCard
+                                        title={`MTBF (jam) — ${selectedUnit.label}`}
+                                        type="line"
+                                        data={
+                                            perfTrendByMonth
+                                        }
+                                        xKey="month_label"
+                                        series={[
+                                            {
+                                                key:
+                                                    'mtbf',
+
+                                                label:
+                                                    'MTBF',
+
+                                                color:
+                                                    '#6A0B23',
+                                            },
+                                        ]}
+                                        loading={
+                                            loadingPerf
+                                        }
+                                        height={
+                                            250
+                                        }
+                                    />
+                                </div>
+
+                                {/* MTTR */}
+                                <div className="col-12 col-lg-6 col-xl-3">
+                                    <ChartCard
+                                        title={`MTTR (jam) — ${selectedUnit.label}`}
+                                        type="line"
+                                        data={
+                                            perfTrendByMonth
+                                        }
+                                        xKey="month_label"
+                                        series={[
+                                            {
+                                                key:
+                                                    'mttr',
+
+                                                label:
+                                                    'MTTR',
+
+                                                color:
+                                                    '#F2AFBC',
+                                            },
+                                        ]}
+                                        loading={
+                                            loadingPerf
+                                        }
+                                        height={
+                                            250
+                                        }
+                                    />
+                                </div>
                             </div>
-
-                            {/* MTBF */}
-                            <div className="col-12 col-lg-6 col-xl-3">
-                                <ChartCard
-                                    title="MTBF (jam)"
-                                    type="bar"
-                                    data={
-                                        unitByModel
-                                    }
-                                    xKey="model_name"
-                                    series={[
-                                        {
-                                            key:
-                                                'mtbf',
-
-                                            label:
-                                                'MTBF',
-
-                                            color:
-                                                '#6A0B23',
-                                        },
-                                    ]}
-                                    loading={
-                                        loadingPerf
-                                    }
-                                    height={
-                                        250
-                                    }
-                                />
-                            </div>
-
-                            {/* MTTR */}
-                            <div className="col-12 col-lg-6 col-xl-3">
-                                <ChartCard
-                                    title="MTTR (jam)"
-                                    type="bar"
-                                    data={
-                                        unitByModel
-                                    }
-                                    xKey="model_name"
-                                    series={[
-                                        {
-                                            key:
-                                                'mttr',
-
-                                            label:
-                                                'MTTR',
-
-                                            color:
-                                                '#F2AFBC',
-                                        },
-                                    ]}
-                                    loading={
-                                        loadingPerf
-                                    }
-                                    height={
-                                        250
-                                    }
-                                />
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* ========================================================
@@ -1991,7 +2221,10 @@ function DashboardPerSite() {
                             }}
                         >
                             Productivity & Fuel
-                            Consumption per Model
+                            Consumption
+                            {selectedUnit
+                                ? ` — ${selectedUnit.label}`
+                                : ' per Model'}
                         </h6>
 
                         <div className="row g-3">
@@ -1999,12 +2232,12 @@ function DashboardPerSite() {
                             <div className="col-12 col-lg-6">
                                 {hasProductivity ? (
                                     <ChartCard
-                                        title="Productivity"
-                                        type="bar"
+                                        title={`Productivity — ${selectedUnit?.label || ''}`}
+                                        type="line"
                                         data={
-                                            unitByModel
+                                            perfTrendByMonth
                                         }
-                                        xKey="model_name"
+                                        xKey="month_label"
                                         series={[
                                             {
                                                 key:
@@ -2034,7 +2267,9 @@ function DashboardPerSite() {
                                             }}
                                         >
                                             Productivity
-                                            per Model
+                                            {selectedUnit
+                                                ? ` — ${selectedUnit.label}`
+                                                : ' per Model'}
                                         </div>
 
                                         <div className="d-flex flex-column align-items-center justify-content-center text-center py-5">
@@ -2046,10 +2281,9 @@ function DashboardPerSite() {
                                             </span>
 
                                             <small className="text-muted">
-                                                Productivity
-                                                bernilai NULL
-                                                pada periode
-                                                terpilih
+                                                {unitId
+                                                    ? 'Productivity bernilai NULL pada periode terpilih'
+                                                    : 'Pilih Model Unit di filter atas untuk menampilkan grafik'}
                                             </small>
                                         </div>
                                     </div>
@@ -2060,12 +2294,12 @@ function DashboardPerSite() {
                             <div className="col-12 col-lg-6">
                                 {hasFuelConsumption ? (
                                     <ChartCard
-                                        title="Fuel Consumption"
-                                        type="bar"
+                                        title={`Fuel Consumption — ${selectedUnit?.label || ''}`}
+                                        type="line"
                                         data={
-                                            unitByModel
+                                            perfTrendByMonth
                                         }
-                                        xKey="model_name"
+                                        xKey="month_label"
                                         series={[
                                             {
                                                 key:
@@ -2095,7 +2329,9 @@ function DashboardPerSite() {
                                             }}
                                         >
                                             Fuel Consumption
-                                            per Model
+                                            {selectedUnit
+                                                ? ` — ${selectedUnit.label}`
+                                                : ' per Model'}
                                         </div>
 
                                         <div className="d-flex flex-column align-items-center justify-content-center text-center py-5">
@@ -2107,10 +2343,9 @@ function DashboardPerSite() {
                                             </span>
 
                                             <small className="text-muted">
-                                                Fuel Consumption
-                                                bernilai NULL
-                                                pada periode
-                                                terpilih
+                                                {unitId
+                                                    ? 'Fuel Consumption bernilai NULL pada periode terpilih'
+                                                    : 'Pilih Model Unit di filter atas untuk menampilkan grafik'}
                                             </small>
                                         </div>
                                     </div>

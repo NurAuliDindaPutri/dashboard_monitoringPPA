@@ -1,5 +1,11 @@
-const monthlyKpiSummaryModel = require('../models/monthlyKpiSummary.model');
-const { success, error } = require('../utils/response');
+const monthlyKpiSummaryModel = require(
+    '../models/monthlyKpiSummary.model'
+);
+
+const {
+    success,
+    error,
+} = require('../utils/response');
 
 const KPI_FIELDS = [
     'readyness_actual',
@@ -13,7 +19,10 @@ const KPI_FIELDS = [
 function parsePositiveInteger(value) {
     const number = Number(value);
 
-    if (!Number.isInteger(number) || number <= 0) {
+    if (
+        !Number.isInteger(number) ||
+        number <= 0
+    ) {
         return null;
     }
 
@@ -23,7 +32,11 @@ function parsePositiveInteger(value) {
 function parsePeriodYear(value) {
     const year = Number(value);
 
-    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+    if (
+        !Number.isInteger(year) ||
+        year < 2000 ||
+        year > 2100
+    ) {
         return null;
     }
 
@@ -33,22 +46,17 @@ function parsePeriodYear(value) {
 function parsePeriodMonth(value) {
     const month = Number(value);
 
-    if (!Number.isInteger(month) || month < 1 || month > 12) {
+    if (
+        !Number.isInteger(month) ||
+        month < 1 ||
+        month > 12
+    ) {
         return null;
     }
 
     return month;
 }
 
-/**
- * Nilai KPI disimpan sebagai desimal 0–1.
- *
- * Contoh yang diterima:
- * 0.95  -> 0.95
- * 95    -> 0.95
- * "95"  -> 0.95
- * null  -> null
- */
 function normalizeKpiValue(value) {
     if (
         value === null ||
@@ -64,13 +72,18 @@ function normalizeKpiValue(value) {
 
     if (!Number.isFinite(number)) {
         return {
-            validationError: 'harus berupa angka',
+            validationError:
+                'harus berupa angka',
         };
     }
 
-    if (number < 0 || number > 100) {
+    if (
+        number < 0 ||
+        number > 100
+    ) {
         return {
-            validationError: 'harus berada antara 0 sampai 100',
+            validationError:
+                'harus berada antara 0 sampai 100',
         };
     }
 
@@ -83,14 +96,22 @@ function normalizeKpiValue(value) {
     };
 }
 
+// ============================================================
+// QUERY FILTER
+// ============================================================
+
 function validateQuery(query = {}) {
     const filter = {};
 
+    // SITE
     if (
         query.site_id !== undefined &&
         query.site_id !== ''
     ) {
-        const siteId = parsePositiveInteger(query.site_id);
+        const siteId =
+            parsePositiveInteger(
+                query.site_id
+            );
 
         if (!siteId) {
             return {
@@ -99,16 +120,19 @@ function validateQuery(query = {}) {
             };
         }
 
-        filter.site_id = siteId;
+        filter.site_id =
+            siteId;
     }
 
+    // TAHUN
     if (
         query.period_year !== undefined &&
         query.period_year !== ''
     ) {
-        const periodYear = parsePeriodYear(
-            query.period_year
-        );
+        const periodYear =
+            parsePeriodYear(
+                query.period_year
+            );
 
         if (!periodYear) {
             return {
@@ -117,16 +141,23 @@ function validateQuery(query = {}) {
             };
         }
 
-        filter.period_year = periodYear;
+        filter.period_year =
+            periodYear;
     }
+
+    // ========================================================
+    // BULAN TUNGGAL
+    // Tetap dipakai Dashboard All Site
+    // ========================================================
 
     if (
         query.period_month !== undefined &&
         query.period_month !== ''
     ) {
-        const periodMonth = parsePeriodMonth(
-            query.period_month
-        );
+        const periodMonth =
+            parsePeriodMonth(
+                query.period_month
+            );
 
         if (!periodMonth) {
             return {
@@ -135,7 +166,97 @@ function validateQuery(query = {}) {
             };
         }
 
-        filter.period_month = periodMonth;
+        filter.period_month =
+            periodMonth;
+    }
+
+    // ========================================================
+    // RENTANG BULAN
+    // Dipakai Dashboard Per Site
+    // ========================================================
+
+    if (
+        query.start_month !== undefined &&
+        query.start_month !== ''
+    ) {
+        const startMonth =
+            parsePeriodMonth(
+                query.start_month
+            );
+
+        if (!startMonth) {
+            return {
+                validationError:
+                    'start_month harus berada antara 1-12',
+            };
+        }
+
+        filter.start_month =
+            startMonth;
+    }
+
+    if (
+        query.end_month !== undefined &&
+        query.end_month !== ''
+    ) {
+        const endMonth =
+            parsePeriodMonth(
+                query.end_month
+            );
+
+        if (!endMonth) {
+            return {
+                validationError:
+                    'end_month harus berada antara 1-12',
+            };
+        }
+
+        filter.end_month =
+            endMonth;
+    }
+
+    // Harus sepasang
+    const hasStart =
+        filter.start_month !==
+        undefined;
+
+    const hasEnd =
+        filter.end_month !==
+        undefined;
+
+    if (hasStart !== hasEnd) {
+        return {
+            validationError:
+                'start_month dan end_month harus dikirim bersamaan',
+        };
+    }
+
+    // Validasi urutan
+    if (
+        hasStart &&
+        hasEnd &&
+        filter.start_month >
+        filter.end_month
+    ) {
+        return {
+            validationError:
+                'start_month tidak boleh lebih besar dari end_month',
+        };
+    }
+
+    // Jangan pakai single month + range sekaligus
+    if (
+        filter.period_month !==
+        undefined &&
+        (
+            hasStart ||
+            hasEnd
+        )
+    ) {
+        return {
+            validationError:
+                'Gunakan period_month atau start_month/end_month, bukan keduanya',
+        };
     }
 
     return {
@@ -143,12 +264,25 @@ function validateQuery(query = {}) {
     };
 }
 
+// ============================================================
+// PAYLOAD CREATE / UPDATE
+// ============================================================
+
 function validatePayload(body = {}) {
-    const siteId = parsePositiveInteger(body.site_id);
-    const periodYear = parsePeriodYear(body.period_year);
-    const periodMonth = parsePeriodMonth(
-        body.period_month
-    );
+    const siteId =
+        parsePositiveInteger(
+            body.site_id
+        );
+
+    const periodYear =
+        parsePeriodYear(
+            body.period_year
+        );
+
+    const periodMonth =
+        parsePeriodMonth(
+            body.period_month
+        );
 
     if (!siteId) {
         return {
@@ -172,22 +306,35 @@ function validatePayload(body = {}) {
     }
 
     const data = {
-        site_id: siteId,
-        period_year: periodYear,
-        period_month: periodMonth,
+        site_id:
+            siteId,
+
+        period_year:
+            periodYear,
+
+        period_month:
+            periodMonth,
     };
 
-    for (const field of KPI_FIELDS) {
-        const result = normalizeKpiValue(body[field]);
+    for (
+        const field of KPI_FIELDS
+    ) {
+        const result =
+            normalizeKpiValue(
+                body[field]
+            );
 
-        if (result.validationError) {
+        if (
+            result.validationError
+        ) {
             return {
                 validationError:
                     `${field} ${result.validationError}`,
             };
         }
 
-        data[field] = result.value;
+        data[field] =
+            result.value;
     }
 
     return {
@@ -195,17 +342,36 @@ function validatePayload(body = {}) {
     };
 }
 
-async function getAll(req, res, next) {
+// ============================================================
+// GET ALL
+// ============================================================
+
+async function getAll(
+    req,
+    res,
+    next
+) {
     try {
-        const { filter, validationError } =
-            validateQuery(req.query);
+        const {
+            filter,
+            validationError,
+        } =
+            validateQuery(
+                req.query
+            );
 
         if (validationError) {
-            return error(res, validationError, 400);
+            return error(
+                res,
+                validationError,
+                400
+            );
         }
 
         const data =
-            await monthlyKpiSummaryModel.findAll(filter);
+            await monthlyKpiSummaryModel.findAll(
+                filter
+            );
 
         return success(
             res,
@@ -217,9 +383,20 @@ async function getAll(req, res, next) {
     }
 }
 
-async function getById(req, res, next) {
+// ============================================================
+// GET BY ID
+// ============================================================
+
+async function getById(
+    req,
+    res,
+    next
+) {
     try {
-        const id = parsePositiveInteger(req.params.id);
+        const id =
+            parsePositiveInteger(
+                req.params.id
+            );
 
         if (!id) {
             return error(
@@ -230,7 +407,9 @@ async function getById(req, res, next) {
         }
 
         const data =
-            await monthlyKpiSummaryModel.findById(id);
+            await monthlyKpiSummaryModel.findById(
+                id
+            );
 
         if (!data) {
             return error(
@@ -250,17 +429,36 @@ async function getById(req, res, next) {
     }
 }
 
-async function create(req, res, next) {
+// ============================================================
+// CREATE
+// ============================================================
+
+async function create(
+    req,
+    res,
+    next
+) {
     try {
-        const { data, validationError } =
-            validatePayload(req.body);
+        const {
+            data,
+            validationError,
+        } =
+            validatePayload(
+                req.body
+            );
 
         if (validationError) {
-            return error(res, validationError, 400);
+            return error(
+                res,
+                validationError,
+                400
+            );
         }
 
         const created =
-            await monthlyKpiSummaryModel.create(data);
+            await monthlyKpiSummaryModel.create(
+                data
+            );
 
         return success(
             res,
@@ -269,7 +467,10 @@ async function create(req, res, next) {
             201
         );
     } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
+        if (
+            err.code ===
+            'ER_DUP_ENTRY'
+        ) {
             return error(
                 res,
                 'Data KPI untuk site dan periode tersebut sudah tersedia',
@@ -277,7 +478,10 @@ async function create(req, res, next) {
             );
         }
 
-        if (err.code === 'ER_NO_REFERENCED_ROW_2') {
+        if (
+            err.code ===
+            'ER_NO_REFERENCED_ROW_2'
+        ) {
             return error(
                 res,
                 'site_id tidak ditemukan',
@@ -289,9 +493,20 @@ async function create(req, res, next) {
     }
 }
 
-async function update(req, res, next) {
+// ============================================================
+// UPDATE
+// ============================================================
+
+async function update(
+    req,
+    res,
+    next
+) {
     try {
-        const id = parsePositiveInteger(req.params.id);
+        const id =
+            parsePositiveInteger(
+                req.params.id
+            );
 
         if (!id) {
             return error(
@@ -302,7 +517,9 @@ async function update(req, res, next) {
         }
 
         const existing =
-            await monthlyKpiSummaryModel.findById(id);
+            await monthlyKpiSummaryModel.findById(
+                id
+            );
 
         if (!existing) {
             return error(
@@ -312,15 +529,27 @@ async function update(req, res, next) {
             );
         }
 
-        const { data, validationError } =
-            validatePayload(req.body);
+        const {
+            data,
+            validationError,
+        } =
+            validatePayload(
+                req.body
+            );
 
         if (validationError) {
-            return error(res, validationError, 400);
+            return error(
+                res,
+                validationError,
+                400
+            );
         }
 
         const updated =
-            await monthlyKpiSummaryModel.update(id, data);
+            await monthlyKpiSummaryModel.update(
+                id,
+                data
+            );
 
         return success(
             res,
@@ -328,7 +557,10 @@ async function update(req, res, next) {
             'Data ringkasan KPI berhasil diperbarui'
         );
     } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
+        if (
+            err.code ===
+            'ER_DUP_ENTRY'
+        ) {
             return error(
                 res,
                 'Data KPI untuk site dan periode tersebut sudah tersedia',
@@ -336,7 +568,10 @@ async function update(req, res, next) {
             );
         }
 
-        if (err.code === 'ER_NO_REFERENCED_ROW_2') {
+        if (
+            err.code ===
+            'ER_NO_REFERENCED_ROW_2'
+        ) {
             return error(
                 res,
                 'site_id tidak ditemukan',
@@ -348,9 +583,20 @@ async function update(req, res, next) {
     }
 }
 
-async function remove(req, res, next) {
+// ============================================================
+// DELETE
+// ============================================================
+
+async function remove(
+    req,
+    res,
+    next
+) {
     try {
-        const id = parsePositiveInteger(req.params.id);
+        const id =
+            parsePositiveInteger(
+                req.params.id
+            );
 
         if (!id) {
             return error(
@@ -361,7 +607,9 @@ async function remove(req, res, next) {
         }
 
         const existing =
-            await monthlyKpiSummaryModel.findById(id);
+            await monthlyKpiSummaryModel.findById(
+                id
+            );
 
         if (!existing) {
             return error(
@@ -371,7 +619,9 @@ async function remove(req, res, next) {
             );
         }
 
-        await monthlyKpiSummaryModel.remove(id);
+        await monthlyKpiSummaryModel.remove(
+            id
+        );
 
         return success(
             res,
