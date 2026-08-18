@@ -186,11 +186,6 @@ function Navbar({
     ] = useState([]);
 
     const [
-        criticalRows,
-        setCriticalRows,
-    ] = useState([]);
-
-    const [
         activityNotifications,
         setActivityNotifications,
     ] = useState([]);
@@ -233,7 +228,6 @@ function Navbar({
                     const [
                         kpiResponse,
                         pendingResponse,
-                        criticalResponse,
                     ] =
                         await Promise.all(
                             [
@@ -242,10 +236,6 @@ function Navbar({
                                 ),
 
                                 getPendingSupply(
-                                    {}
-                                ),
-
-                                getCriticalItems(
                                     {}
                                 ),
                             ]
@@ -263,12 +253,6 @@ function Navbar({
                         )
                     );
 
-                    setCriticalRows(
-                        extractRows(
-                            criticalResponse
-                        )
-                    );
-
                     setActivityNotifications(
                         getNotifications()
                     );
@@ -283,10 +267,6 @@ function Navbar({
                     );
 
                     setPendingRows(
-                        []
-                    );
-
-                    setCriticalRows(
                         []
                     );
 
@@ -469,8 +449,7 @@ function Navbar({
 
     const operationalCount =
         belowTargetRows.length +
-        overduePendingRows.length +
-        criticalRows.length;
+        overduePendingRows.length;
 
     const notificationCount =
         unreadActivityCount +
@@ -1046,61 +1025,6 @@ function Navbar({
                                                                     </Link>
                                                                 )}
 
-                                                            {/* CRITICAL */}
-
-                                                            {criticalRows.length >
-                                                                0 && (
-                                                                    <Link
-                                                                        to="/critical-items"
-                                                                        onClick={
-                                                                            closeNotification
-                                                                        }
-                                                                        className="d-flex gap-3 px-3 py-3 text-decoration-none"
-                                                                    >
-                                                                        <div
-                                                                            className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                                                            style={{
-                                                                                width:
-                                                                                    38,
-
-                                                                                height:
-                                                                                    38,
-
-                                                                                backgroundColor:
-                                                                                    'rgba(220, 38, 38, 0.14)',
-
-                                                                                color:
-                                                                                    '#dc2626',
-                                                                            }}
-                                                                        >
-                                                                            <i className="bi bi-exclamation-diamond" />
-                                                                        </div>
-
-                                                                        <div>
-                                                                            <div
-                                                                                className="fw-semibold small"
-                                                                                style={{
-                                                                                    color:
-                                                                                        'var(--text-primary)',
-                                                                                }}
-                                                                            >
-                                                                                {
-                                                                                    criticalRows.length
-                                                                                }{' '}
-                                                                                critical
-                                                                                item
-                                                                            </div>
-
-                                                                            <small className="text-secondary">
-                                                                                Spare
-                                                                                part
-                                                                                kritis
-                                                                                perlu
-                                                                                dipantau.
-                                                                            </small>
-                                                                        </div>
-                                                                    </Link>
-                                                                )}
                                                         </div>
                                                     )}
 

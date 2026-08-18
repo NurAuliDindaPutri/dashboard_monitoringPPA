@@ -46,7 +46,21 @@ import {
     buildReadinessPerSiteChart,
 } from '../../utils/aggregate';
 
+import {
+    normalizeSiteCode as normalizeSiteForDashboard,
+} from '../../utils/siteNormalization';
+
+import {
+    normalizeUnitModel,
+} from '../../utils/unitFilter';
+
 const NOW = new Date();
+
+// Dummy hanya boleh dipakai saat development.
+// Set VITE_ENABLE_DUMMY_DATA=false jika ingin mematikannya saat development.
+const ENABLE_DUMMY_FALLBACK =
+    import.meta.env.DEV &&
+    import.meta.env.VITE_ENABLE_DUMMY_DATA !== 'false';
 
 const DEFAULT_YEAR =
     NOW.getFullYear();
@@ -187,42 +201,6 @@ function convertToPercent(value) {
     );
 }
 
-function normalizeSiteForDashboard(
-    siteCode
-) {
-    const code = String(
-        siteCode || ''
-    )
-        .trim()
-        .toUpperCase();
-
-    if (
-        code === 'ADRW' ||
-        code === 'WARA'
-    ) {
-        return 'WARA';
-    }
-
-    if (
-        code === 'PTBA' ||
-        code === 'BA'
-    ) {
-        return 'BA';
-    }
-
-    if (
-        code === 'AMC' ||
-        code === 'AMC-MAC' ||
-        code === 'AMC-LAC' ||
-        code === 'LC' ||
-        code === 'LAC'
-    ) {
-        return 'AMC';
-    }
-
-    return code;
-}
-
 function getRawSiteCode(row) {
     return String(
         row?.site_code || ''
@@ -249,7 +227,7 @@ function choosePreferredRows(
                 );
 
             return (
-                code === 'LC' ||
+                code === 'AMC-LAC' ||
                 code === 'LAC'
             );
         });
@@ -261,58 +239,6 @@ function choosePreferredRows(
     }
 
     return rows;
-}
-
-// ============================================================================
-// NORMALISASI UNIT MODEL
-// ============================================================================
-
-function normalizeUnitModel(
-    modelName
-) {
-    const model = String(
-        modelName || ''
-    )
-        .trim()
-        .toUpperCase()
-        .replace(/\s+/g, '');
-
-    if (
-        model.includes(
-            'PC2000'
-        )
-    ) {
-        return 'PC2000';
-    }
-
-    if (
-        model.includes(
-            'PC1250'
-        ) ||
-        model.includes(
-            '1250SP'
-        )
-    ) {
-        return 'PC1250';
-    }
-
-    if (
-        model.includes(
-            'HD785'
-        )
-    ) {
-        return 'HD785';
-    }
-
-    if (
-        model.includes(
-            'PC3400'
-        )
-    ) {
-        return 'PC3400';
-    }
-
-    return null;
 }
 
 // ============================================================================
@@ -1145,24 +1071,26 @@ function DashboardAllSite() {
                 )
                 .catch(
                     (err) => {
-                        console.warn(
-                            'KPI API gagal, menggunakan dummy.',
+                        console.error(
+                            'KPI API gagal:',
                             err
                         );
 
-                        setKpiRows(
-                            filterDummyRows(
-                                dummyKpiSummary,
-                                {
-                                    month,
-                                    year,
-                                }
-                            )
-                        );
-
-                        setDataSource(
-                            'dummy'
-                        );
+                        if (ENABLE_DUMMY_FALLBACK) {
+                            setKpiRows(
+                                filterDummyRows(
+                                    dummyKpiSummary,
+                                    { month, year }
+                                )
+                            );
+                            setDataSource('dummy');
+                        } else {
+                            setKpiRows([]);
+                            setDataSource('error');
+                            setError(
+                                'Gagal memuat KPI dari database.'
+                            );
+                        }
                     }
                 )
                 .finally(
@@ -1191,24 +1119,26 @@ function DashboardAllSite() {
                 )
                 .catch(
                     (err) => {
-                        console.warn(
-                            'Unit Performance API gagal, menggunakan dummy.',
+                        console.error(
+                            'Unit Performance API gagal:',
                             err
                         );
 
-                        setPerfRows(
-                            filterDummyRows(
-                                dummyUnitPerformances,
-                                {
-                                    month,
-                                    year,
-                                }
-                            )
-                        );
-
-                        setDataSource(
-                            'dummy'
-                        );
+                        if (ENABLE_DUMMY_FALLBACK) {
+                            setPerfRows(
+                                filterDummyRows(
+                                    dummyUnitPerformances,
+                                    { month, year }
+                                )
+                            );
+                            setDataSource('dummy');
+                        } else {
+                            setPerfRows([]);
+                            setDataSource('error');
+                            setError(
+                                'Gagal memuat performa unit dari database.'
+                            );
+                        }
                     }
                 )
                 .finally(
@@ -1253,23 +1183,26 @@ function DashboardAllSite() {
             )
             .catch(
                 (err) => {
-                    console.warn(
-                        'Trend KPI API gagal, menggunakan dummy.',
+                    console.error(
+                        'Trend KPI API gagal:',
                         err
                     );
 
-                    setKpiYearRows(
-                        filterDummyRows(
-                            dummyKpiSummary,
-                            {
-                                year,
-                            }
-                        )
-                    );
-
-                    setDataSource(
-                        'dummy'
-                    );
+                    if (ENABLE_DUMMY_FALLBACK) {
+                        setKpiYearRows(
+                            filterDummyRows(
+                                dummyKpiSummary,
+                                { year }
+                            )
+                        );
+                        setDataSource('dummy');
+                    } else {
+                        setKpiYearRows([]);
+                        setDataSource('error');
+                        setError(
+                            'Gagal memuat tren KPI dari database.'
+                        );
+                    }
                 }
             )
             .finally(
@@ -1822,7 +1755,7 @@ function DashboardAllSite() {
                                 label:
                                     'Actual Availability',
                                 color:
-                                    '#7FC7CC',
+                                    '#5f5aa5',
                             },
 
                             {
@@ -1857,7 +1790,7 @@ function DashboardAllSite() {
                             key: 'actual',
                             label:
                                 'Actual Lead Time Supply',
-                            color: '#FDABA5',
+                            color: '#5f5aa5',
                             renderAs:
                                 'bar',
                         },

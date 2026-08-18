@@ -156,6 +156,44 @@ async function importExcel(req, res) {
             });
         }
 
+        /*
+         * Detail LT Supply
+         * Memperbarui leadtime_actual dan leadtime_target pada
+         * tabel monthly_kpi_summary untuk setiap site dan bulan.
+         */
+        const detailLtSheetName = findSheetName(
+            workbook,
+            'Detail LT Supply',
+            'Detail Lead Time Supply',
+            'LT Supply'
+        );
+
+        if (detailLtSheetName) {
+            const rows = sheetToMatrix(
+                workbook,
+                detailLtSheetName
+            );
+
+            const {
+                summary,
+                skippedDetails,
+            } = await importDetailLtSupplySheet(
+                rows,
+                req.body?.period_year
+            );
+
+            result.detail_lt_supply = summary;
+
+            if (Array.isArray(skippedDetails)) {
+                result.skipped.push(...skippedDetails);
+            }
+        } else {
+            result.skipped.push({
+                sheet: 'Detail LT Supply',
+                reason: 'Sheet tidak ditemukan',
+            });
+        }
+
         return success(
             res,
             result,

@@ -1,5 +1,5 @@
 const express = require('express');
-const { success } = require('../utils/response');
+const { success, error } = require('../utils/response');
 const { testConnection } = require('../config/db');
 const siteRoutes = require('./site.routes');
 const unitModelRoutes = require('./unitModel.routes');
@@ -11,12 +11,35 @@ const importRoutes = require('./import.routes');
 
 const router = express.Router();
 
-router.get('/health', async (req, res, next) => {
+router.get('/health', async (req, res) => {
     try {
         await testConnection();
-        success(res, { db: 'connected' }, 'Server is healthy');
+        return success(
+            res,
+            {
+                api: 'up',
+                database: 'connected',
+                uptime_seconds: Math.floor(process.uptime()),
+                timestamp: new Date().toISOString(),
+            },
+            'API dan database dalam kondisi sehat'
+        );
     } catch (err) {
-        next(err);
+        console.error(
+            'Health check database gagal:',
+            err.message
+        );
+
+        return error(
+            res,
+            'API berjalan, tetapi database tidak terhubung',
+            503,
+            {
+                api: 'up',
+                database: 'disconnected',
+                timestamp: new Date().toISOString(),
+            }
+        );
     }
 });
 

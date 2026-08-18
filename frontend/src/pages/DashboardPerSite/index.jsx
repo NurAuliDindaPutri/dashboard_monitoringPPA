@@ -397,6 +397,14 @@ function DashboardPerSite() {
         setUnitId,
     ] = useState('');
 
+    // Bulan tunggal untuk KPI Site.
+    const [
+        kpiMonth,
+        setKpiMonth,
+    ] = useState(
+        DEFAULT_MONTH
+    );
+
     // Rentang bulan: default Januari s.d bulan berjalan (Year-to-Date).
     const [
         startMonth,
@@ -440,8 +448,13 @@ function DashboardPerSite() {
 
     // RESET FILTER
     function handleResetFilter() {
-        setSiteId('');
+        setSiteId(
+            sites.length > 0
+                ? String(sites[0].id)
+                : ''
+        );
         setUnitId('');
+        setKpiMonth(DEFAULT_MONTH);
         setStartMonth(1);
         setEndMonth(DEFAULT_MONTH);
         setYear(DEFAULT_YEAR);
@@ -611,181 +624,133 @@ function DashboardPerSite() {
     // LOAD DASHBOARD DATA
     // =========================================================================
 
-    const fetchData =
+    const fetchKpiData =
         useCallback(() => {
             if (!siteId) {
                 return;
             }
 
-            const monthsInRange =
-                buildMonthRange(
-                    startMonth,
-                    endMonth
-                );
+            setLoadingKpi(true);
 
-            setError(null);
-
-            // KPI — ambil per bulan dalam rentang, lalu digabung.
-            setLoadingKpi(
-                true
-            );
-
-            Promise.all(
-                monthsInRange.map(
-                    (m) =>
-                        getKpiSummary({
-                            site_id:
-                                siteId,
-
-                            period_year:
-                                year,
-
-                            period_month:
-                                m,
-                        })
-                )
-            )
-                .then(
-                    (responses) => {
-                        setKpiRows(
-                            responses.flatMap(
-                                (
-                                    response
-                                ) =>
-                                    extractRows(
-                                        response
-                                    )
-                            )
-                        );
-                    }
-                )
-                .catch(
-                    (err) => {
-                        console.error(
-                            'Gagal memuat KPI:',
-                            err
-                        );
-
-                        setKpiRows(
-                            []
-                        );
-
-                        setError(
-                            'Gagal memuat data KPI'
-                        );
-                    }
-                )
-                .finally(() => {
-                    setLoadingKpi(
-                        false
+            // Satu request range: data Januari sampai bulan KPI terpilih.
+            getKpiSummary({
+                site_id: siteId,
+                period_year: year,
+                start_month: 1,
+                end_month: kpiMonth,
+            })
+                .then((response) => {
+                    setKpiRows(
+                        extractRows(response)
                     );
-                });
-
-            // UNIT PERFORMANCE — sama, ambil per bulan dalam rentang.
-            setLoadingPerf(
-                true
-            );
-
-            Promise.all(
-                monthsInRange.map(
-                    (m) =>
-                        getUnitPerformances({
-                            site_id:
-                                siteId,
-
-                            period_year:
-                                year,
-
-                            period_month:
-                                m,
-                        })
-                )
-            )
-                .then(
-                    (responses) => {
-                        setPerfRows(
-                            responses.flatMap(
-                                (
-                                    response
-                                ) =>
-                                    extractRows(
-                                        response
-                                    )
-                            )
-                        );
-                    }
-                )
-                .catch(
-                    (err) => {
-                        console.error(
-                            'Gagal memuat performa unit:',
-                            err
-                        );
-
-                        setPerfRows(
-                            []
-                        );
-
-                        setError(
-                            'Gagal memuat data performa unit'
-                        );
-                    }
-                )
-                .finally(() => {
-                    setLoadingPerf(
-                        false
+                })
+                .catch((err) => {
+                    console.error(
+                        'Gagal memuat KPI:',
+                        err
                     );
+                    setKpiRows([]);
+                    setError(
+                        'Gagal memuat data KPI'
+                    );
+                })
+                .finally(() => {
+                    setLoadingKpi(false);
                 });
+        }, [siteId, kpiMonth, year]);
 
-            // PENDING SUPPLY — tidak terikat periode, tetap seperti semula.
-            setLoadingSupply(
-                true
-            );
+    const fetchPerformanceData =
+        useCallback(() => {
+            if (!siteId) {
+                return;
+            }
+
+            setLoadingPerf(true);
+
+            // Satu request range untuk seluruh data tren dan tabel performa.
+            getUnitPerformances({
+                site_id: siteId,
+                period_year: year,
+                start_month: startMonth,
+                end_month: endMonth,
+            })
+                .then((response) => {
+                    setPerfRows(
+                        extractRows(response)
+                    );
+                })
+                .catch((err) => {
+                    console.error(
+                        'Gagal memuat performa unit:',
+                        err
+                    );
+                    setPerfRows([]);
+                    setError(
+                        'Gagal memuat data performa unit'
+                    );
+                })
+                .finally(() => {
+                    setLoadingPerf(false);
+                });
+        }, [siteId, startMonth, endMonth, year]);
+
+    const fetchSupplyData =
+        useCallback(() => {
+            if (!siteId) {
+                return;
+            }
+
+            setLoadingSupply(true);
 
             getPendingSupply({
-                site_id:
-                    siteId,
+                site_id: siteId,
             })
-                .then(
-                    (response) => {
-                        setSupplyRows(
-                            extractRows(
-                                response
-                            )
-                        );
-                    }
-                )
-                .catch(
-                    (err) => {
-                        console.error(
-                            'Gagal memuat pending supply:',
-                            err
-                        );
-
-                        setSupplyRows(
-                            []
-                        );
-
-                        setError(
-                            'Gagal memuat data pending supply'
-                        );
-                    }
-                )
-                .finally(() => {
-                    setLoadingSupply(
-                        false
+                .then((response) => {
+                    setSupplyRows(
+                        extractRows(response)
                     );
+                })
+                .catch((err) => {
+                    console.error(
+                        'Gagal memuat pending supply:',
+                        err
+                    );
+                    setSupplyRows([]);
+                    setError(
+                        'Gagal memuat data pending supply'
+                    );
+                })
+                .finally(() => {
+                    setLoadingSupply(false);
                 });
+        }, [siteId]);
+
+    const fetchData =
+        useCallback(() => {
+            setError(null);
+            fetchKpiData();
+            fetchPerformanceData();
+            fetchSupplyData();
         }, [
-            siteId,
-            startMonth,
-            endMonth,
-            year,
+            fetchKpiData,
+            fetchPerformanceData,
+            fetchSupplyData,
         ]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        setError(null);
+        fetchKpiData();
+    }, [fetchKpiData]);
+
+    useEffect(() => {
+        setError(null);
+        fetchPerformanceData();
+    }, [fetchPerformanceData]);
+
+    useEffect(() => {
+        setError(null);
+        fetchSupplyData();
+    }, [fetchSupplyData]);
 
     // =========================================================================
     // SAFE DATA
@@ -847,6 +812,15 @@ function DashboardPerSite() {
             }
             : null;
 
+    const selectedUnitLabel =
+        selectedUnit?.label ||
+        'Semua Unit';
+
+    const selectedPeriodLabel =
+        startMonth === endMonth
+            ? `${monthLongLabel(startMonth)} ${year}`
+            : `${monthLongLabel(startMonth)} – ${monthLongLabel(endMonth)} ${year}`;
+
     // =========================================================================
     // KPI SUMMARY — snapshot bulan akhir + rata-rata sepanjang rentang
     // =========================================================================
@@ -861,7 +835,7 @@ function DashboardPerSite() {
                 Number(
                     row.period_month
                 ) ===
-                Number(endMonth)
+                Number(kpiMonth)
         );
 
     const kpiSummary =
@@ -875,29 +849,111 @@ function DashboardPerSite() {
         );
 
     // =========================================================================
-    // FILTER UNIT GROUP — snapshot bulan akhir (dipakai untuk ringkasan & tabel)
-    // =========================================================================
-
-    const rawPerfRowsSnapshot =
+    const rawPerfRowsInRange =
         rawPerfRows.filter(
-            (row) =>
-                Number(
-                    row.period_year
-                ) ===
-                Number(year) &&
-                Number(
-                    row.period_month
-                ) ===
-                Number(endMonth)
+            (row) => {
+                const rowYear =
+                    Number(row.period_year);
+
+                const rowMonth =
+                    Number(row.period_month);
+
+                return (
+                    rowYear === Number(year) &&
+                    rowMonth >= Number(startMonth) &&
+                    rowMonth <= Number(endMonth)
+                );
+            }
         );
 
-    const safePerfRows =
+    // Tabel menampilkan seluruh data dalam rentang, bukan hanya bulan akhir.
+    const safePerfRangeRows =
         filterRowsByUnitGroup(
-            rawPerfRowsSnapshot,
+            rawPerfRowsInRange,
             selectedSite
                 ?.site_code,
             unitId
-        );
+        ).sort((firstRow, secondRow) => {
+            const monthDifference =
+                Number(firstRow.period_month) -
+                Number(secondRow.period_month);
+
+            if (monthDifference !== 0) {
+                return monthDifference;
+            }
+
+            return String(firstRow.model_name ?? '')
+                .localeCompare(
+                    String(secondRow.model_name ?? ''),
+                    'id'
+                );
+        });
+
+    // Satu baris per kelompok model, untuk membandingkan rata-rata periode.
+    const unitComparisonRows =
+        unitOptions.map((option) => {
+            const rowsForUnit =
+                filterRowsByUnitGroup(
+                    rawPerfRowsInRange,
+                    selectedSite
+                        ?.site_code,
+                    option.id
+                );
+
+            return {
+                id:
+                    `comparison-${option.id}`,
+
+                model_name:
+                    option.label,
+
+                physical_availability:
+                    safeAvg(
+                        rowsForUnit.map(
+                            (row) =>
+                                row.physical_availability
+                        )
+                    ),
+
+                unit_availability:
+                    safeAvg(
+                        rowsForUnit.map(
+                            (row) =>
+                                row.unit_availability
+                        )
+                    ),
+
+                mtbf:
+                    safeAvg(
+                        rowsForUnit.map(
+                            (row) => row.mtbf
+                        )
+                    ),
+
+                mttr:
+                    safeAvg(
+                        rowsForUnit.map(
+                            (row) => row.mttr
+                        )
+                    ),
+
+                productivity:
+                    safeAvg(
+                        rowsForUnit.map(
+                            (row) =>
+                                row.productivity
+                        )
+                    ),
+
+                fuel_consumption:
+                    safeAvg(
+                        rowsForUnit.map(
+                            (row) =>
+                                row.fuel_consumption
+                        )
+                    ),
+            };
+        });
 
     // =========================================================================
     // TOTALS
@@ -905,7 +961,7 @@ function DashboardPerSite() {
 
     const totalUnits =
         countUnits(
-            safePerfRows
+            safePerfRangeRows
         );
 
     const totalPendingSupply =
@@ -925,7 +981,7 @@ function DashboardPerSite() {
     const overallPerf = {
         physical_availability:
             safeAvg(
-                safePerfRows.map(
+                safePerfRangeRows.map(
                     (row) =>
                         row.physical_availability
                 )
@@ -933,7 +989,7 @@ function DashboardPerSite() {
 
         unit_availability:
             safeAvg(
-                safePerfRows.map(
+                safePerfRangeRows.map(
                     (row) =>
                         row.unit_availability
                 )
@@ -941,7 +997,7 @@ function DashboardPerSite() {
 
         mtbf:
             safeAvg(
-                safePerfRows.map(
+                safePerfRangeRows.map(
                     (row) =>
                         row.mtbf
                 )
@@ -949,7 +1005,7 @@ function DashboardPerSite() {
 
         mttr:
             safeAvg(
-                safePerfRows.map(
+                safePerfRangeRows.map(
                     (row) =>
                         row.mttr
                 )
@@ -958,7 +1014,7 @@ function DashboardPerSite() {
 
     const overallProductivity =
         safeAvg(
-            safePerfRows.map(
+            safePerfRangeRows.map(
                 (row) =>
                     row.productivity
             )
@@ -966,7 +1022,7 @@ function DashboardPerSite() {
 
     const overallFuelConsumption =
         safeAvg(
-            safePerfRows.map(
+            safePerfRangeRows.map(
                 (row) =>
                     row.fuel_consumption
             )
@@ -1049,12 +1105,11 @@ function DashboardPerSite() {
     ];
 
     // =========================================================================
-    // TREN PERFORMA MODEL TERPILIH (Dari Bulan – Sampai Bulan)
+    // TREN PERFORMA UNIT (Dari Bulan – Sampai Bulan)
     // ============================================================================
     //
-    // Chart tren cuma berlaku kalau user sudah memilih 1 Model Unit spesifik
-    // (bukan "Semua Unit"), karena tren per bulan cuma masuk akal untuk satu
-    // model — bukan campuran beberapa model sekaligus.
+    // Jika unitId kosong, tampilkan satu series ringkasan semua kelompok unit.
+    // Jika satu model dipilih, tampilkan satu series khusus kelompok tersebut.
 
     const monthsInRange =
         buildMonthRange(
@@ -1063,119 +1118,115 @@ function DashboardPerSite() {
         );
 
     const modelTrendSourceRows =
-        unitId
-            ? filterRowsByUnitGroup(
-                rawPerfRows,
-                selectedSite
-                    ?.site_code,
-                unitId
-            )
-            : [];
+        filterRowsByUnitGroup(
+            rawPerfRows,
+            selectedSite
+                ?.site_code,
+            unitId
+        );
 
     const perfTrendByMonth =
-        unitId
-            ? monthsInRange.map(
-                (m) => {
-                    const rowsForMonth =
-                        modelTrendSourceRows.filter(
-                            (
-                                row
-                            ) =>
-                                Number(
-                                    row.period_year
-                                ) ===
-                                Number(
-                                    year
-                                ) &&
-                                Number(
-                                    row.period_month
-                                ) ===
-                                Number(
-                                    m
-                                )
-                        );
-
-                    return {
-                        month_label:
-                            monthShortLabel(
+        monthsInRange.map(
+            (m) => {
+                const rowsForMonth =
+                    modelTrendSourceRows.filter(
+                        (
+                            row
+                        ) =>
+                            Number(
+                                row.period_year
+                            ) ===
+                            Number(
+                                year
+                            ) &&
+                            Number(
+                                row.period_month
+                            ) ===
+                            Number(
                                 m
-                            ),
+                            )
+                    );
 
-                        physical_availability:
-                            toPct(
-                                safeAvg(
-                                    rowsForMonth.map(
-                                        (
-                                            row
-                                        ) =>
-                                            row.physical_availability
-                                    )
-                                )
-                            ),
+                return {
+                    month_label:
+                        monthShortLabel(
+                            m
+                        ),
 
-                        unit_availability:
-                            toPct(
-                                safeAvg(
-                                    rowsForMonth.map(
-                                        (
-                                            row
-                                        ) =>
-                                            row.unit_availability
-                                    )
+                    physical_availability:
+                        toPct(
+                            safeAvg(
+                                rowsForMonth.map(
+                                    (
+                                        row
+                                    ) =>
+                                        row.physical_availability
                                 )
-                            ),
+                            )
+                        ),
 
-                        mtbf:
-                            roundOrNull(
-                                safeAvg(
-                                    rowsForMonth.map(
-                                        (
-                                            row
-                                        ) =>
-                                            row.mtbf
-                                    )
+                    unit_availability:
+                        toPct(
+                            safeAvg(
+                                rowsForMonth.map(
+                                    (
+                                        row
+                                    ) =>
+                                        row.unit_availability
                                 )
-                            ),
+                            )
+                        ),
 
-                        mttr:
-                            roundOrNull(
-                                safeAvg(
-                                    rowsForMonth.map(
-                                        (
-                                            row
-                                        ) =>
-                                            row.mttr
-                                    )
+                    mtbf:
+                        roundOrNull(
+                            safeAvg(
+                                rowsForMonth.map(
+                                    (
+                                        row
+                                    ) =>
+                                        row.mtbf
                                 )
-                            ),
+                            )
+                        ),
 
-                        productivity:
-                            roundOrNull(
-                                safeAvg(
-                                    rowsForMonth.map(
-                                        (
-                                            row
-                                        ) =>
-                                            row.productivity
-                                    )
+                    mttr:
+                        roundOrNull(
+                            safeAvg(
+                                rowsForMonth.map(
+                                    (
+                                        row
+                                    ) =>
+                                        row.mttr
                                 )
-                            ),
+                            )
+                        ),
 
-                        fuel_consumption:
-                            roundOrNull(
-                                safeAvg(
-                                    rowsForMonth.map(
-                                        (
-                                            row
-                                        ) =>
-                                            row.fuel_consumption
-                                    )
+                    productivity:
+                        roundOrNull(
+                            safeAvg(
+                                rowsForMonth.map(
+                                    (
+                                        row
+                                    ) =>
+                                        row.productivity
                                 )
-                            ),
-                    };
-                }
-            )
-            : [];
+                            )
+                        ),
+
+                    fuel_consumption:
+                        roundOrNull(
+                            safeAvg(
+                                rowsForMonth.map(
+                                    (
+                                        row
+                                    ) =>
+                                        row.fuel_consumption
+                                )
+                            )
+                        ),
+                };
+            }
+        );
 
     // =========================================================================
     // DATA AVAILABILITY
@@ -1213,6 +1264,23 @@ function DashboardPerSite() {
 
             align:
                 'left',
+        },
+
+        {
+            key:
+                'period_month',
+
+            label:
+                'Periode',
+
+            align:
+                'center',
+
+            render:
+                (row) =>
+                    `${monthShortLabel(
+                        row.period_month
+                    )} ${row.period_year || year}`,
         },
 
         {
@@ -1393,6 +1461,65 @@ function DashboardPerSite() {
                         row.fuel_consumption,
                         0
                     ),
+        },
+    ];
+
+    const comparisonColumns = [
+        {
+            key: 'model_name',
+            label: 'Model Unit',
+            align: 'left',
+        },
+        {
+            key: 'physical_availability',
+            label: 'Rata-rata PA (%)',
+            align: 'center',
+            render: (row) =>
+                formatPercent(
+                    row.physical_availability
+                ),
+        },
+        {
+            key: 'unit_availability',
+            label: 'Rata-rata UA (%)',
+            align: 'center',
+            render: (row) =>
+                formatPercent(
+                    row.unit_availability
+                ),
+        },
+        {
+            key: 'mtbf',
+            label: 'MTBF (jam)',
+            align: 'right',
+            render: (row) =>
+                formatNumber(row.mtbf),
+        },
+        {
+            key: 'mttr',
+            label: 'MTTR (jam)',
+            align: 'right',
+            render: (row) =>
+                formatNumber(row.mttr),
+        },
+        {
+            key: 'productivity',
+            label: 'Produktivitas',
+            align: 'right',
+            render: (row) =>
+                formatNumber(
+                    row.productivity
+                ),
+        },
+        {
+            key: 'fuel_consumption',
+            label: 'Fuel (L)',
+            align: 'right',
+            render: (row) =>
+                formatNumber(
+                    row.fuel_consumption,
+                    0
+                ),
         },
     ];
 
@@ -1606,37 +1733,10 @@ function DashboardPerSite() {
                         }}
                     >
                         {selectedSite
-                            ? `${selectedSite.site_name ||
-                            ''
-                            }${selectedUnit
-                                ? `${selectedSite.site_name ? ' — ' : ''}${selectedUnit.label}`
-                                : ''
-                            }`
+                            ? selectedSite.site_name ||
+                            'Monitoring KPI dan performa unit'
                             : 'Pilih site untuk melihat detail performa'}
                     </p>
-
-                    {selectedSite && (
-                        <p
-                            className="text-secondary mb-0"
-                            style={{
-                                fontSize:
-                                    '0.8rem',
-                            }}
-                        >
-                            <i className="bi bi-calendar-range me-1" />
-                            Menampilkan data:{' '}
-                            {monthLongLabel(
-                                startMonth
-                            )}
-                            {startMonth !==
-                                endMonth
-                                ? ` – ${monthLongLabel(
-                                    endMonth
-                                )}`
-                                : ''}{' '}
-                            {year}
-                        </p>
-                    )}
                 </div>
 
                 {isLoading && (
@@ -1688,6 +1788,22 @@ function DashboardPerSite() {
                 FILTER
             ================================================================= */}
 
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                <h6
+                    className="fw-semibold mb-0"
+                    style={{
+                        color:
+                            'var(--text-primary)',
+                    }}
+                >
+                    Filter KPI Site
+                </h6>
+
+                <small className="text-secondary">
+                    Site, tahun, dan satu bulan KPI
+                </small>
+            </div>
+
             <FilterBar
                 sites={
                     loadingSites
@@ -1697,42 +1813,24 @@ function DashboardPerSite() {
                 siteId={
                     siteId
                 }
-                units={
-                    loadingUnits
-                        ? []
-                        : unitOptions
-                }
-                unitId={
-                    unitId
-                }
+                month={kpiMonth}
                 year={
                     year
-                }
-                startMonth={
-                    startMonth
-                }
-                endMonth={
-                    endMonth
                 }
                 onSiteChange={
                     setSiteId
                 }
-                onUnitChange={
-                    setUnitId
+                onMonthChange={
+                    setKpiMonth
                 }
                 onYearChange={
                     setYear
                 }
-                onStartMonthChange={
-                    handleStartMonthChange
-                }
-                onEndMonthChange={
-                    handleEndMonthChange
-                }
                 showSiteFilter
-                showUnitFilter
-                showMonthFilter={false}
-                showMonthRangeFilter
+                showUnitFilter={false}
+                showMonthFilter
+                showMonthRangeFilter={false}
+                allowAllSites={false}
             />
 
             <div className="d-flex justify-content-end mb-3">
@@ -1767,104 +1865,24 @@ function DashboardPerSite() {
             {siteId && (
                 <>
                     {/* ========================================================
-                        BIG PERFORMANCE SUMMARY
-                    ======================================================== */}
-
-                    <div className="row g-3 mb-3">
-                        <div className="col-12">
-                            <BigStatCard
-                                title={`Ringkasan Performa Unit${selectedUnit
-                                    ? ` — ${selectedUnit.label}`
-                                    : ''
-                                    }`}
-                                items={
-                                    perfSummaryItems
-                                }
-                                loading={
-                                    loadingPerf
-                                }
-                            />
-                        </div>
-                    </div>
-
-                    {/* ========================================================
-                        EXTRA KPI
-                    ======================================================== */}
-
-                    <div className="row g-3 mb-3">
-                        <div className="col-6 col-lg-3">
-                            <KpiCard
-                                icon="bi-speedometer2"
-                                label="Productivity"
-                                value={
-                                    loadingPerf
-                                        ? null
-                                        : formatNumber(
-                                            overallProductivity
-                                        )
-                                }
-                                loading={
-                                    loadingPerf
-                                }
-                                variant="secondary"
-                            />
-                        </div>
-
-                        <div className="col-6 col-lg-3">
-                            <KpiCard
-                                icon="bi-fuel-pump"
-                                label="Fuel Consumption"
-                                value={
-                                    loadingPerf
-                                        ? null
-                                        : formatNumber(
-                                            overallFuelConsumption,
-                                            0
-                                        )
-                                }
-                                suffix="L"
-                                loading={
-                                    loadingPerf
-                                }
-                                variant="primary"
-                            />
-                        </div>
-
-                        <div className="col-6 col-lg-3">
-                            <KpiCard
-                                icon="bi-truck"
-                                label="Total Unit"
-                                value={
-                                    loadingPerf
-                                        ? null
-                                        : totalUnits
-                                }
-                                loading={
-                                    loadingPerf
-                                }
-                                variant="success"
-                            />
-                        </div>
-
-                        <div className="col-6 col-lg-3">
-                            <KpiCard
-                                icon="bi-hourglass-split"
-                                label="Pending Supply"
-                                value={
-                                    loadingSupply
-                                        ? null
-                                        : totalPendingSupply
-                                }
-                                suffix="item"
-                                loading={loadingSupply}
-                                variant="warning"
-                            />
-                        </div>
-                    </div>
-
-                    {/* ========================================================
                         KPI SPEEDOMETER
                     ======================================================== */}
+
+                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                        <h6
+                            className="fw-semibold mb-0"
+                            style={{
+                                color:
+                                    'var(--text-primary)',
+                            }}
+                        >
+                            KPI Site
+                        </h6>
+
+                        <small className="text-secondary">
+                            {monthLongLabel(kpiMonth)} {year}
+                        </small>
+                    </div>
 
                     <div className="row g-3 mb-3">
                         <div className="col-12 col-lg-4">
@@ -1927,7 +1945,7 @@ function DashboardPerSite() {
                                 }}
                             >
                                 Ringkasan KPI —
-                                Periode ini
+                                {` ${monthLongLabel(kpiMonth)} ${year}`}
                             </div>
 
                             <div className="row g-2">
@@ -2019,25 +2037,24 @@ function DashboardPerSite() {
                                                         )}
                                                     </small>
 
-                                                    {startMonth !==
-                                                        endMonth && (
-                                                            <div>
-                                                                <small className="text-muted">
-                                                                    Rata-rata{' '}
-                                                                    {monthShortLabel(
-                                                                        startMonth
-                                                                    )}
-                                                                    –
-                                                                    {monthShortLabel(
-                                                                        endMonth
-                                                                    )}
-                                                                    :{' '}
-                                                                    {formatPercent(
-                                                                        item.rangeAvg
-                                                                    )}
-                                                                </small>
-                                                            </div>
-                                                        )}
+                                                    {kpiMonth > 1 && (
+                                                        <div>
+                                                            <small className="text-muted">
+                                                                Rata-rata{' '}
+                                                                {monthShortLabel(
+                                                                    1
+                                                                )}
+                                                                –
+                                                                {monthShortLabel(
+                                                                    kpiMonth
+                                                                )}
+                                                                :{' '}
+                                                                {formatPercent(
+                                                                    item.rangeAvg
+                                                                )}
+                                                            </small>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -2048,164 +2065,310 @@ function DashboardPerSite() {
                     )}
 
                     {/* ========================================================
-                        PERFORMANCE CHARTS
+                        FILTER KHUSUS PERFORMA UNIT
                     ======================================================== */}
 
-                    <div className="app-card p-3 mb-3">
-                        <div
-                            className="fw-semibold mb-3"
+                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                        <h6
+                            className="fw-semibold mb-0"
                             style={{
                                 color:
                                     'var(--text-primary)',
                             }}
                         >
-                            Tren Performa Unit
-                            {selectedUnit
-                                ? ` — ${selectedUnit.label}`
-                                : ''}
+                            Performa Unit
+                        </h6>
+
+                        <small className="text-secondary">
+                            Filter berikut hanya mengubah data performa unit
+                        </small>
+                    </div>
+
+                    <FilterBar
+                        siteId={siteId}
+                        units={
+                            loadingUnits
+                                ? []
+                                : unitOptions
+                        }
+                        unitId={unitId}
+                        year={year}
+                        startMonth={startMonth}
+                        endMonth={endMonth}
+                        onUnitChange={setUnitId}
+                        onStartMonthChange={handleStartMonthChange}
+                        onEndMonthChange={handleEndMonthChange}
+                        showSiteFilter={false}
+                        showUnitFilter
+                        showMonthFilter={false}
+                        showMonthRangeFilter
+                        showYearFilter={false}
+                        allowAllUnits
+                    />
+
+                    {/* ========================================================
+                        BIG PERFORMANCE SUMMARY
+                    ======================================================== */}
+
+                    <div className="row g-3 mb-3">
+                        <div className="col-12">
+                            <BigStatCard
+                                title={`Rata-rata Performa Unit — ${selectedUnitLabel} — ${selectedPeriodLabel}`}
+                                items={
+                                    perfSummaryItems
+                                }
+                                loading={
+                                    loadingPerf
+                                }
+                            />
+                        </div>
+                    </div>
+
+                    {/* ========================================================
+                        EXTRA KPI
+                    ======================================================== */}
+
+                    <div className="row g-3 mb-3">
+                        <div className="col-6 col-lg-3">
+                            <KpiCard
+                                icon="bi-speedometer2"
+                                label="Productivity"
+                                value={
+                                    loadingPerf
+                                        ? null
+                                        : formatNumber(
+                                            overallProductivity
+                                        )
+                                }
+                                loading={
+                                    loadingPerf
+                                }
+                                variant="secondary"
+                            />
                         </div>
 
-                        {!unitId ? (
-                            <div className="d-flex flex-column align-items-center justify-content-center text-center py-5">
-                                <i className="bi bi-cursor fs-2 text-muted mb-2" />
+                        <div className="col-6 col-lg-3">
+                            <KpiCard
+                                icon="bi-fuel-pump"
+                                label="Fuel Consumption"
+                                value={
+                                    loadingPerf
+                                        ? null
+                                        : formatNumber(
+                                            overallFuelConsumption,
+                                            0
+                                        )
+                                }
+                                suffix="L"
+                                loading={
+                                    loadingPerf
+                                }
+                                variant="primary"
+                            />
+                        </div>
 
-                                <span className="fw-semibold text-secondary small">
-                                    Pilih Model
-                                    Unit
+                        <div className="col-6 col-lg-3">
+                            <KpiCard
+                                icon="bi-truck"
+                                label="Total Unit"
+                                value={
+                                    loadingPerf
+                                        ? null
+                                        : totalUnits
+                                }
+                                loading={
+                                    loadingPerf
+                                }
+                                variant="success"
+                            />
+                        </div>
+
+                        <div className="col-6 col-lg-3">
+                            <KpiCard
+                                icon="bi-hourglass-split"
+                                label="Pending Supply"
+                                value={
+                                    loadingSupply
+                                        ? null
+                                        : totalPendingSupply
+                                }
+                                suffix="item"
+                                loading={loadingSupply}
+                                variant="warning"
+                            />
+                        </div>
+                    </div>
+
+                    {/* ========================================================
+                        PERFORMANCE CHARTS
+                    ======================================================== */}
+
+                    <div className="app-card p-3 mb-3">
+                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                            <div
+                                className="fw-semibold"
+                                style={{
+                                    color:
+                                        'var(--text-primary)',
+                                }}
+                            >
+                                Tren Performa Unit
+                            </div>
+
+                            <div className="d-flex align-items-center flex-wrap gap-2">
+                                <span
+                                    className="badge rounded-pill"
+                                    style={{
+                                        backgroundColor:
+                                            'var(--navy-800)',
+                                        color:
+                                            'var(--text-primary)',
+                                        border:
+                                            '1px solid var(--border-color)',
+                                    }}
+                                >
+                                    <i className="bi bi-truck me-1" />
+                                    Model: {selectedUnitLabel}
                                 </span>
 
-                                <small className="text-muted">
-                                    Pilih Model
-                                    Unit di filter
-                                    atas untuk
-                                    menampilkan
-                                    grafik tren
-                                    per bulan
-                                </small>
+                                <span
+                                    className="badge rounded-pill"
+                                    style={{
+                                        backgroundColor:
+                                            'var(--navy-800)',
+                                        color:
+                                            'var(--text-primary)',
+                                        border:
+                                            '1px solid var(--border-color)',
+                                    }}
+                                >
+                                    <i className="bi bi-calendar-range me-1" />
+                                    Periode: {selectedPeriodLabel}
+                                </span>
                             </div>
-                        ) : (
-                            <div className="row g-3">
-                                {/* PA */}
-                                <div className="col-12 col-lg-6 col-xl-3">
-                                    <ChartCard
-                                        title={`Physical Availability (%) — ${selectedUnit.label}`}
-                                        type="line"
-                                        data={
-                                            perfTrendByMonth
-                                        }
-                                        xKey="month_label"
-                                        series={[
-                                            {
-                                                key:
-                                                    'physical_availability',
+                        </div>
 
-                                                label:
-                                                    'PA (%)',
+                        <div className="row g-3">
+                            {/* PA */}
+                            <div className="col-12 col-lg-6 col-xl-3">
+                                <ChartCard
+                                    title={`Physical Availability (%) — ${selectedUnitLabel}`}
+                                    type="line"
+                                    data={
+                                        perfTrendByMonth
+                                    }
+                                    xKey="month_label"
+                                    series={[
+                                        {
+                                            key:
+                                                'physical_availability',
 
-                                                color:
-                                                    '#0A3991',
-                                            },
-                                        ]}
-                                        loading={
-                                            loadingPerf
-                                        }
-                                        height={
-                                            250
-                                        }
-                                    />
-                                </div>
+                                            label:
+                                                'PA (%)',
 
-                                {/* UA */}
-                                <div className="col-12 col-lg-6 col-xl-3">
-                                    <ChartCard
-                                        title={`Unit Availability (%) — ${selectedUnit.label}`}
-                                        type="line"
-                                        data={
-                                            perfTrendByMonth
-                                        }
-                                        xKey="month_label"
-                                        series={[
-                                            {
-                                                key:
-                                                    'unit_availability',
-
-                                                label:
-                                                    'UA (%)',
-
-                                                color:
-                                                    '#9CC6ED',
-                                            },
-                                        ]}
-                                        loading={
-                                            loadingPerf
-                                        }
-                                        height={
-                                            250
-                                        }
-                                    />
-                                </div>
-
-                                {/* MTBF */}
-                                <div className="col-12 col-lg-6 col-xl-3">
-                                    <ChartCard
-                                        title={`MTBF (jam) — ${selectedUnit.label}`}
-                                        type="line"
-                                        data={
-                                            perfTrendByMonth
-                                        }
-                                        xKey="month_label"
-                                        series={[
-                                            {
-                                                key:
-                                                    'mtbf',
-
-                                                label:
-                                                    'MTBF',
-
-                                                color:
-                                                    '#6A0B23',
-                                            },
-                                        ]}
-                                        loading={
-                                            loadingPerf
-                                        }
-                                        height={
-                                            250
-                                        }
-                                    />
-                                </div>
-
-                                {/* MTTR */}
-                                <div className="col-12 col-lg-6 col-xl-3">
-                                    <ChartCard
-                                        title={`MTTR (jam) — ${selectedUnit.label}`}
-                                        type="line"
-                                        data={
-                                            perfTrendByMonth
-                                        }
-                                        xKey="month_label"
-                                        series={[
-                                            {
-                                                key:
-                                                    'mttr',
-
-                                                label:
-                                                    'MTTR',
-
-                                                color:
-                                                    '#F2AFBC',
-                                            },
-                                        ]}
-                                        loading={
-                                            loadingPerf
-                                        }
-                                        height={
-                                            250
-                                        }
-                                    />
-                                </div>
+                                            color:
+                                                '#0A3991',
+                                        },
+                                    ]}
+                                    loading={
+                                        loadingPerf
+                                    }
+                                    height={
+                                        250
+                                    }
+                                />
                             </div>
-                        )}
+
+                            {/* UA */}
+                            <div className="col-12 col-lg-6 col-xl-3">
+                                <ChartCard
+                                    title={`Unit Availability (%) — ${selectedUnitLabel}`}
+                                    type="line"
+                                    data={
+                                        perfTrendByMonth
+                                    }
+                                    xKey="month_label"
+                                    series={[
+                                        {
+                                            key:
+                                                'unit_availability',
+
+                                            label:
+                                                'UA (%)',
+
+                                            color:
+                                                '#9CC6ED',
+                                        },
+                                    ]}
+                                    loading={
+                                        loadingPerf
+                                    }
+                                    height={
+                                        250
+                                    }
+                                />
+                            </div>
+
+                            {/* MTBF */}
+                            <div className="col-12 col-lg-6 col-xl-3">
+                                <ChartCard
+                                    title={`MTBF (jam) — ${selectedUnitLabel}`}
+                                    type="line"
+                                    data={
+                                        perfTrendByMonth
+                                    }
+                                    xKey="month_label"
+                                    series={[
+                                        {
+                                            key:
+                                                'mtbf',
+
+                                            label:
+                                                'MTBF',
+
+                                            color:
+                                                '#6A0B23',
+                                        },
+                                    ]}
+                                    loading={
+                                        loadingPerf
+                                    }
+                                    height={
+                                        250
+                                    }
+                                />
+                            </div>
+
+                            {/* MTTR */}
+                            <div className="col-12 col-lg-6 col-xl-3">
+                                <ChartCard
+                                    title={`MTTR (jam) — ${selectedUnitLabel}`}
+                                    type="line"
+                                    data={
+                                        perfTrendByMonth
+                                    }
+                                    xKey="month_label"
+                                    series={[
+                                        {
+                                            key:
+                                                'mttr',
+
+                                            label:
+                                                'MTTR',
+
+                                            color:
+                                                '#F2AFBC',
+                                        },
+                                    ]}
+                                    loading={
+                                        loadingPerf
+                                    }
+                                    height={
+                                        250
+                                    }
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     {/* ========================================================
@@ -2213,26 +2376,28 @@ function DashboardPerSite() {
                     ======================================================== */}
 
                     <div className="mb-3">
-                        <h6
-                            className="fw-semibold mb-2"
-                            style={{
-                                color:
-                                    'var(--text-primary)',
-                            }}
-                        >
-                            Productivity & Fuel
-                            Consumption
-                            {selectedUnit
-                                ? ` — ${selectedUnit.label}`
-                                : ' per Model'}
-                        </h6>
+                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                            <h6
+                                className="fw-semibold mb-0"
+                                style={{
+                                    color:
+                                        'var(--text-primary)',
+                                }}
+                            >
+                                Productivity & Fuel Consumption
+                            </h6>
+
+                            <small className="text-secondary">
+                                {selectedUnitLabel} • {selectedPeriodLabel}
+                            </small>
+                        </div>
 
                         <div className="row g-3">
                             {/* PRODUCTIVITY */}
                             <div className="col-12 col-lg-6">
                                 {hasProductivity ? (
                                     <ChartCard
-                                        title={`Productivity — ${selectedUnit?.label || ''}`}
+                                        title={`Productivity — ${selectedUnitLabel}`}
                                         type="line"
                                         data={
                                             perfTrendByMonth
@@ -2267,9 +2432,7 @@ function DashboardPerSite() {
                                             }}
                                         >
                                             Productivity
-                                            {selectedUnit
-                                                ? ` — ${selectedUnit.label}`
-                                                : ' per Model'}
+                                            {` — ${selectedUnitLabel}`}
                                         </div>
 
                                         <div className="d-flex flex-column align-items-center justify-content-center text-center py-5">
@@ -2281,9 +2444,7 @@ function DashboardPerSite() {
                                             </span>
 
                                             <small className="text-muted">
-                                                {unitId
-                                                    ? 'Productivity bernilai NULL pada periode terpilih'
-                                                    : 'Pilih Model Unit di filter atas untuk menampilkan grafik'}
+                                                Productivity bernilai NULL pada periode terpilih
                                             </small>
                                         </div>
                                     </div>
@@ -2294,7 +2455,7 @@ function DashboardPerSite() {
                             <div className="col-12 col-lg-6">
                                 {hasFuelConsumption ? (
                                     <ChartCard
-                                        title={`Fuel Consumption — ${selectedUnit?.label || ''}`}
+                                        title={`Fuel Consumption — ${selectedUnitLabel}`}
                                         type="line"
                                         data={
                                             perfTrendByMonth
@@ -2329,9 +2490,7 @@ function DashboardPerSite() {
                                             }}
                                         >
                                             Fuel Consumption
-                                            {selectedUnit
-                                                ? ` — ${selectedUnit.label}`
-                                                : ' per Model'}
+                                            {` — ${selectedUnitLabel}`}
                                         </div>
 
                                         <div className="d-flex flex-column align-items-center justify-content-center text-center py-5">
@@ -2343,9 +2502,7 @@ function DashboardPerSite() {
                                             </span>
 
                                             <small className="text-muted">
-                                                {unitId
-                                                    ? 'Fuel Consumption bernilai NULL pada periode terpilih'
-                                                    : 'Pilih Model Unit di filter atas untuk menampilkan grafik'}
+                                                Fuel Consumption bernilai NULL pada periode terpilih
                                             </small>
                                         </div>
                                     </div>
@@ -2355,23 +2512,43 @@ function DashboardPerSite() {
                     </div>
 
                     {/* ========================================================
+                        UNIT MODEL COMPARISON — hanya saat Semua Unit
+                    ======================================================== */}
+
+                    {!unitId && (
+                        <div className="mb-3">
+                            <DataTable
+                                title={`Perbandingan Model Unit — Rata-rata ${selectedPeriodLabel}`}
+                                columns={comparisonColumns}
+                                data={unitComparisonRows}
+                                loading={loadingPerf}
+                                emptyMessage="Tidak ada data model unit untuk dibandingkan"
+                                rowKey="id"
+                            />
+                        </div>
+                    )}
+
+                    {/* ========================================================
                         PERFORMANCE TABLE
                     ======================================================== */}
 
                     <div className="mb-3">
                         <DataTable
-                            title={`Performa Unit — ${totalUnits} unit`}
+                            title={`Performa Unit — ${selectedUnitLabel} — ${selectedPeriodLabel} — ${safePerfRangeRows.length} data`}
                             columns={
                                 perfColumns
                             }
                             data={
-                                safePerfRows
+                                safePerfRangeRows
                             }
                             loading={
                                 loadingPerf
                             }
                             emptyMessage="Tidak ada data performa unit untuk periode yang dipilih"
                             rowKey="id"
+                            pagination
+                            pageSize={10}
+                            paginationKey={`${siteId}-${unitId}-${year}-${startMonth}-${endMonth}`}
                         />
                     </div>
 

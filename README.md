@@ -1,8 +1,8 @@
-# Monitoring Performance PPA
+# Monitoring Performance PPA / PPA NEXUS
 
-Aplikasi web untuk memonitor performa PPA pada seluruh site maupun per site.
+Aplikasi web untuk memonitor performa PPA pada seluruh site maupun per site. Data ditampilkan dalam bentuk dashboard, grafik, ringkasan KPI, dan tabel. Pengguna juga dapat menambahkan, memperbarui, menghapus, serta mengimpor data monitoring dari file Excel.
 
-Aplikasi menampilkan data monitoring dalam bentuk dashboard, grafik, dan tabel. Pengguna juga dapat menambahkan, memperbarui, serta mengimpor data monitoring dari file Excel.
+> Aplikasi saat ini tidak menggunakan login atau autentikasi.
 
 ---
 
@@ -13,25 +13,23 @@ Aplikasi menampilkan data monitoring dalam bentuk dashboard, grafik, dan tabel. 
 - Monitoring Readiness
 - Monitoring Availability VHS
 - Monitoring Lead Time Supply
-- Monitoring Physical Availability
-- Monitoring Unit Availability
+- Monitoring Physical Availability (PA)
+- Monitoring Unit Availability (UA)
 - Monitoring MTBF
 - Monitoring MTTR
 - Monitoring Productivity
 - Monitoring Fuel Consumption
 - Data Unit
 - Pending Supply
-- Critical Items
 - Detail Lead Time Supply
 - Input dan edit data
 - Import data dari file Excel
-- Filter berdasarkan site, bulan, dan tahun
+- Filter berdasarkan site, model unit, bulan, rentang bulan, dan tahun
 - Grafik perbandingan KPI antar-site
 - Grafik tren performa bulanan
 - Tabel pencapaian KPI terhadap target
+- Dark mode dan light mode
 - REST API frontend dan backend
-
-Aplikasi tidak menggunakan login atau autentikasi.
 
 ---
 
@@ -41,8 +39,7 @@ Aplikasi tidak menggunakan login atau autentikasi.
 
 - React.js
 - Vite
-- JavaScript
-- JSX
+- JavaScript dan JSX
 - Bootstrap 5
 - Bootstrap Icons
 - Axios
@@ -71,73 +68,57 @@ Aplikasi tidak menggunakan login atau autentikasi.
 
 ---
 
-## Bahasa Pemrograman
-
-- JavaScript
-- JSX
-- SQL
-- HTML
-- CSS
-
----
-
 ## Struktur Project
 
 ```text
 dashboard_monitoringPPA/
-│
 ├── backend/
 │   ├── src/
 │   │   ├── config/
 │   │   ├── controllers/
+│   │   ├── middlewares/
 │   │   ├── models/
 │   │   ├── routes/
 │   │   ├── services/
 │   │   │   └── import/
-│   │   └── utils/
-│   │
-│   ├── uploads/
-│   ├── .env
+│   │   ├── utils/
+│   │   ├── app.js
+│   │   └── server.js
 │   ├── .env.example
-│   ├── app.js
-│   ├── server.js
 │   └── package.json
-│
 ├── frontend/
 │   ├── public/
+│   │   └── templates/
 │   ├── src/
 │   │   ├── api/
-│   │   ├── assets/
 │   │   ├── components/
+│   │   ├── data/
 │   │   ├── pages/
-│   │   ├── services/
+│   │   ├── routes/
 │   │   ├── styles/
+│   │   ├── utils/
 │   │   ├── App.jsx
 │   │   └── main.jsx
-│   │
+│   ├── .env.example
 │   ├── index.html
 │   ├── vite.config.js
 │   └── package.json
-│
-├── ppa_monitoring.sql
 ├── .gitignore
 └── README.md
 ```
 
-Struktur folder dapat berubah sesuai perkembangan project.
+Repository saat ini belum menyertakan file SQL atau migration database. Struktur database perlu disiapkan terlebih dahulu sebelum backend dijalankan.
 
 ---
 
 ## Persyaratan Sistem
 
-Sebelum menjalankan aplikasi, pastikan perangkat sudah memiliki:
+Pastikan perangkat sudah memiliki:
 
 - Node.js
 - NPM
 - Git
-- Laragon
-- MySQL
-- phpMyAdmin
+- MySQL atau Laragon
 - Browser
 
 Cek versi Node.js dan NPM:
@@ -154,80 +135,18 @@ npm -v
 Clone repository:
 
 ```bash
-git clone <URL_REPOSITORY>
-```
-
-Masuk ke folder project:
-
-```bash
+git clone https://github.com/NurAuliDindaPutri/dashboard_monitoringPPA.git
 cd dashboard_monitoringPPA
 ```
 
----
-
-## Konfigurasi Database
-
-### 1. Jalankan Laragon
-
-Buka Laragon, kemudian klik:
-
-```text
-Start All
-```
-
-Pastikan MySQL sudah berjalan.
-
-### 2. Buka phpMyAdmin
-
-Buka alamat berikut melalui browser:
-
-```text
-http://localhost/phpmyadmin
-```
-
-### 3. Buat Database
-
-Buat database dengan nama:
-
-```sql
-CREATE DATABASE ppa_monitoring;
-```
-
-Setelah database dibuat, import file:
-
-```text
-ppa_monitoring.sql
-```
-
-Database digunakan untuk menyimpan:
-
-- Site
-- Model unit
-- KPI bulanan
-- Performa unit bulanan
-- Pending supply
-- Critical items
-- Detail lead time supply
-
----
-
-## Konfigurasi Backend
-
-Masuk ke folder backend:
+### Instalasi backend
 
 ```bash
 cd backend
-```
-
-Install dependency:
-
-```bash
 npm install
 ```
 
-Buat file `.env` di dalam folder `backend`.
-
-Contoh isi file `.env`:
+Buat file `backend/.env` berdasarkan `backend/.env.example`:
 
 ```env
 PORT=5000
@@ -236,19 +155,7 @@ DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=
-DB_NAME=ppa_monitoring
-```
-
-File `.env` tidak disimpan ke repository.
-
----
-
-## Menjalankan Backend
-
-Pastikan terminal berada di folder backend:
-
-```bash
-cd backend
+DB_NAME=ppa_monitoring 
 ```
 
 Jalankan backend:
@@ -257,26 +164,25 @@ Jalankan backend:
 npm run dev
 ```
 
-Backend berjalan di:
+Backend berjalan secara default di:
 
 ```text
 http://localhost:5000
 ```
 
----
+### Instalasi frontend
 
-## Menjalankan Frontend
-
-Buka terminal baru, kemudian masuk ke folder frontend:
+Buka terminal baru:
 
 ```bash
 cd frontend
+npm install
 ```
 
-Install dependency:
+Buat file `frontend/.env` berdasarkan `frontend/.env.example`:
 
-```bash
-npm install
+```env
+VITE_API_BASE_URL=http://localhost:5000/api
 ```
 
 Jalankan frontend:
@@ -285,35 +191,7 @@ Jalankan frontend:
 npm run dev
 ```
 
-Frontend berjalan di:
-
-```text
-http://localhost:5173
-```
-
----
-
-## Menjalankan Aplikasi
-
-Gunakan dua terminal berbeda.
-
-### Terminal Backend
-
-```bash
-cd backend
-npm run dev
-```
-
-### Terminal Frontend
-
-```bash
-cd frontend
-npm run dev
-```
-
-Pastikan MySQL di Laragon sudah aktif.
-
-Setelah backend dan frontend berjalan, buka:
+Frontend berjalan secara default di:
 
 ```text
 http://localhost:5173
@@ -325,65 +203,73 @@ http://localhost:5173
 
 ### Dashboard All Site
 
-Menampilkan ringkasan performa seluruh site berdasarkan bulan dan tahun yang dipilih.
-
-Data yang ditampilkan:
+Menampilkan ringkasan seluruh site berdasarkan satu bulan dan satu tahun yang dipilih, meliputi:
 
 - Readiness
 - Availability VHS
 - Lead Time Supply
-- Nilai actual dan target
+- Nilai aktual dan target
 - Perbandingan KPI antar-site
-- Tren performa bulanan
-- Status pencapaian target
+- Tren KPI bulanan
+- Perbandingan performa berdasarkan kategori model unit
 
-Data kosong tidak dihitung sebagai nilai `0`.
+Nilai kosong tidak dihitung sebagai `0`.
 
 ### Dashboard Per Site
 
-Menampilkan detail performa berdasarkan site yang dipilih.
+Menampilkan performa berdasarkan:
 
-Data yang ditampilkan:
+- Site
+- Kategori Model Unit
+- Tahun
+- Dari Bulan
+- Sampai Bulan
 
-- Readiness
-- Availability VHS
-- Lead Time Supply
+Kategori model unit yang digunakan pada dashboard:
+
+- `PC2000-8`, `PC2000-11R`, dan varian PC2000 lainnya ditampilkan sebagai `PC2000`.
+- `PC1250-8R`, `PC1250SP-11R`, dan varian PC1250 lainnya ditampilkan sebagai `PC1250`.
+- Varian HD785 ditampilkan sebagai `HD785`.
+- PC3400 hanya ditampilkan untuk site BIB.
+
+Data asli tetap disimpan berdasarkan model unit lengkap. Pengelompokan hanya digunakan untuk filter dan agregasi pada dashboard.
+
+Chart performa menampilkan:
+
 - Physical Availability
 - Unit Availability
 - MTBF
 - MTTR
 - Productivity
 - Fuel Consumption
-- Model unit pada site
+
+Bulan tanpa data tetap ditampilkan pada sumbu X dan nilainya menjadi `null` atau gap, bukan `0`.
 
 ### Input Data
 
-Digunakan untuk menambahkan dan memperbarui data monitoring secara langsung melalui aplikasi.
+Digunakan untuk menambah, mengubah, dan menghapus data KPI, performa unit, dan Pending Supply. Pada input performa unit, pengguna tetap memilih nama model asli seperti `PC2000-8` atau `PC2000-11R`.
 
 ### Data Unit
 
-Menampilkan performa unit berdasarkan:
-
-- Site
-- Model unit
-- Bulan
-- Tahun
+Menampilkan data performa unit berdasarkan site, model unit, bulan, dan tahun.
 
 ### Pending Supply
 
-Menampilkan daftar kebutuhan supply yang masih dalam proses.
-
-### Critical Items
-
-Menampilkan daftar item atau spare part dengan tingkat prioritas tinggi.
+Menampilkan kebutuhan supply yang masih dalam proses, termasuk parts number, jumlah, nomor PO, ETA, dan keterangan. Pending Supply juga digunakan sebagai sumber notifikasi item operasional.
 
 ### Detail Lead Time Supply
 
-Menampilkan detail data Lead Time Supply berdasarkan site dan periode.
+Menampilkan detail Lead Time Supply berdasarkan data KPI bulanan pada site dan periode yang dipilih.
 
 ### Import Excel
 
-Digunakan untuk mengimpor data monitoring dari file Excel ke database.
+Mengimpor data dari template Excel ke database. Sheet yang diproses oleh endpoint import saat ini:
+
+- KPI Summary
+- Unit Performance
+- Pending Supply
+
+Integrasi sheet Detail LT Supply masih perlu diselesaikan pada controller import sebelum dinyatakan aktif.
 
 ---
 
@@ -396,35 +282,23 @@ Format file yang didukung:
 .xls
 ```
 
-Pada proses import, pengguna memilih:
-
-- File Excel
-- Bulan data
-- Tahun data
-
-Alur proses import:
+Alur import:
 
 ```text
 Pilih file Excel
         ↓
-Pilih bulan dan tahun
-        ↓
 Klik tombol Import
         ↓
-Sistem membaca workbook
-        ↓
-Sistem membaca sheet yang dikenali
+Sistem membaca workbook dan sheet yang dikenali
         ↓
 Data divalidasi
         ↓
 Site dan model unit dicocokkan
         ↓
-Data disimpan atau diperbarui
+Data baru ditambahkan dan data lama diperbarui
         ↓
-Dashboard menampilkan data terbaru
+Ringkasan hasil import ditampilkan
 ```
-
-Data dengan kombinasi site dan periode yang sama akan diperbarui sehingga tidak menghasilkan duplikasi.
 
 Nilai persentase disimpan dalam bentuk desimal:
 
@@ -434,13 +308,35 @@ Nilai persentase disimpan dalam bentuk desimal:
 98% = 0.9800
 ```
 
-Nilai yang kosong akan disimpan sebagai `null`, bukan `0`.
+Nilai kosong disimpan sebagai `null`, bukan `0`.
+
+---
+
+## Business Rule
+
+### Normalisasi site
+
+```text
+WARA + ADRW                  → WARA
+PTBA + BA                    → BA
+AMC + AMC-LAC + AMC-MAC + LAC → AMC
+```
+
+### Kategori model unit
+
+```text
+Semua varian PC2000   → PC2000
+Semua varian PC1250   → PC1250
+PC1250SP              → PC1250
+Semua varian HD785    → HD785
+Semua varian PC3400   → PC3400, khusus BIB
+```
 
 ---
 
 ## Struktur Database
 
-Tabel utama yang digunakan:
+Tabel utama yang digunakan oleh backend aktif:
 
 ```text
 sites
@@ -448,18 +344,14 @@ unit_models
 monthly_kpi_summary
 monthly_unit_performance
 pending_supply
-critical_items
-detail_lt_supply
 ```
 
-Relasi utama database:
+Relasi utama:
 
 ```text
 sites
 ├── monthly_kpi_summary
 ├── pending_supply
-├── critical_items
-├── detail_lt_supply
 └── unit_models
     └── monthly_unit_performance
 ```
@@ -471,54 +363,66 @@ Dashboard tidak memiliki tabel tersendiri. Data dashboard diperoleh dari query d
 ## Endpoint API Utama
 
 ```text
+GET    /api/health
+
 GET    /api/sites
-GET    /api/unit-models
-GET    /api/monthly-kpi-summary
-GET    /api/monthly-unit-performance
-GET    /api/pending-supply
-GET    /api/critical-items
-GET    /api/detail-lt-supply
-
 POST   /api/sites
-POST   /api/unit-models
-POST   /api/monthly-kpi-summary
-POST   /api/monthly-unit-performance
-POST   /api/pending-supply
-POST   /api/critical-items
-POST   /api/import/excel
-
 PUT    /api/sites/:id
-PUT    /api/unit-models/:id
-PUT    /api/monthly-kpi-summary/:id
-PUT    /api/monthly-unit-performance/:id
-PUT    /api/pending-supply/:id
-PUT    /api/critical-items/:id
-
 DELETE /api/sites/:id
+
+GET    /api/unit-models
+POST   /api/unit-models
+PUT    /api/unit-models/:id
 DELETE /api/unit-models/:id
-DELETE /api/monthly-kpi-summary/:id
+
+GET    /api/kpi-summary
+POST   /api/kpi-summary
+PUT    /api/kpi-summary/:id
+DELETE /api/kpi-summary/:id
+
+GET    /api/monthly-unit-performance
+POST   /api/monthly-unit-performance
+PUT    /api/monthly-unit-performance/:id
 DELETE /api/monthly-unit-performance/:id
+
+GET    /api/pending-supply
+POST   /api/pending-supply
+PUT    /api/pending-supply/:id
 DELETE /api/pending-supply/:id
-DELETE /api/critical-items/:id
+
+POST   /api/import/excel
 ```
 
-Endpoint dapat berubah sesuai perkembangan project.
+### Filter KPI Summary dan Monthly Unit Performance
+
+Mode satu bulan:
+
+```text
+period_year + period_month
+```
+
+Mode rentang bulan:
+
+```text
+period_year + start_month + end_month
+```
+
+`start_month` tidak boleh lebih besar daripada `end_month`.
 
 ---
 
 ## Catatan Penting
 
-- Aplikasi tidak menggunakan login atau autentikasi.
-- Aplikasi dijalankan secara lokal.
+- Aplikasi belum menggunakan login atau autentikasi.
 - MySQL harus aktif sebelum backend dijalankan.
 - Backend dan frontend harus dijalankan bersamaan.
 - Dashboard mengambil data dari database melalui REST API.
-- Dashboard bukan tabel terpisah di database.
 - Data kosong disimpan sebagai `null`, bukan `0`.
 - File `.env` tidak boleh disimpan ke repository.
 - Folder `node_modules` tidak perlu disimpan ke repository.
-- File Excel harus menggunakan struktur yang dikenali oleh sistem.
-- Jangan mengimpor data satu periode ke bulan yang berbeda.
+- File Excel harus mengikuti struktur template yang dikenali sistem.
+- Critical Item tidak lagi digunakan; gunakan Pending Supply.
+- Dummy data hanya boleh digunakan untuk pengembangan dan tidak boleh dianggap sebagai data production.
 
 ---
 
@@ -528,23 +432,25 @@ Fitur yang sudah tersedia:
 
 - Frontend React dan Vite
 - Backend Node.js dan Express.js
-- Koneksi database MySQL
+- Koneksi MySQL
 - REST API
 - Dashboard All Site
 - Dashboard Per Site
-- Filter site, bulan, dan tahun
-- Grafik KPI
-- Grafik tren bulanan
-- Tabel monitoring
+- Filter site, model, bulan, rentang bulan, dan tahun
+- Grafik KPI dan performa unit
 - Input dan edit data
 - Data Unit
 - Pending Supply
-- Critical Items
-- Detail Lead Time Supply
-- Import file Excel
-- Proses insert dan update data
+- Detail Lead Time Supply berbasis KPI bulanan
+- Import KPI Summary, Unit Performance, dan Pending Supply
+- Dark mode dan light mode
 
-Project masih dapat dikembangkan sesuai kebutuhan Monitoring Performance PPA.
+Fitur yang masih perlu diselesaikan atau diverifikasi:
+
+- Import Detail LT Supply pada controller utama
+- Pencegahan duplicate Pending Supply berdasarkan business key final
+- Penyediaan schema SQL atau migration database
+- Konfigurasi production dan pembatasan CORS
 
 ---
 

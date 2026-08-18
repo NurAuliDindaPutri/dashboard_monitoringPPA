@@ -14,6 +14,14 @@ import {
     addNotification,
 } from '../../utils/notification';
 
+import {
+    normalizeDashboardSites as normalizeInputSites,
+} from '../../utils/siteNormalization';
+
+import {
+    getUnitGroupKey,
+} from '../../utils/unitFilter';
+
 const NOW = new Date();
 
 const DEFAULT_YEAR =
@@ -21,179 +29,6 @@ const DEFAULT_YEAR =
 
 const DEFAULT_MONTH =
     NOW.getMonth() + 1;
-
-// ============================================================================
-// NORMALISASI MASTER SITE
-// ============================================================================
-//
-// Disamakan dengan Dashboard All Site / Dashboard Per Site.
-//
-// Site final:
-// AMC, BA, BGE, BIB, DMP, IPT, MHU, MIFA, MIP, MLP, PIK, SBS, SKS, VALE, WARA
-//
-// Penggabungan:
-// - AMC / AMC-LAC / AMC-MAC / LAC -> AMC
-//   Untuk record yang dipakai, AMC-LAC / LAC diprioritaskan.
-// - PTBA -> BA
-// - ADRW -> WARA
-// - Site lain di luar daftar final tidak ditampilkan.
-//
-const DASHBOARD_SITE_ORDER = [
-    'AMC',
-    'BA',
-    'BGE',
-    'BIB',
-    'DMP',
-    'IPT',
-    'MHU',
-    'MIFA',
-    'MIP',
-    'MLP',
-    'PIK',
-    'SBS',
-    'SKS',
-    'VALE',
-    'WARA',
-];
-
-function normalizeSiteCode(siteCode) {
-    const code = String(siteCode ?? '')
-        .trim()
-        .toUpperCase();
-
-    if (
-        code === 'AMC' ||
-        code === 'AMC-LAC' ||
-        code === 'AMC-MAC' ||
-        code === 'LAC'
-    ) {
-        return 'AMC';
-    }
-
-    if (
-        code === 'PTBA' ||
-        code === 'BA'
-    ) {
-        return 'BA';
-    }
-
-    if (
-        code === 'ADRW' ||
-        code === 'WARA'
-    ) {
-        return 'WARA';
-    }
-
-    return code;
-}
-
-function getSitePriority(siteCode) {
-    const code = String(siteCode ?? '')
-        .trim()
-        .toUpperCase();
-
-    // AMC memakai data LAC / AMC-LAC jika tersedia.
-    if (
-        code === 'AMC-LAC' ||
-        code === 'LAC'
-    ) {
-        return 1;
-    }
-
-    if (code === 'AMC-MAC') {
-        return 2;
-    }
-
-    if (code === 'AMC') {
-        return 3;
-    }
-
-    // BA lebih diprioritaskan daripada PTBA.
-    if (code === 'BA') {
-        return 1;
-    }
-
-    if (code === 'PTBA') {
-        return 2;
-    }
-
-    // WARA lebih diprioritaskan daripada ADRW.
-    if (code === 'WARA') {
-        return 1;
-    }
-
-    if (code === 'ADRW') {
-        return 2;
-    }
-
-    return 1;
-}
-
-function normalizeInputSites(rawSites = []) {
-    const grouped = new Map();
-
-    rawSites.forEach((site) => {
-        const normalizedCode =
-            normalizeSiteCode(
-                site.site_code
-            );
-
-        if (
-            !DASHBOARD_SITE_ORDER.includes(
-                normalizedCode
-            )
-        ) {
-            return;
-        }
-
-        const candidate = {
-            ...site,
-            site_code:
-                normalizedCode,
-            original_site_code:
-                site.site_code,
-        };
-
-        const existing =
-            grouped.get(
-                normalizedCode
-            );
-
-        if (!existing) {
-            grouped.set(
-                normalizedCode,
-                candidate
-            );
-            return;
-        }
-
-        const candidatePriority =
-            getSitePriority(
-                site.site_code
-            );
-
-        const existingPriority =
-            getSitePriority(
-                existing.original_site_code
-            );
-
-        if (
-            candidatePriority <
-            existingPriority
-        ) {
-            grouped.set(
-                normalizedCode,
-                candidate
-            );
-        }
-    });
-
-    return DASHBOARD_SITE_ORDER
-        .map((siteCode) =>
-            grouped.get(siteCode)
-        )
-        .filter(Boolean);
-}
 
 // ============================================================================
 // FILTER MODEL UNIT SESUAI REVISI
@@ -210,59 +45,13 @@ function normalizeInputSites(rawSites = []) {
 // - HD785
 // - PC3400
 //
-function getUnitFamily(modelName) {
-    const normalized = String(modelName ?? '')
-        .trim()
-        .toUpperCase()
-        .replace(/[^A-Z0-9]/g, '');
-
-    if (normalized.includes('PC2000')) {
-        return 'PC2000';
-    }
-
-    if (
-        normalized.includes('PC1250') ||
-        normalized.includes('1250SP')
-    ) {
-        return 'PC1250';
-    }
-
-    if (normalized.includes('HD785')) {
-        return 'HD785';
-    }
-
-    if (normalized.includes('PC3400')) {
-        return 'PC3400';
-    }
-
-    return null;
-}
-
 function isAllowedUnitModel(modelName, siteCode) {
-    const family = getUnitFamily(modelName);
-
-    if (!family) {
-        return false;
-    }
-
-    const normalizedSite = String(siteCode ?? '')
-        .trim()
-        .toUpperCase();
-
-    if (normalizedSite === 'BIB') {
-        return [
-            'PC2000',
-            'PC1250',
-            'HD785',
-            'PC3400',
-        ].includes(family);
-    }
-
-    return [
-        'PC2000',
-        'PC1250',
-        'HD785',
-    ].includes(family);
+    return Boolean(
+        getUnitGroupKey(
+            modelName,
+            siteCode
+        )
+    );
 }
 
 // ============================================================================

@@ -9,6 +9,39 @@ const {
 
 const { ensureSiteId } = require('./resolvers');
 
+function normalizeIdentifier(value) {
+    const text = String(value ?? '')
+        .trim()
+        .toUpperCase();
+
+    return text || null;
+}
+
+function parseQty(value) {
+    if (
+        value === null ||
+        value === undefined ||
+        String(value).trim() === ''
+    ) {
+        return { value: 0 };
+    }
+
+    const qty = toNumberOrNull(value);
+
+    if (
+        qty === null ||
+        !Number.isInteger(qty) ||
+        qty < 0
+    ) {
+        return {
+            validationError:
+                'qty harus berupa bilangan bulat dan tidak boleh negatif',
+        };
+    }
+
+    return { value: qty };
+}
+
 const COLUMN_LABELS = {
     partsNumber: [
         'parts_number',
@@ -86,6 +119,24 @@ async function importPendingSupplySheet(matrix) {
         COLUMN_LABELS
     );
 
+    if (
+        colIdx.partsNumber < 0 ||
+        colIdx.site < 0
+    ) {
+        return {
+            summary:
+                '0 ditambahkan, 0 diperbarui, 1 dilewati',
+            skippedDetails: [
+                {
+                    sheet: 'Pending Supply',
+                    row: headerRowIdx + 1,
+                    reason:
+                        'Kolom site_code dan parts_number wajib tersedia',
+                },
+            ],
+        };
+    }
+
     let addedCount = 0;
     let updatedCount = 0;
     let skippedCount = 0;
@@ -103,10 +154,10 @@ async function importPendingSupplySheet(matrix) {
             colIdx.partsNumber >= 0 &&
                 row[colIdx.partsNumber] !== null &&
                 row[colIdx.partsNumber] !== undefined
-                ? String(
+                ? normalizeIdentifier(
                     row[colIdx.partsNumber]
-                ).trim()
-                : '';
+                )
+                : null;
 
         const siteCode =
             colIdx.site >= 0 &&
@@ -117,7 +168,7 @@ async function importPendingSupplySheet(matrix) {
                 )
                     .trim()
                     .toUpperCase()
-                : '';
+                : null;
 
         // Baris benar-benar kosong tidak dianggap dilewati
         if (!partsNumber && !siteCode) {
@@ -151,20 +202,31 @@ async function importPendingSupplySheet(matrix) {
                     ).trim() || null
                     : null;
 
-            const qty =
+            const qtyResult = parseQty(
                 colIdx.qty >= 0
-                    ? toNumberOrNull(
-                        row[colIdx.qty]
-                    ) ?? 0
-                    : 0;
+                    ? row[colIdx.qty]
+                    : null
+            );
+
+            if (qtyResult.validationError) {
+                skippedCount += 1;
+                skippedDetails.push({
+                    sheet: 'Pending Supply',
+                    row: r + 1,
+                    reason: qtyResult.validationError,
+                });
+                continue;
+            }
+
+            const qty = qtyResult.value;
 
             const noPo =
                 colIdx.noPo >= 0 &&
                     row[colIdx.noPo] !== null &&
                     row[colIdx.noPo] !== undefined
-                    ? String(
+                    ? normalizeIdentifier(
                         row[colIdx.noPo]
-                    ).trim() || null
+                    )
                     : null;
 
             const etaRaw =
@@ -176,6 +238,21 @@ async function importPendingSupplySheet(matrix) {
                 toDateStringOrNull(
                     etaRaw
                 );
+
+            if (
+                etaRaw !== null &&
+                etaRaw !== undefined &&
+                String(etaRaw).trim() !== '' &&
+                !eta
+            ) {
+                skippedCount += 1;
+                skippedDetails.push({
+                    sheet: 'Pending Supply',
+                    row: r + 1,
+                    reason: 'eta bukan tanggal yang valid',
+                });
+                continue;
+            }
 
             const remarks =
                 colIdx.remarks >= 0 &&
@@ -193,8 +270,8 @@ async function importPendingSupplySheet(matrix) {
              * + parts_number
              * + no_po
              *
-             * Kalau kombinasi ini sudah ada:
-             * UPDATE, bukan INSERT baru.
+             * Jika PO baru terisi sedangkan record lama masih tanpa PO,
+             * record lama tersebut juga diperbarui agar tidak menjadi duplikat.
              */
             const [existingRows] =
                 await pool.query(
@@ -202,19 +279,26 @@ async function importPendingSupplySheet(matrix) {
                     SELECT id
                     FROM pending_supply
                     WHERE site_id = ?
-                      AND parts_number = ?
+                      AND UPPER(TRIM(parts_number)) = ?
                       AND (
-                            no_po = ?
+                            no_po <=> ?
                             OR (
-                                no_po IS NULL
-                                AND ? IS NULL
+                                ? IS NOT NULL
+                                AND (
+                                    no_po IS NULL
+                                    OR TRIM(no_po) = ''
+                                )
                             )
                       )
+                    ORDER BY
+                        (no_po <=> ?) DESC,
+                        id ASC
                     LIMIT 1
                     `,
                     [
                         siteId,
                         partsNumber,
+                        noPo,
                         noPo,
                         noPo,
                     ]
@@ -228,6 +312,7 @@ async function importPendingSupplySheet(matrix) {
                     `
                     UPDATE pending_supply
                     SET
+                        parts_number = ?,
                         description = ?,
                         qty = ?,
                         no_po = ?,
@@ -236,6 +321,7 @@ async function importPendingSupplySheet(matrix) {
                     WHERE id = ?
                     `,
                     [
+                        partsNumber,
                         description,
                         qty,
                         noPo,

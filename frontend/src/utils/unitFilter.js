@@ -23,7 +23,7 @@
  *
  * PENTING soal id vs nama tampilan:
  * - Setiap varian (mis. "PC1250-8" dan "PC1250SP-11R") tetap punya row &
- *   `unit_model_id` sendiri-sendiri di database — grouping ini HANYA
+ *   `unit_model_id` sendiri-sendiri di database â€” grouping ini HANYA
  *   dilakukan di frontend, untuk tampilan (dropdown) dan untuk agregasi
  *   angka pada chart. Data mentah / cara membaca ke database TIDAK berubah.
  * - Backend hanya bisa memfilter berdasarkan SATU `unit_model_id` (integer),
@@ -52,6 +52,25 @@ export const BIB_EXTRA_UNIT_GROUPS = [
 
 function normalizeCode(value) {
     return String(value || '').trim().toUpperCase();
+}
+
+/**
+ * Ubah variasi nama model menjadi kategori tampilan yang konsisten.
+ * Nama dan ID asli di database tidak diubah.
+ *
+ * @param {string} modelName
+ * @returns {'PC2000'|'PC1250'|'HD785'|'PC3400'|null}
+ */
+export function normalizeUnitModel(modelName) {
+    const model = normalizeCode(modelName)
+        .replace(/\s+/g, '');
+
+    if (model.startsWith('PC2000')) return 'PC2000';
+    if (model.startsWith('PC1250')) return 'PC1250';
+    if (model.startsWith('HD785')) return 'HD785';
+    if (model.startsWith('PC3400')) return 'PC3400';
+
+    return null;
 }
 
 /**
@@ -84,11 +103,11 @@ function getAllowedGroups(siteCode) {
  * @returns {{match:string, label:string}|null}
  */
 function matchUnitGroup(modelName, siteCode) {
-    const norm = normalizeCode(modelName);
+    const normalizedModel = normalizeUnitModel(modelName);
 
     return (
         getAllowedGroups(siteCode).find((group) =>
-            norm.startsWith(normalizeCode(group.match))
+            group.label === normalizedModel
         ) || null
     );
 }
@@ -122,7 +141,7 @@ export function filterUnitsForSite(units = [], siteCode) {
 /**
  * Ambil label tampilan (nama grup) untuk sebuah unit.
  * Semua varian nama disamakan jadi nama grupnya (mis. "PC1250-8",
- * "PC1250-8R", "PC1250SP-11R" -> "PC1250"). Hanya mengubah tampilan — data
+ * "PC1250-8R", "PC1250SP-11R" -> "PC1250"). Hanya mengubah tampilan â€” data
  * tetap dibaca dari database memakai model_name/id aslinya.
  *
  * @param {string} modelName
@@ -134,10 +153,10 @@ export function getUnitDisplayLabel(modelName, siteCode) {
 }
 
 /**
- * Bentuk opsi dropdown { id, label } — SATU opsi per grup unit (bukan per
+ * Bentuk opsi dropdown { id, label } â€” SATU opsi per grup unit (bukan per
  * varian/per id), sudah difilter sesuai site.
  * `id` di sini adalah KEY grup (string, mis. "PC1250"), dipakai untuk
- * memfilter data di frontend — BUKAN unit_model_id asli, jangan dikirim
+ * memfilter data di frontend â€” BUKAN unit_model_id asli, jangan dikirim
  * sebagai `unit_model_id` ke backend.
  *
  * @param {Array<{id:number, model_name:string}>} units

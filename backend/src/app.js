@@ -9,13 +9,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.get('/api/health', (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: 'API berjalan',
-    });
-});
-
+// /api/health didefinisikan di src/routes/index.js agar ikut memeriksa database.
 app.use('/api', routes);
 
 // Route tidak ditemukan

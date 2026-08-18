@@ -13,6 +13,10 @@ import { dummySites, dummyUnitPerformances } from '../../data/dummyData';
 
 const NOW = new Date();
 
+const ENABLE_DUMMY_FALLBACK =
+    import.meta.env.DEV &&
+    import.meta.env.VITE_ENABLE_DUMMY_DATA !== 'false';
+
 function extractRows(response) {
     if (Array.isArray(response)) {
         return response;
@@ -51,11 +55,21 @@ function DataUnit() {
         getSites()
             .then((response) => setSites(extractRows(response)))
             .catch((err) => {
-                console.warn(
-                    'Backend tidak aktif. Menggunakan dummy sites:',
+                console.error(
+                    'Gagal memuat daftar site:',
                     err
                 );
-                setSites(dummySites);
+
+                if (ENABLE_DUMMY_FALLBACK) {
+                    setSites(dummySites);
+                    setDataSource('dummy');
+                } else {
+                    setSites([]);
+                    setDataSource('error');
+                    setError(
+                        'Gagal memuat daftar site dari database.'
+                    );
+                }
             })
             .finally(() => setLoadingSites(false));
     }, []);
@@ -75,29 +89,37 @@ function DataUnit() {
                 setDataSource('database');
             })
             .catch((err) => {
-                console.warn(
-                    'Backend tidak aktif. Menggunakan data dummy unit:',
+                console.error(
+                    'Gagal memuat data unit:',
                     err
                 );
 
-                const filteredDummy = dummyUnitPerformances.filter(
-                    (row) => {
-                        const matchSite =
-                            !siteId ||
-                            String(row.site_id) === String(siteId);
+                if (ENABLE_DUMMY_FALLBACK) {
+                    const filteredDummy = dummyUnitPerformances.filter(
+                        (row) => {
+                            const matchSite =
+                                !siteId ||
+                                String(row.site_id) === String(siteId);
 
-                        const matchMonth =
-                            Number(row.period_month) === Number(month);
+                            const matchMonth =
+                                Number(row.period_month) === Number(month);
 
-                        const matchYear =
-                            Number(row.period_year) === Number(year);
+                            const matchYear =
+                                Number(row.period_year) === Number(year);
 
-                        return matchSite && matchMonth && matchYear;
-                    }
-                );
+                            return matchSite && matchMonth && matchYear;
+                        }
+                    );
 
-                setPerfRows(filteredDummy);
-                setDataSource('dummy');
+                    setPerfRows(filteredDummy);
+                    setDataSource('dummy');
+                } else {
+                    setPerfRows([]);
+                    setDataSource('error');
+                    setError(
+                        'Gagal memuat data unit dari database.'
+                    );
+                }
             })
             .finally(() => setLoadingData(false));
     }, [siteId, month, year]);

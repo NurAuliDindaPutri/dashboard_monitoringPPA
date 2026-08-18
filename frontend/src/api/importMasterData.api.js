@@ -1,21 +1,22 @@
-import axios from 'axios';
+import axiosClient from './axiosClient';
 
-const API_URL =
-    import.meta.env.VITE_API_URL ||
-    'http://localhost:5000';
-
-export function importExcel(file) {
+export function importExcel(
+    file,
+    periodYear
+) {
     const formData = new FormData();
 
     formData.append('file', file);
 
-    return axios.post(
-        `${API_URL}/api/import/excel`,
-        formData,
-        {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        }
+    if (periodYear) {
+        formData.append(
+            'period_year',
+            String(periodYear)
+        );
+    }
+
+    return axiosClient.post(
+        '/import/excel',
+        formData
     );
 }

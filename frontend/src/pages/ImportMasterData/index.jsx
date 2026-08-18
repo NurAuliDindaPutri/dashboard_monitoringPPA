@@ -1,14 +1,21 @@
 import { useState } from 'react';
 import { importExcel } from '../../api/importMasterData.api';
+import { YEARS } from '../../utils/constants';
 
 const SHEET_LABELS = {
     kpi_summary: 'KPI Summary',
     unit_performance: 'Unit Performance',
     pending_supply: 'Pending Supply',
+    detail_lt_supply: 'Detail LT Supply',
 };
+
+const CURRENT_YEAR = new Date().getFullYear();
 
 function ImportMasterData() {
     const [file, setFile] = useState(null);
+    const [periodYear, setPeriodYear] = useState(
+        CURRENT_YEAR
+    );
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [errorMsg, setErrorMsg] = useState(null);
@@ -32,7 +39,10 @@ function ImportMasterData() {
             setResult(null);
             setErrorMsg(null);
 
-            const response = await importExcel(file);
+            const response = await importExcel(
+                file,
+                periodYear
+            );
 
             setResult(response.data?.data || response.data);
 
@@ -80,13 +90,46 @@ function ImportMasterData() {
                     Pilih File Excel (.xlsx / .xls)
                 </label>
 
-                <input
-                    type="file"
-                    className="form-control mb-3"
-                    accept=".xlsx,.xls"
-                    onChange={handleFileChange}
-                    disabled={loading}
-                />
+                <div className="row g-3 mb-3">
+                    <div className="col-12 col-md-8">
+                        <input
+                            type="file"
+                            className="form-control"
+                            accept=".xlsx,.xls"
+                            onChange={handleFileChange}
+                            disabled={loading}
+                        />
+                    </div>
+
+                    <div className="col-12 col-md-4">
+                        <select
+                            className="form-select"
+                            value={periodYear}
+                            onChange={(event) =>
+                                setPeriodYear(
+                                    Number(
+                                        event.target.value
+                                    )
+                                )
+                            }
+                            disabled={loading}
+                            aria-label="Tahun fallback import"
+                        >
+                            {YEARS.map((year) => (
+                                <option
+                                    key={year}
+                                    value={year}
+                                >
+                                    {year}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                <div className="form-text mb-3">
+                    Tahun dipakai jika sheet Detail LT Supply tidak memiliki judul tahun.
+                </div>
 
                 <button
                     type="button"

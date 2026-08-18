@@ -13,9 +13,16 @@ const pool = mysql.createPool({
 });
 
 async function testConnection() {
-    const conn = await pool.getConnection();
-    await conn.ping();
-    conn.release();
+    let connection;
+
+    try {
+        connection = await pool.getConnection();
+        await connection.ping();
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
 }
 
 module.exports = { pool, testConnection };
