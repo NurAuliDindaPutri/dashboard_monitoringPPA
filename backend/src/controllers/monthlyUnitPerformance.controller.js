@@ -56,47 +56,40 @@ function parsePeriodMonth(value) {
 }
 
 function normalizePercentageValue(
-    value
+    value,
+    allowNegative = false
 ) {
     if (
         value === null ||
         value === undefined ||
         value === ''
     ) {
+        return { value: null };
+    }
+
+    let number = Number(value);
+
+    if (!Number.isFinite(number)) {
         return {
-            value: null,
+            validationError: 'harus berupa angka',
         };
     }
 
-    let number =
-        Number(value);
+    const minimum = allowNegative ? -100 : 0;
 
-    if (
-        !Number.isFinite(number)
-    ) {
+    if (number < minimum || number > 100) {
         return {
-            validationError:
-                'harus berupa angka',
+            validationError: allowNegative
+                ? 'harus berada antara -100 sampai 100'
+                : 'harus berada antara 0 sampai 100',
         };
     }
 
-    if (
-        number < 0 ||
-        number > 100
-    ) {
-        return {
-            validationError:
-                'harus berada antara 0 sampai 100',
-        };
-    }
-
-    if (number > 1) {
+    if (number > 1 || number < -1) {
         number /= 100;
     }
 
-    return {
-        value: number,
-    };
+    return { value: number };
 }
 
 function normalizeNonNegativeValue(
@@ -385,7 +378,8 @@ function validatePayload(
 
     const unitAvailability =
         normalizePercentageValue(
-            body.unit_availability
+            body.unit_availability,
+            true
         );
 
     if (

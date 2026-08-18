@@ -1,10 +1,13 @@
 const { pool } = require('../../config/db');
-const {
-    findRowIndex,
-    parseMonthLabel,
-    toDecimalOrNull,
-} = require('../../utils/excelHelpers');
+const { toDecimalOrNull } = require('../../utils/excelHelpers');
 const { ensureSiteId } = require('./resolvers');
+
+function normalizeHeader(value) {
+    return String(value ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '_');
+}
 
 function isBlank(value) {
     return (
@@ -14,9 +17,52 @@ function isBlank(value) {
     );
 }
 
+function findHeaderIndex(matrix = []) {
+    return matrix.findIndex((row) => {
+        const headers = (row || []).map(normalizeHeader);
+
+        return (
+            headers.includes('site_code') &&
+            headers.includes('period_year') &&
+            headers.includes('period_month') &&
+            headers.includes('leadtime_actual') &&
+            headers.includes('leadtime_target')
+        );
+    });
+}
+
+function buildColumnMap(headerRow = []) {
+    const columns = {};
+
+    headerRow.forEach((value, index) => {
+        const header = normalizeHeader(value);
+
+        if (header) {
+            columns[header] = index;
+        }
+    });
+
+    return columns;
+}
+
+function getCell(row, columns, key) {
+    const index = columns[key];
+
+    return index === undefined ? null : row[index];
+}
+
+function parseInteger(value) {
+    const number = Number(value);
+
+    return Number.isInteger(number) ? number : null;
+}
+
 function parsePercentage(value) {
     if (isBlank(value)) {
-        return { value: null };
+        return {
+            provided: false,
+            value: null,
+        };
     }
 
     const parsed = toDecimalOrNull(value);
@@ -27,209 +73,146 @@ function parsePercentage(value) {
         parsed > 1
     ) {
         return {
+            provided: true,
             validationError:
-                'nilai harus berupa persentase antara 0% sampai 100%',
+                'harus berupa persentase antara 0 sampai 1',
         };
     }
 
-    return { value: parsed };
-}
-
-function findYear(matrix, fallbackYear) {
-    const fallback = Number(fallbackYear);
-
-    for (const row of matrix) {
-        for (const cell of row || []) {
-            const match = String(cell ?? '')
-                .match(/\b(?:YTD\s*)?(20\d{2}|2100)\b/i);
-
-            if (match) {
-                return Number(match[1]);
-            }
-        }
-    }
-
-    if (
-        Number.isInteger(fallback) &&
-        fallback >= 2000 &&
-        fallback <= 2100
-    ) {
-        return fallback;
-    }
-
-    return null;
+    return {
+        provided: true,
+        value: parsed,
+    };
 }
 
 /**
- * Parse sheet "Detail LT Supply".
- * Layout: baris site, kolom bulan Januari-Desember, dan baris Plan.
- * Data site disimpan sebagai leadtime_actual; Plan sebagai leadtime_target.
+ * Format sheet:
+ * site_code | period_year | period_month |
+ * leadtime_actual | leadtime_target
+ *
+ * Data masuk ke monthly_kpi_summary. Jika periode sudah ada,
+ * hanya kolom Lead Time yang diisi di Excel yang diperbarui.
+ * Readiness dan Availability tidak diubah.
  */
-async function importDetailLtSupplySheet(
-    matrix,
-    periodYear
-) {
-    const year = findYear(
-        matrix,
-        periodYear
-    );
+async function importDetailLtSupplySheet(matrix = []) {
+    const headerIndex = findHeaderIndex(matrix);
 
-    if (!year) {
+    if (headerIndex === -1) {
         return {
             summary:
-                'Detail LT Supply dilewati karena tahun tidak ditemukan pada sheet atau form import',
+                'Header template Detail LT Supply tidak ditemukan',
             skippedDetails: [
                 {
                     sheet: 'Detail LT Supply',
                     reason:
-                        'Tahun wajib berada antara 2000-2100',
+                        'Gunakan kolom site_code, period_year, period_month, leadtime_actual, dan leadtime_target',
                 },
             ],
         };
     }
 
-    const headerIdx = findRowIndex(
-        matrix,
-        (value) =>
-            String(value)
-                .trim()
-                .toLowerCase() === 'site'
-    );
-
-    if (headerIdx === -1) {
-        return {
-            summary:
-                'Header "SITE" tidak ditemukan pada sheet "Detail LT Supply"',
-            skippedDetails: [
-                {
-                    sheet: 'Detail LT Supply',
-                    reason: 'Header SITE tidak ditemukan',
-                },
-            ],
-        };
-    }
-
-    const headerRow = matrix[headerIdx] || [];
-    const monthColumns = [];
-    const seenMonths = new Set();
-
-    for (
-        let colIndex = 1;
-        colIndex < headerRow.length;
-        colIndex += 1
-    ) {
-        const month =
-            parseMonthLabel(
-                headerRow[colIndex]
-            );
-
-        if (
-            month &&
-            !seenMonths.has(month)
-        ) {
-            seenMonths.add(month);
-            monthColumns.push({
-                month,
-                colIndex,
-            });
-        }
-    }
-
-    if (monthColumns.length === 0) {
-        return {
-            summary:
-                'Tidak ada kolom bulan yang dikenali pada sheet "Detail LT Supply"',
-            skippedDetails: [
-                {
-                    sheet: 'Detail LT Supply',
-                    row: headerIdx + 1,
-                    reason:
-                        'Gunakan nama bulan Januari-Desember atau angka 1-12',
-                },
-            ],
-        };
-    }
-
-    let planRow = null;
-    let dataEndIdx = matrix.length;
-
-    for (
-        let rowIndex = headerIdx + 1;
-        rowIndex < matrix.length;
-        rowIndex += 1
-    ) {
-        const label = matrix[rowIndex]?.[0];
-
-        if (
-            String(label ?? '')
-                .trim()
-                .toLowerCase() === 'plan'
-        ) {
-            planRow = matrix[rowIndex];
-            dataEndIdx = rowIndex;
-            break;
-        }
-    }
+    const columns = buildColumnMap(matrix[headerIndex]);
 
     const skippedDetails = [];
     let insertedCount = 0;
     let updatedCount = 0;
+    let skippedCount = 0;
 
     for (
-        let rowIndex = headerIdx + 1;
-        rowIndex < dataEndIdx;
+        let rowIndex = headerIndex + 1;
+        rowIndex < matrix.length;
         rowIndex += 1
     ) {
         const row = matrix[rowIndex] || [];
-        const siteCode = String(row[0] ?? '')
-            .trim()
-            .toUpperCase();
 
-        if (
-            !siteCode ||
-            /^actual(?:\s+all\s+site)?$/i.test(siteCode)
-        ) {
+        if (row.every(isBlank)) {
             continue;
         }
 
-        const siteId = await ensureSiteId(siteCode);
+        const siteCode = String(
+            getCell(row, columns, 'site_code') ?? ''
+        )
+            .trim()
+            .toUpperCase();
 
-        for (const { month, colIndex } of monthColumns) {
-            const actualResult =
-                parsePercentage(
-                    row[colIndex]
-                );
+        const year = parseInteger(
+            getCell(row, columns, 'period_year')
+        );
 
-            const targetResult =
-                parsePercentage(
-                    planRow?.[colIndex]
-                );
+        const month = parseInteger(
+            getCell(row, columns, 'period_month')
+        );
 
-            if (
-                actualResult.validationError ||
-                targetResult.validationError
-            ) {
-                skippedDetails.push({
-                    sheet: 'Detail LT Supply',
-                    row: rowIndex + 1,
-                    reason:
-                        `${siteCode} bulan ${month}: ${actualResult.validationError || targetResult.validationError}`,
-                });
-                continue;
-            }
+        if (!siteCode) {
+            skippedCount += 1;
+            skippedDetails.push({
+                sheet: 'Detail LT Supply',
+                row: rowIndex + 1,
+                reason: 'site_code wajib diisi',
+            });
+            continue;
+        }
 
-            const actual = actualResult.value;
-            const target = targetResult.value;
+        if (!year || year < 2000 || year > 2100) {
+            skippedCount += 1;
+            skippedDetails.push({
+                sheet: 'Detail LT Supply',
+                row: rowIndex + 1,
+                reason:
+                    'period_year harus berada antara 2000-2100',
+            });
+            continue;
+        }
 
-            // Jangan membuat record kosong jika actual dan target sama-sama kosong.
-            if (
-                actual === null &&
-                target === null
-            ) {
-                continue;
-            }
+        if (!month || month < 1 || month > 12) {
+            skippedCount += 1;
+            skippedDetails.push({
+                sheet: 'Detail LT Supply',
+                row: rowIndex + 1,
+                reason:
+                    'period_month harus berada antara 1-12',
+            });
+            continue;
+        }
 
-            const [existing] = await pool.query(
+        const actual = parsePercentage(
+            getCell(row, columns, 'leadtime_actual')
+        );
+
+        const target = parsePercentage(
+            getCell(row, columns, 'leadtime_target')
+        );
+
+        if (
+            actual.validationError ||
+            target.validationError
+        ) {
+            skippedCount += 1;
+            skippedDetails.push({
+                sheet: 'Detail LT Supply',
+                row: rowIndex + 1,
+                reason: actual.validationError
+                    ? `leadtime_actual ${actual.validationError}`
+                    : `leadtime_target ${target.validationError}`,
+            });
+            continue;
+        }
+
+        if (!actual.provided && !target.provided) {
+            skippedCount += 1;
+            skippedDetails.push({
+                sheet: 'Detail LT Supply',
+                row: rowIndex + 1,
+                reason:
+                    'leadtime_actual dan leadtime_target kosong',
+            });
+            continue;
+        }
+
+        try {
+            const siteId = await ensureSiteId(siteCode);
+
+            const [existingRows] = await pool.query(
                 `SELECT id
                  FROM monthly_kpi_summary
                  WHERE site_id = ?
@@ -239,31 +222,68 @@ async function importDetailLtSupplySheet(
                 [siteId, year, month]
             );
 
-            if (existing[0]) {
+            if (existingRows[0]) {
+                const updateFields = [];
+                const updateValues = [];
+
+                if (actual.provided) {
+                    updateFields.push('leadtime_actual = ?');
+                    updateValues.push(actual.value);
+                }
+
+                if (target.provided) {
+                    updateFields.push('leadtime_target = ?');
+                    updateValues.push(target.value);
+                }
+
+                updateValues.push(existingRows[0].id);
+
                 await pool.query(
                     `UPDATE monthly_kpi_summary
-                     SET leadtime_actual = ?,
-                         leadtime_target = ?
+                     SET ${updateFields.join(', ')}
                      WHERE id = ?`,
-                    [actual, target, existing[0].id]
+                    updateValues
                 );
+
                 updatedCount += 1;
             } else {
                 await pool.query(
                     `INSERT INTO monthly_kpi_summary
-                        (site_id, period_year, period_month,
-                         leadtime_actual, leadtime_target)
-                     VALUES (?, ?, ?, ?, ?)`,
-                    [siteId, year, month, actual, target]
+                    (
+                        site_id,
+                        period_year,
+                        period_month,
+                        leadtime_actual,
+                        leadtime_target
+                    )
+                    VALUES (?, ?, ?, ?, ?)`,
+                    [
+                        siteId,
+                        year,
+                        month,
+                        actual.provided ? actual.value : null,
+                        target.provided ? target.value : null,
+                    ]
                 );
+
                 insertedCount += 1;
             }
+        } catch (err) {
+            skippedCount += 1;
+            skippedDetails.push({
+                sheet: 'Detail LT Supply',
+                row: rowIndex + 1,
+                reason:
+                    err.message || 'Baris gagal diproses',
+            });
         }
     }
 
     return {
         summary:
-            `${insertedCount} data ditambahkan, ${updatedCount} data diperbarui untuk tahun ${year}`,
+            `${insertedCount} ditambahkan, ` +
+            `${updatedCount} diperbarui, ` +
+            `${skippedCount} dilewati`,
         skippedDetails,
     };
 }

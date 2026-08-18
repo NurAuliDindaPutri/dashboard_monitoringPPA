@@ -2544,47 +2544,33 @@ function UnitPerformanceForm({
                 return;
             }
 
-            const percentageFields =
-                [
-                    form.physical_availability,
-                    form.unit_availability,
-                ];
+            const paValue =
+                form.physical_availability;
 
-            const invalid =
-                percentageFields.some(
-                    (
-                        value
-                    ) => {
-                        if (
-                            value ===
-                            ''
-                        ) {
-                            return false;
-                        }
+            const uaValue =
+                form.unit_availability;
 
-                        const number =
-                            Number(
-                                value
-                            );
-
-                        return (
-                            !Number.isFinite(
-                                number
-                            ) ||
-                            number <
-                            0 ||
-                            number >
-                            100
-                        );
-                    }
+            const invalidPa =
+                paValue !== '' &&
+                (
+                    !Number.isFinite(Number(paValue)) ||
+                    Number(paValue) < 0 ||
+                    Number(paValue) > 100
                 );
 
-            if (invalid) {
+            const invalidUa =
+                uaValue !== '' &&
+                (
+                    !Number.isFinite(Number(uaValue)) ||
+                    Number(uaValue) < -100 ||
+                    Number(uaValue) > 100
+                );
+
+            if (invalidPa || invalidUa) {
                 setResult({
                     type: 'error',
-
                     message:
-                        'Physical Availability dan Unit Availability harus berada di antara 0 sampai 100.',
+                        'Physical Availability harus antara 0–100%, sedangkan Unit Availability harus antara -100–100%.',
                 });
 
                 return;
@@ -3055,7 +3041,17 @@ function UnitPerformanceForm({
                                         name={name}
                                         value={form[name]}
                                         onChange={handleChange}
-                                        min="0"
+                                        min={
+                                            name === 'unit_availability'
+                                                ? -100
+                                                : 0
+                                        }
+                                        max={
+                                            name === 'physical_availability' ||
+                                                name === 'unit_availability'
+                                                ? 100
+                                                : undefined
+                                        }
                                         step="0.01"
                                         placeholder={placeholder}
                                     />

@@ -17,6 +17,13 @@ function normalizeHeader(value) {
         .replace(/\s+/g, '_');
 }
 
+function isValidUnitAvailability(value) {
+    return value === null || (
+        value >= -1 &&
+        value <= 1
+    );
+}
+
 function findHeaderIndex(matrix) {
     return matrix.findIndex((row) => {
         const headers = (row || []).map(normalizeHeader);
@@ -204,12 +211,12 @@ async function importUnitPerformanceSheet(matrix) {
             continue;
         }
 
-        if (!isValidPercentage(unitAvailability)) {
+        if (!isValidUnitAvailability(unitAvailability)) {
             skippedDetails.push({
                 sheet: 'Unit Performance',
                 row: rowIndex + 1,
                 reason:
-                    'unit_availability harus bernilai antara 0 dan 1',
+                    'unit_availability harus bernilai antara -1 dan 1',
             });
 
             continue;

@@ -177,10 +177,7 @@ async function importExcel(req, res) {
             const {
                 summary,
                 skippedDetails,
-            } = await importDetailLtSupplySheet(
-                rows,
-                req.body?.period_year
-            );
+            } = await importDetailLtSupplySheet(rows);
 
             result.detail_lt_supply = summary;
 

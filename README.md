@@ -421,7 +421,6 @@ period_year + start_month + end_month
 - File `.env` tidak boleh disimpan ke repository.
 - Folder `node_modules` tidak perlu disimpan ke repository.
 - File Excel harus mengikuti struktur template yang dikenali sistem.
-- Critical Item tidak lagi digunakan; gunakan Pending Supply.
 - Dummy data hanya boleh digunakan untuk pengembangan dan tidak boleh dianggap sebagai data production.
 
 ---

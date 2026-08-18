@@ -2,8 +2,12 @@ const { pool } = require('../config/db');
 
 async function findAll() {
     const [rows] = await pool.query(
-        'SELECT * FROM sites ORDER BY site_code ASC'
+        `SELECT *
+         FROM sites
+         WHERE is_active = 1
+         ORDER BY site_code ASC`
     );
+
     return rows;
 }
 

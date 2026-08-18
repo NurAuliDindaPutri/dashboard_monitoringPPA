@@ -1,5 +1,9 @@
 const { pool } = require('../../config/db');
 
+const {
+    normalizeSiteCode,
+} = require('../../utils/siteNormalization');
+
 /**
  * Cari site_id berdasarkan site_code. Karena file Excel perusahaan
  * TIDAK punya sheet "Master Data" terpisah, site baru dibuat otomatis
@@ -7,14 +11,38 @@ const { pool } = require('../../config/db');
  * (Input, DATA UNIT, Detail LT Supply, Input Data, dst).
  */
 async function ensureSiteId(siteCode) {
-    const code = String(siteCode).trim();
-    const [rows] = await pool.query('SELECT id FROM sites WHERE site_code = ? LIMIT 1', [code]);
-    if (rows[0]) return rows[0].id;
+    const code =
+        normalizeSiteCode(siteCode);
 
-    const [result] = await pool.query(
-        'INSERT INTO sites (site_code, site_name, is_active) VALUES (?, NULL, 1)',
+    if (!code) {
+        throw new Error(
+            'site_code wajib diisi'
+        );
+    }
+
+    const [rows] = await pool.query(
+        `SELECT id
+         FROM sites
+         WHERE UPPER(TRIM(site_code)) = ?
+         LIMIT 1`,
         [code]
     );
+
+    if (rows[0]) {
+        return rows[0].id;
+    }
+
+    const [result] = await pool.query(
+        `INSERT INTO sites
+        (
+            site_code,
+            site_name,
+            is_active
+        )
+        VALUES (?, NULL, 1)`,
+        [code]
+    );
+
     return result.insertId;
 }
 
@@ -23,9 +51,17 @@ async function ensureSiteId(siteCode) {
  * mencocokkan kode site dari nama file terhadap site yang sudah ada.
  */
 async function findSiteIdByCode(siteCode) {
-    const [rows] = await pool.query('SELECT id FROM sites WHERE site_code = ? LIMIT 1', [
-        String(siteCode).trim(),
-    ]);
+    const code =
+        normalizeSiteCode(siteCode);
+
+    const [rows] = await pool.query(
+        `SELECT id
+         FROM sites
+         WHERE UPPER(TRIM(site_code)) = ?
+         LIMIT 1`,
+        [code]
+    );
+
     return rows[0]?.id || null;
 }
 
