@@ -23,12 +23,51 @@ const {
 
 const { success, error } = require('../utils/response');
 
+function hasValidExcelSignature(buffer) {
+    if (
+        !Buffer.isBuffer(buffer) ||
+        buffer.length < 8
+    ) {
+        return false;
+    }
+
+    // XLSX merupakan file ZIP dan diawali PK
+    const isXlsx =
+        buffer[0] === 0x50 &&
+        buffer[1] === 0x4b;
+
+    // XLS lama menggunakan format OLE
+    const isXls =
+        buffer[0] === 0xd0 &&
+        buffer[1] === 0xcf &&
+        buffer[2] === 0x11 &&
+        buffer[3] === 0xe0 &&
+        buffer[4] === 0xa1 &&
+        buffer[5] === 0xb1 &&
+        buffer[6] === 0x1a &&
+        buffer[7] === 0xe1;
+
+    return isXlsx || isXls;
+}
+
 async function importExcel(req, res) {
     try {
         if (!req.file) {
             return error(
                 res,
                 'File Excel wajib diupload dengan field "file".',
+                400
+            );
+        }
+
+        if (
+            !hasValidExcelSignature(
+                req.file.buffer
+            )
+        ) {
+            return error(
+                res,
+                'Isi file tidak sesuai dengan format Excel.',
                 400
             );
         }
