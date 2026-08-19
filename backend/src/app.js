@@ -5,7 +5,31 @@ const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
 
-app.use(cors());
+const allowedOrigins = (
+    process.env.CORS_ORIGINS ||
+    'http://localhost:5173'
+)
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+app.use(
+    cors({
+        origin(origin, callback) {
+            if (!origin || allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+
+            const error = new Error(
+                'Alamat website tidak diizinkan'
+            );
+
+            error.status = 403;
+
+            return callback(error);
+        },
+    })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
