@@ -653,7 +653,10 @@ function ChartCard({
                                                     }
                                             }
                                             connectNulls={
-                                                false
+                                                Boolean(
+                                                    item.connectNulls ||
+                                                    item.dashed
+                                                )
                                             }
                                             className={
                                                 item.dashed

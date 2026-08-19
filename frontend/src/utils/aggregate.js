@@ -696,6 +696,27 @@ export function buildReadinessPerSiteChart(
     }));
 }
 
+export function buildAvailabilityPerSiteChart(
+    kpiRows
+) {
+    return buildKpiSummaryPerSite(
+        kpiRows
+    ).map((site) => ({
+        site:
+            site.site_code,
+
+        actual:
+            toPercent(
+                site.availability_actual
+            ),
+
+        target:
+            toPercent(
+                site.availability_target
+            ),
+    }));
+}
+
 // ============================================================================
 // LEAD TIME PER SITE
 // ============================================================================

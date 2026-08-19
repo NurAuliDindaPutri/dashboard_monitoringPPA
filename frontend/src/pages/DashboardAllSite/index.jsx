@@ -40,13 +40,14 @@ import SummarySpeedometerCard from '../../components/common/SummarySpeedometerCa
 import {
     aggregateKpiSummary,
     buildKpiSummaryPerSite,
-    buildAvailabilityMonthlyChart,
+    buildAvailabilityPerSiteChart,
     buildKpiBelowTargetAnalysis,
     buildLeadTimePerSiteChart,
     buildReadinessPerSiteChart,
 } from '../../utils/aggregate';
 
 import {
+    DASHBOARD_SITE_ORDER,
     normalizeSiteCode as normalizeSiteForDashboard,
 } from '../../utils/siteNormalization';
 
@@ -976,6 +977,32 @@ function PerformanceBarChart({
 // DASHBOARD
 // ============================================================================
 
+function completeSiteChartData(rows = []) {
+    const rowsBySite = new Map(
+        rows.map((row) => [
+            normalizeSiteForDashboard(
+                row.site
+            ),
+            row,
+        ])
+    );
+
+    return DASHBOARD_SITE_ORDER.map(
+        (siteCode) => {
+            const row =
+                rowsBySite.get(siteCode);
+
+            return {
+                site: siteCode,
+                actual:
+                    row?.actual ?? null,
+                target:
+                    row?.target ?? null,
+            };
+        }
+    );
+}
+
 function DashboardAllSite() {
     const [
         month,
@@ -1009,11 +1036,6 @@ function DashboardAllSite() {
     ] = useState([]);
 
     const [
-        kpiYearRows,
-        setKpiYearRows,
-    ] = useState([]);
-
-    const [
         perfRows,
         setPerfRows,
     ] = useState([]);
@@ -1021,11 +1043,6 @@ function DashboardAllSite() {
     const [
         loadingKpi,
         setLoadingKpi,
-    ] = useState(true);
-
-    const [
-        loadingTrend,
-        setLoadingTrend,
     ] = useState(true);
 
     const [
@@ -1163,57 +1180,6 @@ function DashboardAllSite() {
         fetchDashboardData,
     ]);
 
-    useEffect(() => {
-        setLoadingTrend(
-            true
-        );
-
-        getKpiSummary({
-            period_year:
-                year,
-        })
-            .then(
-                (response) => {
-                    setKpiYearRows(
-                        extractRows(
-                            response
-                        )
-                    );
-                }
-            )
-            .catch(
-                (err) => {
-                    console.error(
-                        'Trend KPI API gagal:',
-                        err
-                    );
-
-                    if (ENABLE_DUMMY_FALLBACK) {
-                        setKpiYearRows(
-                            filterDummyRows(
-                                dummyKpiSummary,
-                                { year }
-                            )
-                        );
-                        setDataSource('dummy');
-                    } else {
-                        setKpiYearRows([]);
-                        setDataSource('error');
-                        setError(
-                            'Gagal memuat tren KPI dari database.'
-                        );
-                    }
-                }
-            )
-            .finally(
-                () => {
-                    setLoadingTrend(
-                        false
-                    );
-                }
-            );
-    }, [year]);
-
     const kpiSummary =
         aggregateKpiSummary(
             kpiRows
@@ -1230,18 +1196,24 @@ function DashboardAllSite() {
         );
 
     const readinessChartData =
-        buildReadinessPerSiteChart(
-            kpiRows
+        completeSiteChartData(
+            buildReadinessPerSiteChart(
+                kpiRows
+            )
         );
 
     const availabilityChartData =
-        buildAvailabilityMonthlyChart(
-            kpiYearRows
+        completeSiteChartData(
+            buildAvailabilityPerSiteChart(
+                kpiRows
+            )
         );
 
     const leadTimeChartData =
-        buildLeadTimePerSiteChart(
-            kpiRows
+        completeSiteChartData(
+            buildLeadTimePerSiteChart(
+                kpiRows
+            )
         );
 
     const performanceChartData =
@@ -1262,7 +1234,6 @@ function DashboardAllSite() {
 
     const isLoading =
         loadingKpi ||
-        loadingTrend ||
         loadingPerf;
 
     return (
@@ -1727,10 +1698,12 @@ function DashboardAllSite() {
                                 label:
                                     'Target Readiness',
                                 color:
-                                    '#baacec',
+                                    'var(--chart-pink)',
                                 renderAs:
                                     'line',
                                 dashed:
+                                    true,
+                                connectNulls:
                                     true,
                             },
                         ]}
@@ -1743,12 +1716,12 @@ function DashboardAllSite() {
 
                 <div className="col-12 col-xl-6">
                     <ChartCard
-                        title={`Availability VHS Bulanan ${year} (%)`}
-                        type="line"
+                        title="Availability VHS Antar Site (%)"
+                        type="bar"
                         data={
                             availabilityChartData
                         }
-                        xKey="month"
+                        xKey="site"
                         series={[
                             {
                                 key: 'actual',
@@ -1756,20 +1729,25 @@ function DashboardAllSite() {
                                     'Actual Availability',
                                 color:
                                     '#5f5aa5',
+                                renderAs:
+                                    'bar',
                             },
-
                             {
                                 key: 'target',
                                 label:
                                     'Target Availability',
                                 color:
                                     'var(--chart-pink)',
+                                renderAs:
+                                    'line',
                                 dashed:
+                                    true,
+                                connectNulls:
                                     true,
                             },
                         ]}
                         loading={
-                            loadingTrend
+                            loadingKpi
                         }
                         height={300}
                     />
@@ -1805,6 +1783,7 @@ function DashboardAllSite() {
                                 'line',
                             dashed:
                                 true,
+                            connectNulls: true,
                         },
                     ]}
                     loading={
