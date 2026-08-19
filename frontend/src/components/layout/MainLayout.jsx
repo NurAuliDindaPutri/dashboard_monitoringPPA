@@ -10,6 +10,10 @@ import {
     useNavigate,
 } from 'react-router-dom';
 
+import {
+    useAuth,
+} from '../../context/AuthContext';
+
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import Footer from './Footer';
@@ -33,6 +37,14 @@ function getInitialTheme() {
 function MainLayout() {
     const location = useLocation();
     const navigate = useNavigate();
+
+    const {
+        user,
+        logout,
+    } = useAuth();
+
+    const [loggingOut, setLoggingOut] =
+        useState(false);
 
     const [
         isSidebarOpen,
@@ -110,6 +122,19 @@ function MainLayout() {
         );
     };
 
+    const handleLogout = async () => {
+        setLoggingOut(true);
+
+        try {
+            await logout();
+            navigate('/login', {
+                replace: true,
+            });
+        } finally {
+            setLoggingOut(false);
+        }
+    };
+
     return (
         <div
             className="app-shell"
@@ -136,8 +161,8 @@ function MainLayout() {
 
             <div
                 className={`app-main-content d-flex flex-column ${isCollapsed
-                        ? 'is-collapsed'
-                        : ''
+                    ? 'is-collapsed'
+                    : ''
                     }`}
                 style={{
                     minHeight: '100vh',
@@ -148,9 +173,10 @@ function MainLayout() {
                         toggleMobileSidebar
                     }
                     theme={theme}
-                    onToggleTheme={
-                        toggleTheme
-                    }
+                    onToggleTheme={toggleTheme}
+                    user={user}
+                    onLogout={handleLogout}
+                    loggingOut={loggingOut}
                 />
 
                 <main className="app-page-content flex-grow-1">

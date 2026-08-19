@@ -6,6 +6,10 @@ import {
     useState,
 } from 'react';
 
+import {
+    useNavigate,
+} from 'react-router-dom';
+
 import { createPortal } from 'react-dom';
 
 import { Link } from 'react-router-dom';
@@ -152,10 +156,132 @@ function ConfirmModal({
 // NAVBAR
 // ============================================================================
 
+function LogoutConfirmModal({
+    show,
+    user,
+    loading,
+    onConfirm,
+    onCancel,
+}) {
+    useEffect(() => {
+        if (!show) {
+            return undefined;
+        }
+
+        function handleEscape(event) {
+            if (event.key === 'Escape') {
+                onCancel();
+            }
+        }
+
+        document.addEventListener(
+            'keydown',
+            handleEscape
+        );
+
+        return () => {
+            document.removeEventListener(
+                'keydown',
+                handleEscape
+            );
+        };
+    }, [show, onCancel]);
+
+    if (!show) {
+        return null;
+    }
+
+    return createPortal(
+        <div
+            className="logout-modal-backdrop"
+            onMouseDown={(event) => {
+                if (
+                    event.target ===
+                    event.currentTarget
+                ) {
+                    onCancel();
+                }
+            }}
+        >
+            <div
+                className="logout-modal-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="logout-modal-title"
+            >
+                <button
+                    type="button"
+                    className="logout-modal-close"
+                    onClick={onCancel}
+                    aria-label="Tutup"
+                    disabled={loading}
+                >
+                    <i className="bi bi-x-lg" />
+                </button>
+
+                <div className="logout-modal-icon">
+                    <i className="bi bi-box-arrow-right" />
+                </div>
+
+                <h5
+                    id="logout-modal-title"
+                    className="logout-modal-title"
+                >
+                    Keluar dari PPA NEXUS?
+                </h5>
+
+                <p className="logout-modal-message">
+                    Sesi akun{' '}
+                    <strong>
+                        {user?.full_name ||
+                            'pengguna'}
+                    </strong>{' '}
+                    akan diakhiri. Kamu harus login
+                    kembali untuk membuka dashboard.
+                </p>
+
+                <div className="logout-modal-actions">
+                    <button
+                        type="button"
+                        className="btn logout-modal-cancel"
+                        onClick={onCancel}
+                        disabled={loading}
+                    >
+                        Batal
+                    </button>
+
+                    <button
+                        type="button"
+                        className="btn logout-modal-confirm"
+                        onClick={onConfirm}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <>
+                                <span className="spinner-border spinner-border-sm me-2" />
+                                Keluar...
+                            </>
+                        ) : (
+                            <>
+                                <i className="bi bi-box-arrow-right me-2" />
+                                Ya, Keluar
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+}
+
 function Navbar({
     onToggleMobileSidebar,
     theme,
     onToggleTheme,
+    user,
+    onLogout,
+    loggingOut = false,
 }) {
     const isDark =
         theme === 'dark';
@@ -169,6 +295,8 @@ function Navbar({
     // ------------------------------------------------------------------------
     // STATE
     // ------------------------------------------------------------------------
+
+    const navigate = useNavigate();
 
     const [
         isNotificationOpen,
@@ -201,6 +329,16 @@ function Navbar({
         setShowClearConfirm,
     ] = useState(false);
 
+    const [
+        showLogoutConfirm,
+        setShowLogoutConfirm,
+    ] = useState(false);
+
+    const userInitial =
+        user?.full_name
+            ?.trim()
+            ?.charAt(0)
+            ?.toUpperCase() || 'U';
     // =========================================================================
     // LOAD NOTIFICATION
     // =========================================================================
@@ -472,6 +610,36 @@ function Navbar({
         );
     }
 
+    function handleOpenKpiAnalysis() {
+        const currentDate = new Date();
+
+        const notificationMonth =
+            currentDate.getMonth() + 1;
+
+        const notificationYear =
+            currentDate.getFullYear();
+
+        setIsNotificationOpen(false);
+
+        navigate(
+            `/dashboard-all-site?month=${notificationMonth}&year=${notificationYear}#kpi-analysis`
+        );
+
+        window.setTimeout(() => {
+            const analysisElement =
+                document.getElementById(
+                    'kpi-analysis'
+                );
+
+            if (analysisElement) {
+                analysisElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                });
+            }
+        }, 300);
+    }
+
     function handleMarkAllRead() {
         markAllNotificationsAsRead();
 
@@ -670,7 +838,34 @@ function Navbar({
                     RIGHT
                 ============================================================ */}
 
+
                 <div className="d-flex align-items-center gap-2">
+                    <button
+                        type="button"
+                        className="navbar-profile-btn"
+                        onClick={() =>
+                            setShowLogoutConfirm(true)
+                        }
+                        title="Akun dan logout"
+                        aria-label="Buka konfirmasi logout"
+                    >
+                        <span className="navbar-profile-avatar">
+                            {userInitial}
+                        </span>
+
+                        <span className="navbar-profile-copy">
+                            <strong>
+                                {user?.full_name ||
+                                    'Pengguna'}
+                            </strong>
+
+                            <small>
+                                {user?.email || ''}
+                            </small>
+                        </span>
+
+                        <i className="bi bi-box-arrow-right navbar-profile-logout-icon" />
+                    </button>
                     {/* THEME */}
 
                     <button
@@ -904,127 +1099,95 @@ function Navbar({
 
                                                             {/* KPI */}
 
-                                                            {belowTargetRows.length >
-                                                                0 && (
-                                                                    <Link
-                                                                        to="/dashboard-all-site"
-                                                                        onClick={
-                                                                            closeNotification
-                                                                        }
-                                                                        className="d-flex gap-3 px-3 py-3 text-decoration-none"
+                                                            {belowTargetRows.length > 0 && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleOpenKpiAnalysis}
+                                                                    className="d-flex gap-3 px-3 py-3 text-start w-100"
+                                                                    style={{
+                                                                        border: 0,
+                                                                        borderBottom:
+                                                                            '1px solid var(--border-color)',
+                                                                        color: 'inherit',
+                                                                        background: 'transparent',
+                                                                        cursor: 'pointer',
+                                                                    }}
+                                                                >
+                                                                    <div
+                                                                        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
                                                                         style={{
-                                                                            borderBottom:
-                                                                                '1px solid var(--border-color)',
+                                                                            width: 38,
+                                                                            height: 38,
+                                                                            backgroundColor:
+                                                                                'rgba(220, 38, 38, 0.14)',
+                                                                            color: '#dc2626',
                                                                         }}
                                                                     >
+                                                                        <i className="bi bi-graph-down-arrow" />
+                                                                    </div>
+
+                                                                    <div>
                                                                         <div
-                                                                            className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                            className="fw-semibold small"
                                                                             style={{
-                                                                                width:
-                                                                                    38,
-
-                                                                                height:
-                                                                                    38,
-
-                                                                                backgroundColor:
-                                                                                    'rgba(220, 38, 38, 0.14)',
-
                                                                                 color:
-                                                                                    '#dc2626',
+                                                                                    'var(--text-primary)',
                                                                             }}
                                                                         >
-                                                                            <i className="bi bi-graph-down-arrow" />
+                                                                            {belowTargetRows.length}{' '}
+                                                                            KPI belum mencapai target
                                                                         </div>
 
-                                                                        <div>
-                                                                            <div
-                                                                                className="fw-semibold small"
-                                                                                style={{
-                                                                                    color:
-                                                                                        'var(--text-primary)',
-                                                                                }}
-                                                                            >
-                                                                                {
-                                                                                    belowTargetRows.length
-                                                                                }{' '}
-                                                                                KPI
-                                                                                belum
-                                                                                mencapai
-                                                                                target
-                                                                            </div>
+                                                                        <small className="text-secondary">
+                                                                            Klik untuk melihat analisis KPI.
+                                                                        </small>
+                                                                    </div>
+                                                                </button>
+                                                            )}
 
-                                                                            <small className="text-secondary">
-                                                                                Klik
-                                                                                untuk
-                                                                                melihat
-                                                                                analisis
-                                                                                KPI.
-                                                                            </small>
-                                                                        </div>
-                                                                    </Link>
-                                                                )}
+                                                            {/* PENDING SUPPLY */}
 
-                                                            {/* PENDING */}
-
-                                                            {overduePendingRows.length >
-                                                                0 && (
-                                                                    <Link
-                                                                        to="/pending-supply"
-                                                                        onClick={
-                                                                            closeNotification
-                                                                        }
-                                                                        className="d-flex gap-3 px-3 py-3 text-decoration-none"
+                                                            {overduePendingRows.length > 0 && (
+                                                                <Link
+                                                                    to="/pending-supply"
+                                                                    onClick={closeNotification}
+                                                                    className="d-flex gap-3 px-3 py-3 text-decoration-none"
+                                                                    style={{
+                                                                        borderBottom:
+                                                                            '1px solid var(--border-color)',
+                                                                    }}
+                                                                >
+                                                                    <div
+                                                                        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
                                                                         style={{
-                                                                            borderBottom:
-                                                                                '1px solid var(--border-color)',
+                                                                            width: 38,
+                                                                            height: 38,
+                                                                            backgroundColor:
+                                                                                'rgba(217, 119, 6, 0.14)',
+                                                                            color: '#d97706',
                                                                         }}
                                                                     >
+                                                                        <i className="bi bi-clock-history" />
+                                                                    </div>
+
+                                                                    <div>
                                                                         <div
-                                                                            className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                            className="fw-semibold small"
                                                                             style={{
-                                                                                width:
-                                                                                    38,
-
-                                                                                height:
-                                                                                    38,
-
-                                                                                backgroundColor:
-                                                                                    'rgba(217, 119, 6, 0.14)',
-
                                                                                 color:
-                                                                                    '#d97706',
+                                                                                    'var(--text-primary)',
                                                                             }}
                                                                         >
-                                                                            <i className="bi bi-clock-history" />
+                                                                            {overduePendingRows.length}{' '}
+                                                                            pending supply melewati ETA
                                                                         </div>
 
-                                                                        <div>
-                                                                            <div
-                                                                                className="fw-semibold small"
-                                                                                style={{
-                                                                                    color:
-                                                                                        'var(--text-primary)',
-                                                                                }}
-                                                                            >
-                                                                                {
-                                                                                    overduePendingRows.length
-                                                                                }{' '}
-                                                                                pending
-                                                                                supply
-                                                                                melewati
-                                                                                ETA
-                                                                            </div>
-
-                                                                            <small className="text-secondary">
-                                                                                Jadwal
-                                                                                kedatangan
-                                                                                perlu
-                                                                                ditindaklanjuti.
-                                                                            </small>
-                                                                        </div>
-                                                                    </Link>
-                                                                )}
-
+                                                                        <small className="text-secondary">
+                                                                            Klik untuk membuka Pending Supply.
+                                                                        </small>
+                                                                    </div>
+                                                                </Link>
+                                                            )}
                                                         </div>
                                                     )}
 
@@ -1201,6 +1364,21 @@ function Navbar({
                 onConfirm={
                     handleConfirmClearAll
                 }
+            />
+            <LogoutConfirmModal
+                show={showLogoutConfirm}
+                user={user}
+                loading={loggingOut}
+                onCancel={() =>
+                    setShowLogoutConfirm(false)
+                }
+                onConfirm={async () => {
+                    try {
+                        await onLogout();
+                    } finally {
+                        setShowLogoutConfirm(false);
+                    }
+                }}
             />
         </>
     );

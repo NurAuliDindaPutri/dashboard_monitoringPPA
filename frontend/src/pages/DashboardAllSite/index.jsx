@@ -6,6 +6,10 @@ import {
 } from 'react';
 
 import {
+    useSearchParams,
+} from 'react-router-dom';
+
+import {
     ResponsiveContainer,
     BarChart,
     Bar,
@@ -1004,19 +1008,46 @@ function completeSiteChartData(rows = []) {
 }
 
 function DashboardAllSite() {
+    const [searchParams] =
+        useSearchParams();
+
+    const monthFromNotification =
+        Number(
+            searchParams.get('month')
+        );
+
+    const yearFromNotification =
+        Number(
+            searchParams.get('year')
+        );
+
     const [
         month,
         setMonth,
-    ] = useState(
-        DEFAULT_MONTH
-    );
+    ] = useState(() => {
+        if (
+            monthFromNotification >= 1 &&
+            monthFromNotification <= 12
+        ) {
+            return monthFromNotification;
+        }
+
+        return DEFAULT_MONTH;
+    });
 
     const [
         year,
         setYear,
-    ] = useState(
-        DEFAULT_YEAR
-    );
+    ] = useState(() => {
+        if (
+            yearFromNotification >= 2000 &&
+            yearFromNotification <= 2100
+        ) {
+            return yearFromNotification;
+        }
+
+        return DEFAULT_YEAR;
+    });
 
     function handleResetFilter() {
         setMonth(DEFAULT_MONTH);
@@ -1180,6 +1211,27 @@ function DashboardAllSite() {
         fetchDashboardData,
     ]);
 
+    useEffect(() => {
+        if (
+            loadingKpi ||
+            window.location.hash !==
+            '#kpi-analysis'
+        ) {
+            return;
+        }
+
+        const analysisElement =
+            document.getElementById(
+                'kpi-analysis'
+            );
+
+        if (analysisElement) {
+            analysisElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        }
+    }, [loadingKpi]);
     const kpiSummary =
         aggregateKpiSummary(
             kpiRows
@@ -1363,7 +1415,10 @@ function DashboardAllSite() {
             </div>
 
             {/* RINGKASAN KPI PER SITE */}
-            <div className="app-card p-3 mb-4">
+            <div
+                id="kpi-analysis"
+                className="app-card p-3 mb-4"
+            >
                 <div className="mb-3">
                     <h6
                         className="fw-semibold mb-1"
