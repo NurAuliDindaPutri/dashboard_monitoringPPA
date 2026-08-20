@@ -1,31 +1,60 @@
 import axios from 'axios';
 
-const axiosClient = axios.create({
-    baseURL:
+function getApiBaseUrl() {
+    if (import.meta.env.DEV) {
+        return `${window.location.protocol}//${window.location.hostname}:5000/api`;
+    }
+
+    return (
         import.meta.env
             .VITE_API_BASE_URL ||
-        'http://localhost:5000/api',
+        '/api'
+    );
+}
+
+const apiClient = axios.create({
+    baseURL: getApiBaseUrl(),
 
     withCredentials: true,
 
     headers: {
-        Accept: 'application/json',
-        'X-PPA-Client': 'web',
+        'Content-Type':
+            'application/json',
+
+        'X-PPA-Client':
+            'web',
     },
 });
 
-axiosClient.interceptors.response.use(
+apiClient.interceptors.response.use(
     (response) => response,
+
     (requestError) => {
+        const requestUrl =
+            requestError.config?.url ||
+            '';
+
         const isLoginRequest =
-            requestError.config?.url?.includes(
+            requestUrl.includes(
                 '/auth/login'
             );
 
+        const isRegisterRequest =
+            requestUrl.includes(
+                '/auth/register'
+            );
+
+        const isSessionCheck =
+            requestUrl.includes(
+                '/auth/me'
+            );
+
         if (
-            requestError.response?.status ===
-            401 &&
-            !isLoginRequest
+            requestError.response
+                ?.status === 401 &&
+            !isLoginRequest &&
+            !isRegisterRequest &&
+            !isSessionCheck
         ) {
             window.dispatchEvent(
                 new Event(
@@ -40,4 +69,4 @@ axiosClient.interceptors.response.use(
     }
 );
 
-export default axiosClient;
+export default apiClient;

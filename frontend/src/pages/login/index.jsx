@@ -144,7 +144,7 @@ function Login() {
                     <div className="ppa-login-brand">
                         <div className="ppa-login-brand-icon">
                             <img
-                                src="/images/logo_UT.png"
+                                src="/images/wasaka_UT.png"
                                 alt="United Tractors"
                                 className="ppa-login-brand-logo"
                             />

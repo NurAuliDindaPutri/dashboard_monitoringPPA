@@ -66,7 +66,6 @@ router.use(requireAuth);
 router.use('/sites', siteRoutes);
 router.use('/unit-models', unitModelRoutes);
 router.use('/kpi-summary', monthlyKpiSummaryRoutes);
-router.use('/unit-performance', monthlyUnitPerformanceRoutes);
 router.use('/pending-supply', pendingSupplyRoutes);
 router.use('/import', importRoutes);
 router.use(

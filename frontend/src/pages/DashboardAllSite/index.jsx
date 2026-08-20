@@ -2,11 +2,13 @@ import {
     useCallback,
     useEffect,
     useMemo,
+    useRef,
     useState,
 } from 'react';
 
 import {
-    useSearchParams,
+    useLocation,
+    useNavigate,
 } from 'react-router-dom';
 
 import {
@@ -1008,46 +1010,19 @@ function completeSiteChartData(rows = []) {
 }
 
 function DashboardAllSite() {
-    const [searchParams] =
-        useSearchParams();
+    const location = useLocation();
 
-    const monthFromNotification =
-        Number(
-            searchParams.get('month')
-        );
-
-    const yearFromNotification =
-        Number(
-            searchParams.get('year')
-        );
+    const navigate = useNavigate();
 
     const [
         month,
         setMonth,
-    ] = useState(() => {
-        if (
-            monthFromNotification >= 1 &&
-            monthFromNotification <= 12
-        ) {
-            return monthFromNotification;
-        }
-
-        return DEFAULT_MONTH;
-    });
+    ] = useState(DEFAULT_MONTH);
 
     const [
         year,
         setYear,
-    ] = useState(() => {
-        if (
-            yearFromNotification >= 2000 &&
-            yearFromNotification <= 2100
-        ) {
-            return yearFromNotification;
-        }
-
-        return DEFAULT_YEAR;
-    });
+    ] = useState(DEFAULT_YEAR);
 
     function handleResetFilter() {
         setMonth(DEFAULT_MONTH);
@@ -1093,6 +1068,32 @@ function DashboardAllSite() {
         setError,
     ] = useState(null);
 
+    // ------------------------------------------------------------------------
+    // NOTIFIKASI KPI — SCROLL SEKALI-PAKAI
+    // ------------------------------------------------------------------------
+    // `pendingScrollRequest` menyimpan target bulan/tahun yang diminta oleh
+    // notifikasi (dari Navbar) beserta `requestId`-nya. Kita hanya boleh
+    // scroll ke #kpi-analysis SETELAH fetch KPI untuk bulan/tahun tsb selesai
+    // (bukan sekadar "loadingKpi === false" yang bisa saja nilai basi dari
+    // fetch bulan sebelumnya). `kpiFetchKey` merekam bulan/tahun yang sedang
+    // / baru saja di-fetch, di-set SEBELUM request dikirim, sehingga aman
+    // dipakai sebagai penanda "fetch untuk periode X sudah benar-benar
+    // dimulai/selesai".
+    const [
+        pendingScrollRequest,
+        setPendingScrollRequest,
+    ] = useState(null);
+
+    const [
+        kpiFetchKey,
+        setKpiFetchKey,
+    ] = useState(
+        `${DEFAULT_MONTH}-${DEFAULT_YEAR}`
+    );
+
+    const processedRequestIdRef =
+        useRef(null);
+
     const fetchDashboardData =
         useCallback(() => {
             const params = {
@@ -1102,6 +1103,14 @@ function DashboardAllSite() {
                 period_month:
                     month,
             };
+
+            // Tandai fetch KPI untuk periode (month, year) ini SEBELUM
+            // request dikirim, supaya efek scroll bisa membedakan data
+            // basi (periode lama) dari data yang benar-benar sedang
+            // dimuat untuk periode target notifikasi.
+            setKpiFetchKey(
+                `${month}-${year}`
+            );
 
             setError(null);
 
@@ -1211,27 +1220,133 @@ function DashboardAllSite() {
         fetchDashboardData,
     ]);
 
+    // Konsumsi navigation state sekali-pakai dari klik notifikasi KPI di
+    // Navbar: { scrollToKpiAnalysis, notificationMonth, notificationYear,
+    // requestId }. Ini HANYA mengubah filter bulan/tahun dan mendaftarkan
+    // permintaan scroll — scroll aktual terjadi di efek terpisah di bawah,
+    // setelah data periode tsb selesai dimuat.
     useEffect(() => {
+        const navState = location.state;
+
+        if (!navState?.scrollToKpiAnalysis) {
+            return;
+        }
+
+        // Sudah pernah diproses (mis. StrictMode double-invoke, atau
+        // efek ini re-run karena dependency lain berubah) — jangan
+        // proses ulang requestId yang sama.
         if (
-            loadingKpi ||
-            window.location.hash !==
-            '#kpi-analysis'
+            processedRequestIdRef.current ===
+            navState.requestId
         ) {
             return;
         }
 
-        const analysisElement =
-            document.getElementById(
-                'kpi-analysis'
-            );
+        processedRequestIdRef.current =
+            navState.requestId;
 
-        if (analysisElement) {
-            analysisElement.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start',
-            });
+        const targetMonth =
+            Number(navState.notificationMonth);
+
+        const targetYear =
+            Number(navState.notificationYear);
+
+        const hasValidMonth =
+            targetMonth >= 1 &&
+            targetMonth <= 12;
+
+        const hasValidYear =
+            targetYear >= 2000 &&
+            targetYear <= 2100;
+
+        if (hasValidMonth) {
+            setMonth(targetMonth);
         }
-    }, [loadingKpi]);
+
+        if (hasValidYear) {
+            setYear(targetYear);
+        }
+
+        setPendingScrollRequest({
+            requestId:
+                navState.requestId,
+
+            month: hasValidMonth
+                ? targetMonth
+                : month,
+
+            year: hasValidYear
+                ? targetYear
+                : year,
+        });
+
+        // Hapus state navigasi sekali-pakai supaya refresh / back-forward
+        // / ganti filter manual berikutnya TIDAK memicu proses/scroll ini
+        // lagi.
+        navigate(
+            {
+                pathname: location.pathname,
+                search: location.search,
+            },
+            {
+                replace: true,
+                state: {},
+            }
+        );
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.state]);
+
+    // Scroll ke card "Analisis KPI Belum Mencapai Target" HANYA setelah
+    // fetch KPI untuk periode yang diminta notifikasi (pendingScrollRequest)
+    // benar-benar selesai — ditandai dengan kpiFetchKey yang cocok dengan
+    // periode target DAN loadingKpi sudah false. Ganti bulan/tahun secara
+    // manual (tanpa pendingScrollRequest) tidak akan pernah masuk ke sini.
+    useEffect(() => {
+        if (!pendingScrollRequest) {
+            return undefined;
+        }
+
+        if (loadingKpi) {
+            return undefined;
+        }
+
+        const targetKey =
+            `${pendingScrollRequest.month}-${pendingScrollRequest.year}`;
+
+        if (kpiFetchKey !== targetKey) {
+            return undefined;
+        }
+
+        const scrollTimer =
+            window.setTimeout(() => {
+                const analysisElement =
+                    document.getElementById(
+                        'kpi-analysis'
+                    );
+
+                if (analysisElement) {
+                    analysisElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start',
+                    });
+                }
+
+                setPendingScrollRequest(
+                    null
+                );
+            }, 120);
+
+        return () => {
+            window.clearTimeout(
+                scrollTimer
+            );
+        };
+    }, [
+        pendingScrollRequest,
+        loadingKpi,
+        kpiFetchKey,
+    ]);
+
     const kpiSummary =
         aggregateKpiSummary(
             kpiRows
@@ -1415,10 +1530,7 @@ function DashboardAllSite() {
             </div>
 
             {/* RINGKASAN KPI PER SITE */}
-            <div
-                id="kpi-analysis"
-                className="app-card p-3 mb-4"
-            >
+            <div className="app-card p-3 mb-4">
                 <div className="mb-3">
                     <h6
                         className="fw-semibold mb-1"
@@ -1571,7 +1683,14 @@ function DashboardAllSite() {
             </div>
 
             {/* ANALISIS KPI */}
-            <div className="app-card p-3 mb-4">
+            <div
+                id="kpi-analysis"
+                className="app-card p-3 mb-4"
+                style={{
+                    scrollMarginTop:
+                        '90px',
+                }}
+            >
                 <div className="d-flex align-items-start justify-content-between gap-3 mb-3 flex-wrap">
                     <div>
                         <h6

@@ -8,14 +8,13 @@ import {
     useNavigate,
 } from 'react-router-dom';
 
-import {
-    registerUser,
-} from '../../api/auth.api';
+import { registerUser } from '../../api/auth.api';
+
 import {
     useAuth,
 } from '../../context/AuthContext';
 
-import '../Login/Login.css';
+import '../login/Login.css';
 
 const THEME_STORAGE_KEY = 'theme';
 
@@ -49,10 +48,12 @@ function Register() {
         useState('');
     const [confirmPassword, setConfirmPassword] =
         useState('');
-    const [registrationCode, setRegistrationCode] =
-        useState('');
     const [showPassword, setShowPassword] =
         useState(false);
+    const [
+        showConfirmPassword,
+        setShowConfirmPassword,
+    ] = useState(false);
     const [submitting, setSubmitting] =
         useState(false);
     const [formError, setFormError] =
@@ -99,56 +100,37 @@ function Register() {
         setSubmitting(true);
 
         try {
+            // 1. Buat akun
             await registerUser({
                 full_name: fullName.trim(),
                 email: email.trim(),
                 password,
             });
 
-            // Langsung login menggunakan akun baru
-            try {
-                await login({
-                    email: email.trim(),
-                    password,
-                });
-
-                // Memunculkan splash screen satu kali
-                sessionStorage.setItem(
-                    'ppa:show-splash-after-login',
-                    'true'
-                );
-
-                // Pindah langsung ke dashboard
-                navigate(
-                    '/dashboard-all-site',
-                    {
-                        replace: true,
-                    }
-                );
-            } catch (autoLoginError) {
-                // Akun tetap sudah berhasil dibuat,
-                // hanya login otomatis yang gagal
-                navigate('/login', {
-                    replace: true,
-                    state: {
-                        registrationSuccess:
-                            'Akun berhasil dibuat, tetapi login otomatis gagal. Silakan login secara manual.',
-                    },
-                });
-            }
-
-            navigate('/login', {
-                replace: true,
-                state: {
-                    registrationSuccess:
-                        'Registrasi berhasil. Silakan login menggunakan akun baru.',
-                },
+            // 2. Login otomatis menggunakan akun baru
+            await login({
+                email: email.trim(),
+                password,
             });
+
+            // 3. Munculkan splash satu kali
+            sessionStorage.setItem(
+                'ppa:show-splash-after-login',
+                'true'
+            );
+
+            // 4. Langsung menuju dashboard
+            navigate(
+                '/dashboard-all-site',
+                {
+                    replace: true,
+                }
+            );
         } catch (registerError) {
             setFormError(
                 registerError.response?.data
                     ?.message ||
-                'Registrasi gagal. Periksa koneksi dan coba kembali.'
+                'Registrasi atau login otomatis gagal. Silakan coba kembali.'
             );
         } finally {
             setSubmitting(false);
@@ -182,7 +164,7 @@ function Register() {
                     <div className="ppa-login-brand">
                         <div className="ppa-login-brand-icon">
                             <img
-                                src="/images/logo_UT.png"
+                                src="/images/wasaka_UT.png"
                                 alt="United Tractors"
                                 className="ppa-login-brand-logo"
                             />
@@ -316,7 +298,7 @@ function Register() {
                                     <i className="bi bi-shield-lock" />
                                     <input
                                         id="register-confirm-password"
-                                        type={showPassword ? 'text' : 'password'}
+                                        type={showConfirmPassword ? 'text' : 'password'}
                                         className="form-control"
                                         placeholder='Masukkan kembali password'
                                         value={confirmPassword}
@@ -328,6 +310,27 @@ function Register() {
                                         required
                                         disabled={submitting}
                                     />
+                                    <button
+                                        type="button"
+                                        className="ppa-login-password-toggle"
+                                        onClick={() =>
+                                            setShowConfirmPassword(
+                                                (current) => !current
+                                            )
+                                        }
+                                        aria-label={
+                                            showConfirmPassword
+                                                ? 'Sembunyikan konfirmasi password'
+                                                : 'Tampilkan konfirmasi password'
+                                        }
+                                    >
+                                        <i
+                                            className={`bi ${showConfirmPassword
+                                                ? 'bi-eye-slash'
+                                                : 'bi-eye'
+                                                }`}
+                                        />
+                                    </button>
                                 </div>
                             </div>
 

@@ -610,6 +610,14 @@ function Navbar({
         );
     }
 
+    // Notifikasi KPI ini selalu merujuk ke periode yang SEDANG di-fetch
+    // oleh Navbar (bulan/tahun kalender berjalan — lihat `loadNotifications`
+    // di atas), BUKAN periode yang sedang aktif di filter DashboardAllSite.
+    // Karena itu target bulan/tahun harus dikirim eksplisit lewat
+    // navigation state sekali-pakai, lengkap dengan `requestId` unik supaya
+    // DashboardAllSite bisa memastikan scroll hanya terjadi SATU KALI dan
+    // SETELAH data periode tsb selesai dimuat (bukan berdasarkan
+    // `loadingKpi` semata yang bisa membawa nilai basi dari periode lama).
     function handleOpenKpiAnalysis() {
         const currentDate = new Date();
 
@@ -619,25 +627,32 @@ function Navbar({
         const notificationYear =
             currentDate.getFullYear();
 
+        const requestId =
+            (typeof crypto !== 'undefined' &&
+                typeof crypto.randomUUID === 'function')
+                ? crypto.randomUUID()
+                : `kpi-${Date.now()}-${Math.random()
+                    .toString(36)
+                    .slice(2)}`;
+
         setIsNotificationOpen(false);
 
+        // State navigasi sekali pakai: DashboardAllSite yang akan membaca
+        // flag ini, mengganti filter bulan/tahun ke periode notifikasi,
+        // menunggu fetch selesai, lalu melakukan scroll SEKALI dan
+        // membuang state ini sendiri. Mengganti filter bulan/tahun secara
+        // manual di halaman tersebut TIDAK PERNAH memicu alur ini.
         navigate(
-            `/dashboard-all-site?month=${notificationMonth}&year=${notificationYear}#kpi-analysis`
-        );
-
-        window.setTimeout(() => {
-            const analysisElement =
-                document.getElementById(
-                    'kpi-analysis'
-                );
-
-            if (analysisElement) {
-                analysisElement.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start',
-                });
+            '/dashboard-all-site',
+            {
+                state: {
+                    scrollToKpiAnalysis: true,
+                    notificationMonth,
+                    notificationYear,
+                    requestId,
+                },
             }
-        }, 300);
+        );
     }
 
     function handleMarkAllRead() {
@@ -1384,4 +1399,4 @@ function Navbar({
     );
 }
 
-export default Navbar;
+export default Navbar;  

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Aug 19, 2026 at 02:58 AM
+-- Generation Time: Aug 20, 2026 at 02:23 AM
 -- Server version: 8.0.30
 -- PHP Version: 8.3.32
 
@@ -27,6 +27,7 @@ SET time_zone = "+00:00";
 -- Table structure for table `monthly_kpi_summary`
 --
 
+DROP TABLE IF EXISTS `monthly_kpi_summary`;
 CREATE TABLE `monthly_kpi_summary` (
   `id` int UNSIGNED NOT NULL,
   `site_id` int UNSIGNED NOT NULL,
@@ -48,6 +49,7 @@ CREATE TABLE `monthly_kpi_summary` (
 -- Table structure for table `monthly_unit_performance`
 --
 
+DROP TABLE IF EXISTS `monthly_unit_performance`;
 CREATE TABLE `monthly_unit_performance` (
   `id` int UNSIGNED NOT NULL,
   `unit_model_id` int UNSIGNED NOT NULL,
@@ -69,6 +71,7 @@ CREATE TABLE `monthly_unit_performance` (
 -- Table structure for table `pending_supply`
 --
 
+DROP TABLE IF EXISTS `pending_supply`;
 CREATE TABLE `pending_supply` (
   `id` int UNSIGNED NOT NULL,
   `site_id` int UNSIGNED NOT NULL,
@@ -89,6 +92,7 @@ CREATE TABLE `pending_supply` (
 -- Table structure for table `sites`
 --
 
+DROP TABLE IF EXISTS `sites`;
 CREATE TABLE `sites` (
   `id` int UNSIGNED NOT NULL,
   `site_code` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -104,6 +108,7 @@ CREATE TABLE `sites` (
 -- Table structure for table `unit_models`
 --
 
+DROP TABLE IF EXISTS `unit_models`;
 CREATE TABLE `unit_models` (
   `id` int UNSIGNED NOT NULL,
   `site_id` int UNSIGNED NOT NULL,
@@ -111,6 +116,24 @@ CREATE TABLE `unit_models` (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `users`
+--
+
+DROP TABLE IF EXISTS `users`;
+CREATE TABLE `users` (
+  `id` int UNSIGNED NOT NULL,
+  `full_name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `email` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password_hash` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `last_login_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ;
 
 --
 -- Indexes for dumped tables
@@ -155,6 +178,13 @@ ALTER TABLE `unit_models`
   ADD UNIQUE KEY `uq_unit_models_site_model` (`site_id`,`model_name`);
 
 --
+-- Indexes for table `users`
+--
+ALTER TABLE `users`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_users_email` (`email`);
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
 
@@ -189,6 +219,12 @@ ALTER TABLE `unit_models`
   MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `users`
+--
+ALTER TABLE `users`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
 -- Constraints for dumped tables
 --
 
@@ -215,49 +251,6 @@ ALTER TABLE `pending_supply`
 --
 ALTER TABLE `unit_models`
   ADD CONSTRAINT `fk_unit_models_site` FOREIGN KEY (`site_id`) REFERENCES `sites` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
---
--- Check constraints for table `monthly_kpi_summary`
---
-ALTER TABLE `monthly_kpi_summary`
-  ADD CONSTRAINT `chk_monthly_kpi_year`
-    CHECK (`period_year` BETWEEN 2000 AND 2100),
-  ADD CONSTRAINT `chk_monthly_kpi_month`
-    CHECK (`period_month` BETWEEN 1 AND 12),
-  ADD CONSTRAINT `chk_monthly_kpi_readyness_actual`
-    CHECK (`readyness_actual` IS NULL OR `readyness_actual` BETWEEN 0 AND 1),
-  ADD CONSTRAINT `chk_monthly_kpi_readyness_target`
-    CHECK (`readyness_target` IS NULL OR `readyness_target` BETWEEN 0 AND 1),
-  ADD CONSTRAINT `chk_monthly_kpi_availability_actual`
-    CHECK (`availability_actual` IS NULL OR `availability_actual` BETWEEN 0 AND 1),
-  ADD CONSTRAINT `chk_monthly_kpi_availability_target`
-    CHECK (`availability_target` IS NULL OR `availability_target` BETWEEN 0 AND 1),
-  ADD CONSTRAINT `chk_monthly_kpi_leadtime_actual`
-    CHECK (`leadtime_actual` IS NULL OR `leadtime_actual` BETWEEN 0 AND 1),
-  ADD CONSTRAINT `chk_monthly_kpi_leadtime_target`
-    CHECK (`leadtime_target` IS NULL OR `leadtime_target` BETWEEN 0 AND 1);
-
---
--- Check constraints for table `monthly_unit_performance`
---
-ALTER TABLE `monthly_unit_performance`
-  ADD CONSTRAINT `chk_unit_perf_year`
-    CHECK (`period_year` BETWEEN 2000 AND 2100),
-  ADD CONSTRAINT `chk_unit_perf_month`
-    CHECK (`period_month` BETWEEN 1 AND 12),
-  ADD CONSTRAINT `chk_unit_perf_pa`
-    CHECK (`physical_availability` IS NULL OR `physical_availability` BETWEEN 0 AND 1),
-  ADD CONSTRAINT `chk_unit_perf_ua`
-    CHECK (`unit_availability` IS NULL OR `unit_availability` BETWEEN -1 AND 1),
-  ADD CONSTRAINT `chk_unit_perf_mtbf`
-    CHECK (`mtbf` IS NULL OR `mtbf` >= 0),
-  ADD CONSTRAINT `chk_unit_perf_mttr`
-    CHECK (`mttr` IS NULL OR `mttr` >= 0),
-  ADD CONSTRAINT `chk_unit_perf_productivity`
-    CHECK (`productivity` IS NULL OR `productivity` >= 0),
-  ADD CONSTRAINT `chk_unit_perf_fuel`
-    CHECK (`fuel_consumption` IS NULL OR `fuel_consumption` >= 0);
-
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
