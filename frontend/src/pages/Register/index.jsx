@@ -210,7 +210,7 @@ function Register() {
                         <form onSubmit={handleSubmit}>
                             <div className="mb-3">
                                 <label className="form-label" htmlFor="register-name">
-                                    Nama lengkap
+                                    Nama
                                 </label>
                                 <div className="ppa-login-input-wrap">
                                     <i className="bi bi-person" />
@@ -218,7 +218,7 @@ function Register() {
                                         id="register-name"
                                         type="text"
                                         className="form-control"
-                                        placeholder='dinda putri'
+                                        placeholder='Contoh : Dinda Operator'
                                         value={fullName}
                                         onChange={(event) =>
                                             setFullName(event.target.value)
